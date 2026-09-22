@@ -1,0 +1,66 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-psclub}
+      POSTGRES_USER: ${POSTGRES_USER:-psclub}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-psclub}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-psclub}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/core.Dockerfile
+    command: sh -c "uv run alembic upgrade head && uv run uvicorn core.api.main:app --host 0.0.0.0 --port 8000 --reload"
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-psclub}:${POSTGRES_PASSWORD:-psclub}@db:5432/${POSTGRES_DB:-psclub}
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - /app/.venv
+    depends_on:
+      db:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/core.Dockerfile
+    command: uv run python -m core.worker.main
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-psclub}:${POSTGRES_PASSWORD:-psclub}@db:5432/${POSTGRES_DB:-psclub}
+    volumes:
+      - .:/app
+      - /app/.venv
+    depends_on:
+      db:
+        condition: service_healthy
+
+  bot:
+    build:
+      context: .
+      dockerfile: docker/core.Dockerfile
+    command: uv run python -m bot.main
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-psclub}:${POSTGRES_PASSWORD:-psclub}@db:5432/${POSTGRES_DB:-psclub}
+    volumes:
+      - .:/app
+      - /app/.venv
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
