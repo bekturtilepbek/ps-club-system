@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+node_modules/
+web/dist/
+web/src/types/api.ts
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
