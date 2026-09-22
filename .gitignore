@@ -5,6 +5,7 @@ __pycache__/
 node_modules/
 web/dist/
 web/src/types/api.ts
+*.tsbuildinfo
 .pytest_cache/
 .ruff_cache/
 *.egg-info/
