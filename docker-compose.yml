@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-psclub}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-psclub}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -68,7 +68,7 @@ services:
       dockerfile: ../docker/web.Dockerfile
     command: npm run dev -- --host 0.0.0.0
     ports:
-      - "5173:5173"
+      - "127.0.0.1:5173:5173"
     volumes:
       - ./web:/app
       - /app/node_modules

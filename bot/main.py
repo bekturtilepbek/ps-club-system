@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from aiogram import Bot, Dispatcher
+from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command
 from aiogram.types import Message
 
@@ -11,16 +11,20 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger("bot")
 
 dp = Dispatcher()
+dp.message.filter(F.chat.id == settings.owner_chat_id)
 
 
 @dp.message(Command("start"))
 async def start_handler(message: Message) -> None:
-    if message.chat.id != settings.owner_chat_id:
-        return
     await message.answer("PS Club bot is running.")
 
 
 async def run_polling() -> None:
+    if settings.owner_chat_id is None:
+        logger.warning(
+            "BOT_TOKEN is set but OWNER_CHAT_ID is not — the bot will poll but "
+            "silently ignore every message. Set OWNER_CHAT_ID in .env to fix this."
+        )
     bot = Bot(token=settings.bot_token)  # type: ignore[arg-type]
     logger.info("bot starting polling")
     await dp.start_polling(bot)
