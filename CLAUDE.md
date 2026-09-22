@@ -51,6 +51,7 @@ unless asked. Do not build anything listed under "Вне MVP" in `docs/SPEC.md`.
 - Settings UI for MVP: SQLAdmin
 - Agent (phase 2): Python, asyncio, websockets
 - Web server: nginx. Deployment: Docker Compose
+- Package managers: `uv` for Python (lock file committed), `npm` for `web/`. Python 3.12
 
 Do not add infrastructure (Redis, Celery, message brokers) without asking.
 

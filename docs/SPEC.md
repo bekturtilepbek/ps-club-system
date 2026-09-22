@@ -249,6 +249,7 @@
 | Бот | aiogram |
 | Агент | Python, asyncio, websockets, `PlugDriver` |
 | Веб-сервер | nginx |
+| Менеджеры пакетов | uv (Python 3.12, lock-файл в репозитории), npm для `web/` |
 | Деплой ядра | Docker Compose |
 | Деплой агента | служба Windows (NSSM) или Raspberry Pi |
 
