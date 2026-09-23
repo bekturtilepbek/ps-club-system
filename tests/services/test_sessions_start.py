@@ -1,6 +1,9 @@
+import asyncio
+import os
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from core.db.models import (
     Console,
@@ -16,6 +19,10 @@ from core.services.errors import ConflictError, NotFoundError, ValidationError
 from core.services.sessions import start_session
 
 T = datetime(2026, 9, 23, 12, 0, 0, tzinfo=UTC)
+
+TEST_DATABASE_URL = os.environ.get(
+    "TEST_DATABASE_URL", "postgresql+asyncpg://psclub:psclub@localhost:5433/psclub_test"
+)
 
 
 async def _setup(db_session, *, open_day: bool = True):
@@ -141,3 +148,40 @@ async def test_start_session_with_unknown_tariff_is_not_found(db_session):
             db_session, console_id=console_id, kind=SessionKind.paid, tariff_id=999,
             reason=None, comment=None, now=T,
         )
+
+
+@pytest.mark.asyncio
+async def test_concurrent_starts_on_the_same_console_only_one_succeeds(db_session):
+    console_id, package_id, _ = await _setup(db_session)
+
+    engine2 = create_async_engine(TEST_DATABASE_URL)
+    session_factory2 = async_sessionmaker(engine2, expire_on_commit=False)
+    async with session_factory2() as db_session2:
+        results = await asyncio.gather(
+            start_session(
+                db_session,
+                console_id=console_id,
+                kind=SessionKind.paid,
+                tariff_id=package_id,
+                reason=None,
+                comment=None,
+                now=T,
+            ),
+            start_session(
+                db_session2,
+                console_id=console_id,
+                kind=SessionKind.paid,
+                tariff_id=package_id,
+                reason=None,
+                comment=None,
+                now=T,
+            ),
+            return_exceptions=True,
+        )
+    await engine2.dispose()
+
+    successes = [r for r in results if not isinstance(r, BaseException)]
+    failures = [r for r in results if isinstance(r, BaseException)]
+    assert len(successes) == 1
+    assert len(failures) == 1
+    assert isinstance(failures[0], ConflictError)

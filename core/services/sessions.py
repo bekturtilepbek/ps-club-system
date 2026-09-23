@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.models import (
@@ -103,7 +104,11 @@ async def start_session(
 
     session.segments.append(segment)
     db.add(session)
-    await db.flush()  # assigns session.id, needed below before it's committed
+    try:
+        await db.flush()  # assigns session.id, needed below before it's committed
+    except IntegrityError:
+        await db.rollback()
+        raise ConflictError(f"console {console_id} already has an active session") from None
 
     if kind == SessionKind.free:
         db.add(

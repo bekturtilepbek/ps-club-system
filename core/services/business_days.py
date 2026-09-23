@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.models import BusinessDay, Payment, PaymentMethod, SessionStatus
@@ -19,7 +20,11 @@ async def open_business_day(db: AsyncSession, *, opening_cash: int, now: datetim
 
     day = BusinessDay(opened_at=now, opening_cash=opening_cash)
     db.add(day)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise ConflictError("business day already open") from None
     await db.refresh(day)
     return day
 
