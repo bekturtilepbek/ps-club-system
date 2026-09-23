@@ -1,8 +1,27 @@
-from fastapi import FastAPI
+from datetime import datetime
+from typing import Any
+from zoneinfo import ZoneInfo
+
+from fastapi import FastAPI, Request
 from sqladmin import Admin, ModelView
 
-from core.db.models import Console, Product, Setting, Tariff, Zone
-from core.db.session import engine
+from core.config import settings
+from core.db.models import AuditLog, Console, Product, Setting, Tariff, Zone
+from core.db.session import async_session_factory, engine
+
+
+async def _write_audit_log(action: str, entity: str, entity_id: Any, details: dict) -> None:
+    async with async_session_factory() as session:
+        session.add(
+            AuditLog(
+                action=action,
+                entity=entity,
+                entity_id=entity_id,
+                details=details,
+                created_at=datetime.now(ZoneInfo(settings.timezone)),
+            )
+        )
+        await session.commit()
 
 
 class ZoneAdmin(ModelView, model=Zone):
@@ -25,6 +44,21 @@ class TariffAdmin(ModelView, model=Tariff):
     ]
     can_delete = False
 
+    async def after_model_change(
+        self, data: dict, model: Any, is_created: bool, request: Request
+    ) -> None:
+        await _write_audit_log(
+            action="tariff_create" if is_created else "tariff_update",
+            entity="tariff",
+            entity_id=model.id,
+            details={k: v for k, v in data.items() if k != "id"},
+        )
+
+    async def after_model_delete(self, model: Any, request: Request) -> None:
+        await _write_audit_log(
+            action="tariff_delete", entity="tariff", entity_id=model.id, details={}
+        )
+
 
 class ProductAdmin(ModelView, model=Product):
     column_list = [Product.id, Product.name, Product.price, Product.is_active]
@@ -33,6 +67,25 @@ class ProductAdmin(ModelView, model=Product):
 
 class SettingAdmin(ModelView, model=Setting):
     column_list = [Setting.key, Setting.value]
+
+    async def after_model_change(
+        self, data: dict, model: Any, is_created: bool, request: Request
+    ) -> None:
+        # audit_log.entity_id is a NOT NULL integer (every other writer passes a
+        # session id); Setting's primary key is the `key` string, which has no
+        # integer counterpart, so a real id can't be supplied here. Using a fixed
+        # sentinel keeps the insert schema-valid without losing traceability — the
+        # actual key is still recorded in `details` below. Confirmed by hand: passing
+        # `model.key` as entity_id raises asyncpg.exceptions.DataError and silently
+        # drops the audit row while the underlying setting update still commits.
+        # Workaround, not a root-cause fix — the root cause is entity_id's type not
+        # accommodating non-integer entity keys; widening it needs its own migration.
+        await _write_audit_log(
+            action="setting_create" if is_created else "setting_update",
+            entity="setting",
+            entity_id=0,
+            details={"key": model.key, "value": model.value},
+        )
 
 
 def register_admin(app: FastAPI) -> Admin:
