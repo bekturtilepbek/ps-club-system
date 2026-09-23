@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text
+from sqlalchemy import DateTime, Enum, ForeignKey, Index, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.db.base import Base
@@ -26,6 +26,14 @@ class SegmentKind(str, enum.Enum):
 
 class Session(Base):
     __tablename__ = "sessions"
+    __table_args__ = (
+        Index(
+            "ux_sessions_one_active_per_console",
+            "console_id",
+            unique=True,
+            postgresql_where=text("status = 'active'"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     console_id: Mapped[int | None] = mapped_column(ForeignKey("consoles.id"), default=None)
