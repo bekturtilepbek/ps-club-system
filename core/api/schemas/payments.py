@@ -1,12 +1,12 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from core.db.models import PaymentMethod
 
 
 class PaymentRequest(BaseModel):
-    amount: int
+    amount: int = Field(gt=0)
     method: PaymentMethod
 
 

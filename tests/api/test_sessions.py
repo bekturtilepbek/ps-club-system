@@ -70,3 +70,17 @@ async def test_starting_a_session_without_an_open_business_day_is_409(client):
         "/api/sessions", json={"console_id": console_id, "tariff_id": package_id}
     )
     assert response.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_paying_a_non_positive_amount_is_422(client):
+    console_id, package_id = await _setup(client)
+    started = await client.post(
+        "/api/sessions", json={"console_id": console_id, "tariff_id": package_id}
+    )
+    session_id = started.json()["id"]
+
+    response = await client.post(
+        f"/api/sessions/{session_id}/payments", json={"amount": 0, "method": "cash"}
+    )
+    assert response.status_code == 422

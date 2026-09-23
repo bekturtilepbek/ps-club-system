@@ -176,3 +176,26 @@ async def test_add_payment_without_an_open_business_day_is_a_conflict(db_session
         await add_payment(
             db_session, session_id=session.id, amount=150, method=PaymentMethod.cash, now=T
         )
+
+
+@pytest.mark.asyncio
+async def test_add_payment_rejects_a_non_positive_amount(db_session):
+    from core.services.errors import ValidationError
+
+    console_id, package_id = await _setup(db_session)
+    session = await start_session(
+        db_session,
+        console_id=console_id,
+        kind=SessionKind.paid,
+        tariff_id=package_id,
+        reason=None,
+        comment=None,
+        now=T,
+    )
+
+    with pytest.raises(ValidationError):
+        await add_payment(db_session, session_id=session.id, amount=0, method=PaymentMethod.cash, now=T)
+    with pytest.raises(ValidationError):
+        await add_payment(
+            db_session, session_id=session.id, amount=-10, method=PaymentMethod.cash, now=T
+        )

@@ -7,7 +7,7 @@ from core.db.models import Payment, PaymentMethod, SessionKind
 from core.db.models import Session as SessionModel
 from core.domain import money
 from core.services import business_days
-from core.services.errors import ConflictError, NotFoundError
+from core.services.errors import ConflictError, NotFoundError, ValidationError
 
 
 async def session_charge_total(db: AsyncSession, session_id: int, now: datetime) -> int:
@@ -45,6 +45,8 @@ async def add_payment(
     session = await db.get(SessionModel, session_id)
     if session is None:
         raise NotFoundError(f"session {session_id} not found")
+    if amount <= 0:
+        raise ValidationError("payment amount must be positive")
 
     day = await business_days.get_open_business_day(db)
     if day is None:
