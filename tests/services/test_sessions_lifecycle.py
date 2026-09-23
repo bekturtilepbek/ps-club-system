@@ -157,6 +157,113 @@ async def test_stop_after_package_naturally_ended_writes_no_audit_entry(db_sessi
 
 
 @pytest.mark.asyncio
+async def test_stop_with_a_queued_open_segment_still_audits_the_early_package_stop(db_session):
+    # Package running, extended to open time while the package still has time left,
+    # then stopped before the package naturally ends. The queued open segment never
+    # started accruing — but the early-stop audit for the PACKAGE must still fire.
+    console_id, package_id, open_id = await _setup(db_session)
+    session = await start_session(
+        db_session,
+        console_id=console_id,
+        kind=SessionKind.paid,
+        tariff_id=package_id,
+        reason=None,
+        comment=None,
+        now=T,
+    )
+    package_end = session.segments[0].ends_at  # T + 3min + 60min
+
+    await extend_session(
+        db_session, session_id=session.id, tariff_id=open_id, now=T + timedelta(minutes=10)
+    )
+    stopped = await stop_session(db_session, session_id=session.id, now=T + timedelta(minutes=15))
+
+    # the package keeps its full price, untouched
+    assert stopped.segments[0].ends_at == package_end
+    assert stopped.segments[0].amount == 150
+    # the queued open segment is clamped closed at its own start, not inverted
+    open_segment = stopped.segments[1]
+    assert open_segment.ends_at == open_segment.starts_at == package_end
+    assert open_segment.amount == 0
+
+    entries = (
+        (await db_session.execute(select(AuditLog).where(AuditLog.entity_id == session.id)))
+        .scalars()
+        .all()
+    )
+    assert [e.action for e in entries] == ["early_stop"]
+
+
+@pytest.mark.asyncio
+async def test_extend_with_package_after_queuing_open_time_does_not_overlap_the_running_package(
+    db_session,
+):
+    # The exact C1 scenario: package -> queue open time -> change mind, buy another
+    # package. The second package must chain at the first package's end, not "now".
+    console_id, package_id, open_id = await _setup(db_session)
+    session = await start_session(
+        db_session,
+        console_id=console_id,
+        kind=SessionKind.paid,
+        tariff_id=package_id,
+        reason=None,
+        comment=None,
+        now=T,
+    )
+    package_end = session.segments[0].ends_at  # T + 3min + 60min
+
+    await extend_session(
+        db_session, session_id=session.id, tariff_id=open_id, now=T + timedelta(minutes=10)
+    )
+    extended_again = await extend_session(
+        db_session, session_id=session.id, tariff_id=package_id, now=T + timedelta(minutes=15)
+    )
+
+    assert len(extended_again.segments) == 3
+    queued_open, second_package = extended_again.segments[1], extended_again.segments[2]
+    assert queued_open.kind == SegmentKind.open
+    assert second_package.kind == SegmentKind.package
+    # the queued open segment is clamped closed at its own start, not inverted
+    assert queued_open.ends_at == queued_open.starts_at == package_end
+    assert queued_open.amount == 0
+    # the second package chains at the first package's end — no overlap, no double-bill
+    assert second_package.starts_at == package_end
+    assert second_package.ends_at == package_end + timedelta(minutes=60)
+
+
+@pytest.mark.asyncio
+async def test_third_extension_chains_after_the_second_package_not_the_clamped_open_segment(
+    db_session,
+):
+    # After the C1 scenario the clamped open segment and the second package share the
+    # same starts_at. A further extension must chain at the second package's end.
+    console_id, package_id, open_id = await _setup(db_session)
+    session = await start_session(
+        db_session,
+        console_id=console_id,
+        kind=SessionKind.paid,
+        tariff_id=package_id,
+        reason=None,
+        comment=None,
+        now=T,
+    )
+    package_end = session.segments[0].ends_at
+
+    await extend_session(
+        db_session, session_id=session.id, tariff_id=open_id, now=T + timedelta(minutes=10)
+    )
+    await extend_session(
+        db_session, session_id=session.id, tariff_id=package_id, now=T + timedelta(minutes=15)
+    )
+    extended = await extend_session(
+        db_session, session_id=session.id, tariff_id=package_id, now=T + timedelta(minutes=20)
+    )
+
+    assert len(extended.segments) == 4
+    assert extended.segments[3].starts_at == package_end + timedelta(minutes=60)
+
+
+@pytest.mark.asyncio
 async def test_cancel_within_grace_zeroes_the_segment_and_logs_it(db_session):
     console_id, package_id, _ = await _setup(db_session)
     session = await start_session(

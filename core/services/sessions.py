@@ -125,7 +125,9 @@ async def _last_segment(db: AsyncSession, session_id: int) -> SessionSegment | N
     result = await db.execute(
         select(SessionSegment)
         .where(SessionSegment.session_id == session_id)
-        .order_by(SessionSegment.starts_at.desc())
+        # id breaks ties: a queued open segment clamped to zero length shares its
+        # starts_at with the segment chained after it, which is the real last one.
+        .order_by(SessionSegment.starts_at.desc(), SessionSegment.id.desc())
         .limit(1)
     )
     return result.scalars().first()
@@ -174,29 +176,48 @@ async def stop_session(db: AsyncSession, *, session_id: int, now: datetime) -> S
     if session.status != SessionStatus.active:
         raise ConflictError(f"session {session_id} is not active")
 
-    last = await _last_segment(db, session_id)
-    if last is not None:
-        if last.kind == SegmentKind.open and last.ends_at is None:
-            last.ends_at = now
-            last.amount = (
-                money.open_time_amount((now - last.starts_at).total_seconds(), last.price_snapshot)
+    # A package still paid past "now" is an early stop, even when an open segment is
+    # queued behind it (so it isn't the last row). The package stays fully priced.
+    running_package = next(
+        (
+            s
+            for s in session.segments
+            if s.kind == SegmentKind.package and s.ends_at is not None and now < s.ends_at
+        ),
+        None,
+    )
+    if running_package is not None:
+        db.add(
+            AuditLog(
+                action="early_stop",
+                entity="session",
+                entity_id=session_id,
+                details={
+                    "segment_id": running_package.id,
+                    "planned_end": running_package.ends_at.isoformat(),
+                    "stopped_at": now.isoformat(),
+                },
+                created_at=now,
+            )
+        )
+
+    for segment in session.segments:
+        if segment.kind != SegmentKind.open or segment.ends_at is not None:
+            continue
+        if now >= segment.starts_at:
+            segment.ends_at = now
+            segment.amount = (
+                money.open_time_amount(
+                    (now - segment.starts_at).total_seconds(), segment.price_snapshot
+                )
                 if session.kind == SessionKind.paid
                 else 0
             )
-        elif last.kind == SegmentKind.package and last.ends_at is not None and now < last.ends_at:
-            db.add(
-                AuditLog(
-                    action="early_stop",
-                    entity="session",
-                    entity_id=session_id,
-                    details={
-                        "segment_id": last.id,
-                        "planned_end": last.ends_at.isoformat(),
-                        "stopped_at": now.isoformat(),
-                    },
-                    created_at=now,
-                )
-            )
+        else:
+            # Queued behind a running package and never started accruing: close it
+            # at its own start (zero length) instead of writing ends_at < starts_at.
+            segment.ends_at = segment.starts_at
+            segment.amount = 0
 
     session.status = SessionStatus.finished
     session.ended_at = now

@@ -41,7 +41,10 @@ class Session(Base):
     comment: Mapped[str | None] = mapped_column(Text, default=None)
 
     segments: Mapped[list["SessionSegment"]] = relationship(
-        "SessionSegment", order_by="SessionSegment.starts_at", lazy="selectin"
+        "SessionSegment",
+        # id breaks ties between a zero-length clamped segment and the one after it
+        order_by="[SessionSegment.starts_at, SessionSegment.id]",
+        lazy="selectin",
     )
 
 
