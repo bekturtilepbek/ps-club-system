@@ -1,24 +1,17 @@
-from datetime import datetime
-from zoneinfo import ZoneInfo
-
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.api.clock import now as _now
 from core.api.schemas.business_days import (
     BusinessDayCloseRequest,
     BusinessDayOpenRequest,
     BusinessDayResponse,
 )
-from core.config import settings
 from core.db.session import get_session
 from core.services import business_days
 from core.services.errors import NotFoundError
 
 router = APIRouter(prefix="/business-days", tags=["business-days"])
-
-
-def _now() -> datetime:
-    return datetime.now(ZoneInfo(settings.timezone))
 
 
 @router.post("/open", response_model=BusinessDayResponse)

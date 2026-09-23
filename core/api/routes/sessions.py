@@ -1,9 +1,9 @@
 from datetime import datetime
-from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.api.clock import now as _now
 from core.api.schemas.payments import PaymentRequest, PaymentResponse
 from core.api.schemas.sessions import (
     SegmentResponse,
@@ -11,7 +11,6 @@ from core.api.schemas.sessions import (
     SessionResponse,
     SessionStartRequest,
 )
-from core.config import settings
 from core.db.models import Session as SessionModel
 from core.db.session import get_session
 from core.services import payments as payments_service
@@ -19,10 +18,6 @@ from core.services import sessions as sessions_service
 from core.services.errors import NotFoundError
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
-
-
-def _now() -> datetime:
-    return datetime.now(ZoneInfo(settings.timezone))
 
 
 async def _to_response(db: AsyncSession, session: SessionModel, now: datetime) -> SessionResponse:
