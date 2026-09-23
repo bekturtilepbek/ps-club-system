@@ -6,13 +6,13 @@ from datetime import datetime, timedelta
 class ActiveSegment:
     kind: str  # "package" | "open"
     starts_at: datetime
-    ends_at: datetime | None  # None для ещё идущего открытого отрезка
+    ends_at: datetime | None  # None for an open segment still running
 
 
 def grace_until(started_at: datetime, grace_minutes: int) -> datetime:
-    """Время на выбор игры (SPEC 3.2): конец пакета сдвигается на эту величину,
-    у открытого времени деньги начинают считаться с этого момента, и до него же
-    можно бесплатно отменить сессию."""
+    """Time to choose a game (SPEC 3.2): a package's end is shifted by this amount,
+    an open segment's billing starts from this moment, and cancelling for free is
+    possible up to this same deadline."""
     return started_at + timedelta(minutes=grace_minutes)
 
 
@@ -21,11 +21,11 @@ def package_segment_end(start: datetime, duration_min: int) -> datetime:
 
 
 def next_segment_start(now: datetime, active: ActiveSegment | None) -> datetime:
-    """Где начинается новый отрезок при продлении или переключении на открытое время.
+    """Where a new segment starts on extension or switching to open time.
 
-    Пакет, который ещё не закончился, отдаёт своё оставшееся время новому отрезку —
-    иначе гость платит дважды за одни и те же минуты (SPEC 3.2, CLAUDE.md rule 3).
-    Открытое время закрывается прямо сейчас — оно уже посчитано поминутно до этой секунды.
+    A package that hasn't ended yet hands its remaining time to the new segment —
+    otherwise the guest pays twice for the same minutes (SPEC 3.2, CLAUDE.md rule 3).
+    Open time closes right now — it's already billed per minute up to this second.
     """
     if active is None:
         return now

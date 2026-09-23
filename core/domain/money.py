@@ -6,8 +6,8 @@ def round_som(amount: Decimal) -> int:
 
 
 def open_time_amount(elapsed_seconds: float, hourly_rate: int) -> int:
-    """SPEC 3.2: открытое время поминутно, ставка/мин = ставка/час / 60,
-    округляется только итог, а не каждая минута."""
+    """SPEC 3.2: open time is billed per minute, per-minute rate = hourly rate / 60,
+    only the final total is rounded, not each minute."""
     if elapsed_seconds <= 0:
         return 0
     elapsed_minutes = Decimal(str(elapsed_seconds)) / Decimal(60)
