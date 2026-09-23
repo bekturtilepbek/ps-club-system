@@ -21,7 +21,12 @@ def _parse_int_setting(key: str, value: str | None, default: int) -> int:
     try:
         return int(value)
     except ValueError:
-        logger.warning("setting %r has a non-numeric value %r, using default %d", key, value, default)
+        logger.warning(
+            "setting %r has a non-numeric value %r, using default %d",
+            key,
+            value,
+            default,
+        )
         return default
 
 

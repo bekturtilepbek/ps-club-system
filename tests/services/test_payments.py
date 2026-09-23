@@ -169,7 +169,10 @@ async def test_add_payment_without_an_open_business_day_is_a_conflict(db_session
 
     await stop_session(db_session, session_id=session.id, now=T + timedelta(hours=1))
     await close_business_day(
-        db_session, business_day_id=session.business_day_id, counted_cash=150, now=T + timedelta(hours=2)
+        db_session,
+        business_day_id=session.business_day_id,
+        counted_cash=150,
+        now=T + timedelta(hours=2),
     )
 
     with pytest.raises(ConflictError):
@@ -194,7 +197,9 @@ async def test_add_payment_rejects_a_non_positive_amount(db_session):
     )
 
     with pytest.raises(ValidationError):
-        await add_payment(db_session, session_id=session.id, amount=0, method=PaymentMethod.cash, now=T)
+        await add_payment(
+            db_session, session_id=session.id, amount=0, method=PaymentMethod.cash, now=T
+        )
     with pytest.raises(ValidationError):
         await add_payment(
             db_session, session_id=session.id, amount=-10, method=PaymentMethod.cash, now=T
