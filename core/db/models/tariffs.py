@@ -15,8 +15,10 @@ class Tariff(Base):
     __tablename__ = "tariffs"
     __table_args__ = (
         CheckConstraint(
-            "(kind = 'package' AND duration_min IS NOT NULL AND price IS NOT NULL AND hourly_rate IS NULL) OR "
-            "(kind = 'open' AND duration_min IS NULL AND price IS NULL AND hourly_rate IS NOT NULL)",
+            "(kind = 'package' AND duration_min IS NOT NULL AND price IS NOT NULL "
+            "AND hourly_rate IS NULL) OR "
+            "(kind = 'open' AND duration_min IS NULL AND price IS NULL "
+            "AND hourly_rate IS NOT NULL)",
             name="ck_tariffs_kind_fields",
         ),
     )

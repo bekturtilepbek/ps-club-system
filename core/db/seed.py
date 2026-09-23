@@ -15,10 +15,32 @@ async def seed_dev_data() -> None:
 
         # PLACEHOLDERS: the owner hasn't answered docs/OWNER_QUESTIONS.md question 2 yet
         # (package prices, hourly rate, names). Fix in /admin once they answer.
-        db.add(Tariff(zone_id=zone.id, kind=TariffKind.package, name="1 час", duration_min=60, price=150))
-        db.add(Tariff(zone_id=zone.id, kind=TariffKind.package, name="3 часа", duration_min=180, price=400))
-        db.add(Tariff(zone_id=zone.id, kind=TariffKind.package, name="5 часов", duration_min=300, price=600))
-        db.add(Tariff(zone_id=zone.id, kind=TariffKind.open, name="Открытое время", hourly_rate=120))
+        db.add(
+            Tariff(
+                zone_id=zone.id, kind=TariffKind.package, name="1 час", duration_min=60, price=150
+            )
+        )
+        db.add(
+            Tariff(
+                zone_id=zone.id,
+                kind=TariffKind.package,
+                name="3 часа",
+                duration_min=180,
+                price=400,
+            )
+        )
+        db.add(
+            Tariff(
+                zone_id=zone.id,
+                kind=TariffKind.package,
+                name="5 часов",
+                duration_min=300,
+                price=600,
+            )
+        )
+        db.add(
+            Tariff(zone_id=zone.id, kind=TariffKind.open, name="Открытое время", hourly_rate=120)
+        )
 
         db.add(Setting(key="grace_minutes", value="3"))
         db.add(Setting(key="warn_minutes", value="5"))

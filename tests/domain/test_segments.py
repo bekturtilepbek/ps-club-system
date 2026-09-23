@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from core.domain.segments import (
     ActiveSegment,
@@ -8,7 +8,7 @@ from core.domain.segments import (
     package_segment_end,
 )
 
-T = datetime(2026, 9, 23, 12, 0, 0, tzinfo=timezone.utc)
+T = datetime(2026, 9, 23, 12, 0, 0, tzinfo=UTC)
 
 
 def test_grace_until_shifts_by_grace_minutes():
