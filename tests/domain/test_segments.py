@@ -31,8 +31,8 @@ def test_next_segment_start_with_no_active_segment_is_now():
 
 
 def test_next_segment_start_chains_at_package_end_while_still_running():
-    # Пакет идёт с T до T+60мин, продлеваем в T+10мин -> новый отрезок с T+60мин,
-    # иначе гость платит дважды за одни и те же минуты (SPEC 3.2).
+    # A package runs from T to T+60min; extending at T+10min -> the new segment
+    # starts at T+60min, otherwise the guest pays twice for the same minutes (SPEC 3.2).
     active = ActiveSegment(kind="package", starts_at=T, ends_at=T + timedelta(minutes=60))
     assert next_segment_start(T + timedelta(minutes=10), active) == T + timedelta(minutes=60)
 
