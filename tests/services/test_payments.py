@@ -4,7 +4,7 @@ import pytest
 
 from core.db.models import Console, PaymentMethod, SessionKind, Tariff, TariffKind, Zone
 from core.services.business_days import open_business_day
-from core.services.errors import NotFoundError
+from core.services.errors import ConflictError, NotFoundError
 from core.services.payments import (
     add_payment,
     session_balance,
@@ -110,3 +110,69 @@ async def test_free_session_always_has_zero_charge_total(db_session):
     )
 
     assert await session_charge_total(db_session, session.id, now=T + timedelta(hours=1)) == 0
+
+
+@pytest.mark.asyncio
+async def test_add_payment_attributes_to_the_currently_open_business_day_not_the_sessions(
+    db_session,
+):
+    console_id, package_id = await _setup(db_session)
+    session = await start_session(
+        db_session,
+        console_id=console_id,
+        kind=SessionKind.paid,
+        tariff_id=package_id,
+        reason=None,
+        comment=None,
+        now=T,
+    )
+    first_day_id = session.business_day_id
+
+    from core.services.business_days import close_business_day, open_business_day
+
+    # finish the session so the first day can close, then open a second day
+    from core.services.sessions import stop_session
+
+    await stop_session(db_session, session_id=session.id, now=T + timedelta(hours=1))
+    await close_business_day(
+        db_session, business_day_id=first_day_id, counted_cash=150, now=T + timedelta(hours=2)
+    )
+    second_day = await open_business_day(db_session, opening_cash=1000, now=T + timedelta(days=1))
+
+    payment = await add_payment(
+        db_session,
+        session_id=session.id,
+        amount=150,
+        method=PaymentMethod.cash,
+        now=T + timedelta(days=1, hours=1),
+    )
+
+    assert payment.business_day_id == second_day.id
+    assert payment.business_day_id != first_day_id
+
+
+@pytest.mark.asyncio
+async def test_add_payment_without_an_open_business_day_is_a_conflict(db_session):
+    console_id, package_id = await _setup(db_session)
+    session = await start_session(
+        db_session,
+        console_id=console_id,
+        kind=SessionKind.paid,
+        tariff_id=package_id,
+        reason=None,
+        comment=None,
+        now=T,
+    )
+
+    from core.services.business_days import close_business_day
+    from core.services.sessions import stop_session
+
+    await stop_session(db_session, session_id=session.id, now=T + timedelta(hours=1))
+    await close_business_day(
+        db_session, business_day_id=session.business_day_id, counted_cash=150, now=T + timedelta(hours=2)
+    )
+
+    with pytest.raises(ConflictError):
+        await add_payment(
+            db_session, session_id=session.id, amount=150, method=PaymentMethod.cash, now=T
+        )

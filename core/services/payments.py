@@ -6,7 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.db.models import Payment, PaymentMethod, SessionKind
 from core.db.models import Session as SessionModel
 from core.domain import money
-from core.services.errors import NotFoundError
+from core.services import business_days
+from core.services.errors import ConflictError, NotFoundError
 
 
 async def session_charge_total(db: AsyncSession, session_id: int, now: datetime) -> int:
@@ -45,9 +46,13 @@ async def add_payment(
     if session is None:
         raise NotFoundError(f"session {session_id} not found")
 
+    day = await business_days.get_open_business_day(db)
+    if day is None:
+        raise ConflictError("no open business day")
+
     payment = Payment(
         session_id=session_id,
-        business_day_id=session.business_day_id,
+        business_day_id=day.id,
         amount=amount,
         method=method,
         created_at=now,
