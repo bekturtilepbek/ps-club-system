@@ -44,6 +44,15 @@ def test_next_segment_start_uses_now_once_package_already_ended():
 
 
 def test_next_segment_start_closes_open_segment_at_now():
+    # An open segment that's already accruing (starts_at in the past) closes at "now".
     active = ActiveSegment(kind="open", starts_at=T, ends_at=None)
     now = T + timedelta(minutes=15)
     assert next_segment_start(now, active) == now
+
+
+def test_next_segment_start_uses_queued_open_segments_own_start_if_it_has_not_begun():
+    # The open segment was chained onto a still-running package's end (T+60min) and
+    # hasn't started accruing yet — switching again at T+15min must chain at T+60min,
+    # not "now", or the new segment would overlap the still-running package.
+    active = ActiveSegment(kind="open", starts_at=T + timedelta(minutes=60), ends_at=None)
+    assert next_segment_start(T + timedelta(minutes=15), active) == T + timedelta(minutes=60)
