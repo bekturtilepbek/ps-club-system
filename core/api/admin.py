@@ -7,6 +7,7 @@ from core.db.session import engine
 
 class ZoneAdmin(ModelView, model=Zone):
     column_list = [Zone.id, Zone.name, Zone.is_active]
+    can_delete = False
 
 
 class ConsoleAdmin(ModelView, model=Console):
@@ -14,6 +15,7 @@ class ConsoleAdmin(ModelView, model=Console):
         Console.id, Console.zone_id, Console.name,
         Console.plug_driver, Console.plug_address, Console.is_active,
     ]
+    can_delete = False
 
 
 class TariffAdmin(ModelView, model=Tariff):
@@ -21,10 +23,12 @@ class TariffAdmin(ModelView, model=Tariff):
         Tariff.id, Tariff.zone_id, Tariff.kind, Tariff.name,
         Tariff.duration_min, Tariff.price, Tariff.hourly_rate, Tariff.is_active,
     ]
+    can_delete = False
 
 
 class ProductAdmin(ModelView, model=Product):
     column_list = [Product.id, Product.name, Product.price, Product.is_active]
+    can_delete = False
 
 
 class SettingAdmin(ModelView, model=Setting):
