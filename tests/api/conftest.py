@@ -1,3 +1,5 @@
+import os
+
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -7,7 +9,9 @@ from core.db.base import Base
 from core.db.models import *  # noqa: F401,F403
 from core.db.session import get_session
 
-TEST_DATABASE_URL = "postgresql+asyncpg://psclub:psclub@localhost:5433/psclub_test"
+TEST_DATABASE_URL = os.environ.get(
+    "TEST_DATABASE_URL", "postgresql+asyncpg://psclub:psclub@localhost:5433/psclub_test"
+)
 
 
 @pytest_asyncio.fixture

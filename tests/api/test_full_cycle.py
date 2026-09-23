@@ -1,9 +1,13 @@
+import os
+
 import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from core.db.models import Console, Tariff, TariffKind, Zone
 
-TEST_DATABASE_URL = "postgresql+asyncpg://psclub:psclub@localhost:5433/psclub_test"
+TEST_DATABASE_URL = os.environ.get(
+    "TEST_DATABASE_URL", "postgresql+asyncpg://psclub:psclub@localhost:5433/psclub_test"
+)
 
 
 async def _seed_reference_data():

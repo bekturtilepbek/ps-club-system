@@ -1,4 +1,10 @@
+import os
+
 import pytest
+
+TEST_DATABASE_URL = os.environ.get(
+    "TEST_DATABASE_URL", "postgresql+asyncpg://psclub:psclub@localhost:5433/psclub_test"
+)
 
 
 async def _setup(client):
@@ -10,7 +16,7 @@ async def _setup(client):
 
     from core.db.models import Console, Tariff, TariffKind, Zone
 
-    engine = create_async_engine("postgresql+asyncpg://psclub:psclub@localhost:5433/psclub_test")
+    engine = create_async_engine(TEST_DATABASE_URL)
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     async with session_factory() as db:
         zone = Zone(name="Зал", is_active=True)
@@ -49,7 +55,7 @@ async def test_starting_a_session_without_an_open_business_day_is_409(client):
 
     from core.db.models import Console, Tariff, TariffKind, Zone
 
-    engine = create_async_engine("postgresql+asyncpg://psclub:psclub@localhost:5433/psclub_test")
+    engine = create_async_engine(TEST_DATABASE_URL)
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     async with session_factory() as db:
         zone = Zone(name="Зал", is_active=True)

@@ -46,6 +46,19 @@ Frontend расчитан на запуск внутри Docker Compose — та
 
 ## Тесты и линтеры
 
+Тесты, которые трогают БД (`services`, `api`), ждут одноразовый Postgres на
+порту 5433 и базу `psclub_test` в нём:
+
+    docker run --rm -d --name psclub-db-dev \
+      -e POSTGRES_DB=psclub -e POSTGRES_USER=psclub -e POSTGRES_PASSWORD=psclub \
+      -p 5433:5432 postgres:16-alpine
+    docker exec psclub-db-dev psql -U psclub -d psclub -c "CREATE DATABASE psclub_test"
+    DATABASE_URL=postgresql+asyncpg://psclub:psclub@localhost:5433/psclub uv run alembic upgrade head
+
+Порт 5433, а не 5432 — чтобы не конфликтовать с `docker-compose.yml`. Адрес
+тестовой базы можно переопределить переменной `TEST_DATABASE_URL`, если
+5433 занят.
+
     uv run pytest
     uv run ruff check .
 
