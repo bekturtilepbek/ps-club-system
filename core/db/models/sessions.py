@@ -54,6 +54,9 @@ class Session(Base):
         order_by="[SessionSegment.starts_at, SessionSegment.id]",
         lazy="selectin",
     )
+    orders: Mapped[list["Order"]] = relationship(
+        "Order", order_by="Order.created_at", lazy="selectin"
+    )
 
 
 class SessionSegment(Base):
