@@ -75,3 +75,40 @@ async def test_build_hall_snapshot_lists_walk_in_tickets_separately_from_console
     assert snapshot.tickets[0].session.id == ticket.id
     assert snapshot.tickets[0].charge_total == 0
     assert snapshot.tickets[0].balance == 0
+
+
+@pytest.mark.asyncio
+async def test_hall_snapshot_carries_the_open_business_day_id():
+    engine = create_async_engine(TEST_DATABASE_URL)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    async with session_factory() as db:
+        now = _now()
+        day = await business_days.open_business_day(db, opening_cash=0, now=now)
+
+        snapshot = await hall.build_hall_snapshot(db, now)
+
+    await engine.dispose()
+
+    assert snapshot.business_day_id == day.id
+
+
+@pytest.mark.asyncio
+async def test_hall_snapshot_business_day_id_is_none_when_no_day_open():
+    engine = create_async_engine(TEST_DATABASE_URL)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    async with session_factory() as db:
+        now = _now()
+
+        snapshot = await hall.build_hall_snapshot(db, now)
+
+    await engine.dispose()
+
+    assert snapshot.business_day_id is None

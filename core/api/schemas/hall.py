@@ -20,6 +20,7 @@ class HallConsoleResponse(BaseModel):
 class HallSnapshotResponse(BaseModel):
     generated_at: datetime
     business_day_open: bool
+    business_day_id: int | None
     consoles: list[HallConsoleResponse]
     tickets: list[SessionResponse]
 
@@ -51,6 +52,7 @@ def hall_snapshot_to_response(snapshot: HallSnapshot) -> HallSnapshotResponse:
     return HallSnapshotResponse(
         generated_at=snapshot.generated_at,
         business_day_open=snapshot.business_day_open,
+        business_day_id=snapshot.business_day_id,
         consoles=consoles,
         tickets=tickets,
     )

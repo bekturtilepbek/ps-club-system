@@ -34,6 +34,7 @@ class TicketHallView:
 class HallSnapshot:
     generated_at: datetime
     business_day_open: bool
+    business_day_id: int | None
     consoles: list[ConsoleHallView]
     tickets: list[TicketHallView]
 
@@ -82,5 +83,9 @@ async def build_hall_snapshot(db: AsyncSession, now: datetime) -> HallSnapshot:
 
     day = await business_days.get_open_business_day(db)
     return HallSnapshot(
-        generated_at=now, business_day_open=day is not None, consoles=views, tickets=tickets
+        generated_at=now,
+        business_day_open=day is not None,
+        business_day_id=day.id if day is not None else None,
+        consoles=views,
+        tickets=tickets,
     )

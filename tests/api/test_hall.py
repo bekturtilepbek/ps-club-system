@@ -75,3 +75,24 @@ async def test_hall_lists_an_open_ticket_separately_from_consoles(client):
     assert len(body["tickets"]) == 1
     assert body["tickets"][0]["id"] == ticket_id
     assert body["tickets"][0]["console_id"] is None
+
+
+@pytest.mark.asyncio
+async def test_hall_carries_the_open_business_day_id(client):
+    opened = await client.post("/api/business-days/open", json={"opening_cash": 0})
+    day_id = opened.json()["id"]
+
+    response = await client.get("/api/hall")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["business_day_id"] == day_id
+
+
+@pytest.mark.asyncio
+async def test_hall_business_day_id_is_none_when_no_day_open(client):
+    response = await client.get("/api/hall")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["business_day_id"] is None
