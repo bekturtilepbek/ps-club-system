@@ -265,3 +265,31 @@ async def cancel_session(db: AsyncSession, *, session_id: int, now: datetime) ->
     await db.commit()
     await db.refresh(session)
     return session
+
+
+async def open_ticket(db: AsyncSession, *, now: datetime) -> SessionModel:
+    """A bar sale with no console attached (SPEC.md §3.5's "продажа без игры") —
+    the same Session/segment/payment machinery a console session uses, just with
+    console_id and grace_until left NULL and no segments: there's no game-choice
+    grace period on a bar sale, so it can never be cancelled (cancel_session's
+    is_within_grace check is False for a NULL grace_until) — a mis-added item is
+    corrected with bar.remove_order instead."""
+    day = await business_days.get_open_business_day(db)
+    if day is None:
+        raise ConflictError("no open business day")
+
+    session = SessionModel(
+        console_id=None,
+        business_day_id=day.id,
+        kind=SessionKind.paid,
+        reason=None,
+        status=SessionStatus.active,
+        started_at=now,
+        grace_until=None,
+        comment=None,
+    )
+    db.add(session)
+    await db.execute(text("NOTIFY hall_changed"))
+    await db.commit()
+    await db.refresh(session)
+    return session

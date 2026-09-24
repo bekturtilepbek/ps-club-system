@@ -39,7 +39,7 @@ class SessionResponse(BaseModel):
     reason: str | None
     status: SessionStatus
     started_at: datetime
-    grace_until: datetime
+    grace_until: datetime | None
     ended_at: datetime | None
     comment: str | None
     segments: list[SegmentResponse]

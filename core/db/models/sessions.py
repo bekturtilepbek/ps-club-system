@@ -44,7 +44,7 @@ class Session(Base):
         Enum(SessionStatus, native_enum=False, length=20), default=SessionStatus.active
     )
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    grace_until: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    grace_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     comment: Mapped[str | None] = mapped_column(Text, default=None)
 

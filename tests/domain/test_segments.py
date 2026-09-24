@@ -56,3 +56,8 @@ def test_next_segment_start_uses_queued_open_segments_own_start_if_it_has_not_be
     # not "now", or the new segment would overlap the still-running package.
     active = ActiveSegment(kind="open", starts_at=T + timedelta(minutes=60), ends_at=None)
     assert next_segment_start(T + timedelta(minutes=15), active) == T + timedelta(minutes=60)
+
+
+def test_is_within_grace_is_false_with_no_grace_deadline():
+    # A console-less bar-sale ticket (Stage 4) has no grace period at all.
+    assert is_within_grace(T, None) is False
