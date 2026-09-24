@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { serverNow } from "@/lib/clock";
 import { useAuth } from "@/features/auth/useAuth";
+import { BarDialog } from "./BarDialog";
 import { BusinessDayGuard } from "./BusinessDayGuard";
 import { ConsoleCard } from "./ConsoleCard";
 import { ExtendSessionDialog } from "./ExtendSessionDialog";
@@ -20,6 +21,7 @@ type DialogState =
   | { kind: "start"; consoleId: number }
   | { kind: "extend"; sessionId: number }
   | { kind: "pay"; sessionId: number }
+  | { kind: "bar"; sessionId: number }
   // Paying off a session this tab just stopped. A finished session is no longer
   // in the hall snapshot, so its balance comes from the stop response and is
   // tracked here; the charge is frozen once stopped, so only payments made
@@ -52,6 +54,7 @@ export function HallPage() {
   const sessionConsole = (sessionId: number) => consoles.find((c) => c.session?.id === sessionId);
   const extendTarget = dialog.kind === "extend" ? sessionConsole(dialog.sessionId) : undefined;
   const payTarget = dialog.kind === "pay" ? sessionConsole(dialog.sessionId) : undefined;
+  const barTarget = dialog.kind === "bar" ? sessionConsole(dialog.sessionId) : undefined;
 
   function runSessionAction(action: () => Promise<unknown>) {
     setActionError(null);
@@ -95,6 +98,7 @@ export function HallPage() {
                   }
                   onCancel={() => session && runSessionAction(() => cancel(session.id))}
                   onPay={() => session && setDialog({ kind: "pay", sessionId: session.id })}
+                  onBar={() => session && setDialog({ kind: "bar", sessionId: session.id })}
                 />
               );
             })}
@@ -127,6 +131,14 @@ export function HallPage() {
           balance={payTarget.balance}
           onOpenChange={(open) => !open && closeDialog()}
           onPaid={() => {}}
+        />
+      )}
+      {barTarget?.session && (
+        <BarDialog
+          open
+          sessionId={barTarget.session.id}
+          orders={barTarget.session.orders}
+          onOpenChange={(open) => !open && closeDialog()}
         />
       )}
       {dialog.kind === "settle" && (
