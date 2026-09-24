@@ -232,6 +232,35 @@ async def test_day_summary_counts_sessions_minutes_and_bar_sales_excluding_cance
 
 
 @pytest.mark.asyncio
+async def test_day_summary_bills_an_open_still_running_segment_up_to_now(db_session):
+    day = await open_business_day(db_session, opening_cash=5000, now=T)
+    zone = Zone(name="Зал", is_active=True)
+    db_session.add(zone)
+    await db_session.flush()
+    console = Console(zone_id=zone.id, name="PS5-1")
+    db_session.add(console)
+    await db_session.flush()
+
+    active = Session(
+        console_id=console.id, business_day_id=day.id, kind=SessionKind.paid,
+        status=SessionStatus.active, started_at=T, grace_until=T,
+    )
+    active.segments.append(
+        SessionSegment(
+            kind=SegmentKind.open, starts_at=T, ends_at=None,
+            price_snapshot=100, amount=None,
+        )
+    )
+    db_session.add(active)
+    await db_session.commit()
+
+    summary = await day_summary(db_session, business_day_id=day.id, now=T + timedelta(minutes=45))
+
+    assert summary.minutes_total == 45
+    assert summary.has_active_sessions is True
+
+
+@pytest.mark.asyncio
 async def test_list_business_days_orders_newest_first_and_respects_limit(db_session):
     first = await open_business_day(db_session, opening_cash=1000, now=T)
     await close_business_day(
