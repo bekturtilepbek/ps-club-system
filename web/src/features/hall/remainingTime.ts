@@ -59,7 +59,8 @@ export function computeCardTiming(
   // (session_charge_total: fixed segment amounts + running open segments priced up to
   // now) so the sum stays live. max() keeps a fresher server figure from ever being
   // shown as going down. Display only — payments always use the server's numbers.
-  const liveCharge = session.segments.reduce((total, segment) => {
+  const ordersTotal = session.orders.reduce((total, order) => total + order.qty * order.unit_price, 0);
+  const liveCharge = ordersTotal + session.segments.reduce((total, segment) => {
     if (segment.amount != null) return total + segment.amount;
     if (segment.ends_at == null) {
       const elapsed = nowMs - new Date(segment.starts_at).getTime();

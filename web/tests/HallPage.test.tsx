@@ -277,6 +277,28 @@ describe("HallPage", () => {
     await waitFor(() => expect(screen.queryByText(/Оплата — остаток/)).not.toBeInTheDocument());
   });
 
+  it("opens the settle dialog when cancelling a session with an unpaid bar tab", async () => {
+    const now = Date.now();
+    const withinGraceConsole = paidConsole(1, 7, 300);
+    withinGraceConsole.session!.grace_until = new Date(now + 60_000).toISOString();
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/hall") return { ok: true, json: async () => snapshot([withinGraceConsole]) };
+      if (url === "/api/settings") return { ok: true, json: async () => ({ grace_minutes: 3, warn_minutes: 5 }) };
+      if (url === "/api/products") return { ok: true, json: async () => [] };
+      if (url === "/api/sessions/7/cancel") {
+        return { ok: true, json: async () => ({ id: 7, status: "cancelled", balance: 80 }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderHall();
+
+    await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Отменить" }));
+
+    await waitFor(() => expect(screen.getByText("Оплата — остаток 80 сом")).toBeInTheDocument());
+  });
+
   it("opens the bar dialog for a console session", async () => {
     stubApi(snapshot([paidConsole(1, 7, 300)]));
     renderHall();
@@ -321,6 +343,18 @@ describe("HallPage", () => {
 
     it("finishes a fully paid ticket", async () => {
       const fetchMock = stubApi(snapshot([], [ticket(9, 0)]));
+      renderHall();
+
+      await waitFor(() => expect(screen.getByText(/Чек №9/)).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "Завершить" }));
+
+      await waitFor(() =>
+        expect(fetchMock.mock.calls.some(([url]) => url === "/api/sessions/9/stop")).toBe(true),
+      );
+    });
+
+    it("allows finishing an overpaid ticket (negative balance)", async () => {
+      const fetchMock = stubApi(snapshot([], [ticket(9, -20)]));
       renderHall();
 
       await waitFor(() => expect(screen.getByText(/Чек №9/)).toBeInTheDocument());

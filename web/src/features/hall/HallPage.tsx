@@ -108,7 +108,15 @@ export function HallPage() {
                       }
                     })
                   }
-                  onCancel={() => session && runSessionAction(() => cancel(session.id))}
+                  onCancel={() =>
+                    session &&
+                    runSessionAction(async () => {
+                      const cancelled = await cancel(session.id);
+                      if (cancelled.balance > 0) {
+                        setDialog({ kind: "settle", sessionId: cancelled.id, balance: cancelled.balance });
+                      }
+                    })
+                  }
                   onPay={() => session && setDialog({ kind: "pay", sessionId: session.id })}
                   onBar={() => session && setDialog({ kind: "bar", sessionId: session.id })}
                 />
@@ -138,7 +146,7 @@ export function HallPage() {
                         Оплатить
                       </Button>
                     )}
-                    {t.balance === 0 && (
+                    {t.balance <= 0 && (
                       <Button size="sm" onClick={() => runSessionAction(() => stop(t.id))}>
                         Завершить
                       </Button>
