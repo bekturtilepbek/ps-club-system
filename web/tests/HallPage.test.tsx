@@ -57,8 +57,32 @@ function paidConsole(id: number, sessionId: number, balance: number): HallConsol
   };
 }
 
-function snapshot(consoles: HallConsoleResponse[]): HallSnapshotResponse {
-  return { generated_at: new Date().toISOString(), business_day_open: true, consoles, tickets: [] };
+function ticket(id: number, balance: number, orders: HallSnapshotResponse["tickets"][number]["orders"] = []): HallSnapshotResponse["tickets"][number] {
+  const now = new Date().toISOString();
+  return {
+    id,
+    console_id: null,
+    business_day_id: 1,
+    kind: "paid",
+    reason: null,
+    status: "active",
+    started_at: now,
+    grace_until: null, // a ticket has no grace period (Task 4)
+    ended_at: null,
+    comment: null,
+    segments: [],
+    orders,
+    charge_total: orders.reduce((sum, o) => sum + o.qty * o.unit_price, 0),
+    paid_total: orders.reduce((sum, o) => sum + o.qty * o.unit_price, 0) - balance,
+    balance,
+  };
+}
+
+function snapshot(
+  consoles: HallConsoleResponse[],
+  tickets: HallSnapshotResponse["tickets"] = [],
+): HallSnapshotResponse {
+  return { generated_at: new Date().toISOString(), business_day_open: true, consoles, tickets };
 }
 
 function stubApi(hall: HallSnapshotResponse | "pending") {
@@ -260,5 +284,51 @@ describe("HallPage", () => {
     await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Бар" }));
     await waitFor(() => expect(screen.getByText("Бар — на счету 0 сом")).toBeInTheDocument());
+  });
+
+  describe("продажа без игры", () => {
+    it("opens a new ticket's bar dialog right after creating it", async () => {
+      let hall = snapshot([]);
+      const fetchMock = vi.fn(async (url: string) => {
+        if (url === "/api/hall") return { ok: true, json: async () => hall };
+        if (url === "/api/settings") return { ok: true, json: async () => ({ grace_minutes: 3, warn_minutes: 5 }) };
+        if (url === "/api/products") return { ok: true, json: async () => [] };
+        if (url === "/api/tickets") {
+          const created = ticket(9, 0);
+          hall = snapshot([], [created]);
+          return { ok: true, json: async () => created };
+        }
+        return { ok: true, json: async () => ({}) };
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      renderHall();
+
+      await waitFor(() => expect(screen.getByText("Продажа без игры")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "+ Продажа" }));
+
+      await waitFor(() => expect(screen.getByText("Бар — на счету 0 сом")).toBeInTheDocument());
+    });
+
+    it("lets the operator pay off an open ticket", async () => {
+      stubApi(snapshot([], [ticket(9, 150)]));
+      renderHall();
+
+      await waitFor(() => expect(screen.getByText(/Чек №9/)).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "Оплатить" }));
+
+      await waitFor(() => expect(screen.getByText("Оплата — остаток 150 сом")).toBeInTheDocument());
+    });
+
+    it("finishes a fully paid ticket", async () => {
+      const fetchMock = stubApi(snapshot([], [ticket(9, 0)]));
+      renderHall();
+
+      await waitFor(() => expect(screen.getByText(/Чек №9/)).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "Завершить" }));
+
+      await waitFor(() =>
+        expect(fetchMock.mock.calls.some(([url]) => url === "/api/sessions/9/stop")).toBe(true),
+      );
+    });
   });
 });
