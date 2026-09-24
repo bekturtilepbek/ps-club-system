@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -14,10 +15,29 @@ from core.api.routes.sessions import router as sessions_router
 from core.api.routes.settings import router as settings_router
 from core.api.routes.tariffs import router as tariffs_router
 from core.api.ws.listener import hall_listener
-from core.config import settings
+from core.config import DEV_ADMIN_PASSWORD_HASH, DEV_SESSION_SECRET, Settings, settings
 from core.db.session import engine
 
 SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30  # 30 days — one login per till PC per month
+
+logger = logging.getLogger(__name__)
+
+
+def warn_about_dev_secrets(config: Settings) -> None:
+    """Warn, don't refuse to start: an empty value in .env silently falls back to the
+    committed dev default (env_ignore_empty), and a config typo must not take the
+    club's only till offline."""
+    if config.session_secret == DEV_SESSION_SECRET:
+        logger.warning(
+            "SESSION_SECRET is still the development default — anyone with the repo can "
+            "forge a login cookie. Set a random value in .env before a real deployment "
+            "(see .env.example)."
+        )
+    if config.admin_password_hash == DEV_ADMIN_PASSWORD_HASH:
+        logger.warning(
+            "ADMIN_PASSWORD_HASH is still the development default — the password is "
+            "'admin'. Set a real hash in .env before a real deployment (see .env.example)."
+        )
 
 
 @asynccontextmanager
@@ -32,6 +52,7 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    warn_about_dev_secrets(settings)
     app = FastAPI(title="PS Club API", lifespan=lifespan)
     app.add_middleware(
         SessionMiddleware,
