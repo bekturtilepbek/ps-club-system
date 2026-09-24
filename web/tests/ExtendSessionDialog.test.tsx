@@ -3,6 +3,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ExtendSessionDialog } from "@/features/hall/ExtendSessionDialog";
 
+vi.mock("@/lib/clock", () => ({ serverNow: () => new Date("2026-09-25T02:00:00+06:00").getTime() }));
+
 describe("ExtendSessionDialog", () => {
   afterEach(() => vi.unstubAllGlobals());
 
@@ -66,5 +68,37 @@ describe("ExtendSessionDialog", () => {
 
     await waitFor(() => expect(screen.getByText("Не удалось продлить сессию. Попробуйте ещё раз.")).toBeInTheDocument());
     expect(onExtended).not.toHaveBeenCalled();
+  });
+
+  it("shows a warning when the selected package would end after the planned close", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/tariffs") {
+        return {
+          ok: true,
+          json: async () => [
+            { id: 3, zone_id: 1, kind: "package", name: "5 часов", duration_min: 300, price: 700, hourly_rate: null, is_active: true },
+          ],
+        };
+      }
+      if (url === "/api/settings") {
+        return { ok: true, json: async () => ({ grace_minutes: 3, warn_minutes: 5, planned_open: "10:00", planned_close: "05:00" }) };
+      }
+      return { ok: true, json: async () => ({ id: 5 }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const queryClient = new QueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ExtendSessionDialog open sessionId={5} onOpenChange={() => {}} onExtended={() => {}} />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText("5 часов — 700 сом")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("5 часов — 700 сом"));
+
+    await waitFor(() =>
+      expect(screen.getByText(/Пакет закончится после планового закрытия \(05:00\)/)).toBeInTheDocument(),
+    );
   });
 });

@@ -12,7 +12,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api, type SessionKind } from "@/lib/api";
 import { formatSom } from "@/lib/format";
+import { serverNow } from "@/lib/clock";
 import { HALL_QUERY_KEY } from "./useHallSnapshot";
+import { packageEndsAfterPlannedClose } from "./plannedClose";
 
 interface StartSessionDialogProps {
   open: boolean;
@@ -23,10 +25,25 @@ interface StartSessionDialogProps {
 
 export function StartSessionDialog({ open, consoleId, onOpenChange, onStarted }: StartSessionDialogProps) {
   const tariffsQuery = useQuery({ queryKey: ["tariffs"], queryFn: api.tariffs, enabled: open });
+  const settingsQuery = useQuery({ queryKey: ["settings"], queryFn: api.settings, enabled: open });
   const [kind, setKind] = useState<SessionKind>("paid");
   const [tariffId, setTariffId] = useState<number | null>(null);
   const [reason, setReason] = useState("");
   const queryClient = useQueryClient();
+
+  const selectedTariff = (tariffsQuery.data ?? []).find((t) => t.id === tariffId);
+  const graceMinutes = settingsQuery.data?.grace_minutes ?? 3;
+  const plannedClose = settingsQuery.data?.planned_close;
+  const showsLateWarning =
+    kind === "paid" &&
+    selectedTariff?.kind === "package" &&
+    selectedTariff.duration_min != null &&
+    plannedClose !== undefined &&
+    packageEndsAfterPlannedClose(
+      serverNow() + graceMinutes * 60_000,
+      selectedTariff.duration_min,
+      plannedClose,
+    );
 
   const startMutation = useMutation({
     mutationFn: () =>
@@ -89,6 +106,12 @@ export function StartSessionDialog({ open, consoleId, onOpenChange, onStarted }:
             </div>
           )}
         </div>
+
+        {showsLateWarning && (
+          <p className="text-sm text-amber-600">
+            Пакет закончится после планового закрытия ({plannedClose}). Решение — за администратором.
+          </p>
+        )}
 
         {startMutation.isError && (
           <p className="text-sm text-red-600">Не удалось начать сессию. Попробуйте ещё раз.</p>
