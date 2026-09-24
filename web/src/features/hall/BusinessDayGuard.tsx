@@ -47,6 +47,9 @@ export function BusinessDayGuard({ businessDayOpen, children }: BusinessDayGuard
         >
           Открыть
         </Button>
+        {openMutation.isError && (
+          <p className="text-sm text-red-600">Не удалось открыть день. Попробуйте ещё раз.</p>
+        )}
       </Card>
     </div>
   );

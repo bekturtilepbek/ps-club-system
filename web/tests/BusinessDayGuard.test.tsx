@@ -71,4 +71,29 @@ describe("BusinessDayGuard", () => {
     fireEvent.change(input, { target: { value: "0" } });
     expect(button).not.toBeDisabled();
   });
+
+  it("shows an error message when opening the day fails", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 409,
+      json: async () => ({ detail: "business day already open" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const queryClient = new QueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <BusinessDayGuard businessDayOpen={false}>
+          <div>Зал</div>
+        </BusinessDayGuard>
+      </QueryClientProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText("Наличные на начало"), { target: { value: "5000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Открыть" }));
+
+    await waitFor(() =>
+      expect(screen.getByText("Не удалось открыть день. Попробуйте ещё раз.")).toBeInTheDocument(),
+    );
+  });
 });

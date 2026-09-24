@@ -4,6 +4,7 @@ export type SessionResponse = components["schemas"]["SessionResponse"];
 export type HallSnapshotResponse = components["schemas"]["HallSnapshotResponse"];
 export type HallConsoleResponse = components["schemas"]["HallConsoleResponse"];
 export type BusinessDayResponse = components["schemas"]["BusinessDayResponse"];
+export type BusinessDaySummaryResponse = components["schemas"]["BusinessDaySummaryResponse"];
 export type PublicSettingsResponse = components["schemas"]["PublicSettingsResponse"];
 export type AuthStatusResponse = components["schemas"]["AuthStatusResponse"];
 export type TariffResponse = components["schemas"]["TariffResponse"];
@@ -51,6 +52,14 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ opening_cash: openingCash }),
     }),
+  closeBusinessDay: (businessDayId: number, countedCash: number) =>
+    request<BusinessDayResponse>(`/api/business-days/${businessDayId}/close`, {
+      method: "POST",
+      body: JSON.stringify({ counted_cash: countedCash }),
+    }),
+  businessDaySummary: (businessDayId: number) =>
+    request<BusinessDaySummaryResponse>(`/api/business-days/${businessDayId}/summary`),
+  businessDayHistory: () => request<BusinessDayResponse[]>("/api/business-days?limit=30"),
   startSession: (body: {
     console_id: number;
     kind: SessionKind;

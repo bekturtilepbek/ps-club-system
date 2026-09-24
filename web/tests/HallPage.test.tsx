@@ -82,7 +82,13 @@ function snapshot(
   consoles: HallConsoleResponse[],
   tickets: HallSnapshotResponse["tickets"] = [],
 ): HallSnapshotResponse {
-  return { generated_at: new Date().toISOString(), business_day_open: true, consoles, tickets };
+  return {
+    generated_at: new Date().toISOString(),
+    business_day_open: true,
+    business_day_id: 1,
+    consoles,
+    tickets,
+  };
 }
 
 function stubApi(hall: HallSnapshotResponse | "pending") {
