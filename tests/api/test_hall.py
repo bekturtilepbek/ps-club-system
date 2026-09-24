@@ -59,3 +59,19 @@ async def test_hall_includes_an_active_session(client):
     console_view = next(c for c in body["consoles"] if c["id"] == console_id)
     assert console_view["session"]["status"] == "active"
     assert console_view["charge_total"] == 150
+
+
+@pytest.mark.asyncio
+async def test_hall_lists_an_open_ticket_separately_from_consoles(client):
+    await client.post("/api/business-days/open", json={"opening_cash": 0})
+    ticket = await client.post("/api/tickets")
+    ticket_id = ticket.json()["id"]
+
+    response = await client.get("/api/hall")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["consoles"] == []
+    assert len(body["tickets"]) == 1
+    assert body["tickets"][0]["id"] == ticket_id
+    assert body["tickets"][0]["console_id"] is None
