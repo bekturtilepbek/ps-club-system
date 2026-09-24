@@ -42,4 +42,33 @@ describe("BusinessDayGuard", () => {
       ),
     );
   });
+
+  it("keeps the button disabled for a negative or non-numeric opening cash", () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 1 }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const queryClient = new QueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <BusinessDayGuard businessDayOpen={false}>
+          <div>Зал</div>
+        </BusinessDayGuard>
+      </QueryClientProvider>,
+    );
+
+    const input = screen.getByLabelText("Наличные на начало");
+    const button = screen.getByRole("button", { name: "Открыть" });
+
+    fireEvent.change(input, { target: { value: "-100" } });
+    expect(button).toBeDisabled();
+
+    fireEvent.change(input, { target: { value: "abc" } });
+    expect(button).toBeDisabled();
+
+    fireEvent.click(button);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    fireEvent.change(input, { target: { value: "0" } });
+    expect(button).not.toBeDisabled();
+  });
 });

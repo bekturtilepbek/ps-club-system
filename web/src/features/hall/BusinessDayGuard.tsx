@@ -23,6 +23,10 @@ export function BusinessDayGuard({ businessDayOpen, children }: BusinessDayGuard
 
   if (businessDayOpen) return <>{children}</>;
 
+  const openingCashValue = Number(openingCash);
+  const isValidOpeningCash =
+    openingCash.trim().length > 0 && Number.isFinite(openingCashValue) && openingCashValue >= 0;
+
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
       <Card className="flex w-full max-w-sm flex-col gap-4 p-6">
@@ -32,13 +36,14 @@ export function BusinessDayGuard({ businessDayOpen, children }: BusinessDayGuard
           <Input
             id="opening-cash"
             type="number"
+            min="0"
             value={openingCash}
             onChange={(event) => setOpeningCash(event.target.value)}
           />
         </div>
         <Button
           onClick={() => openMutation.mutate()}
-          disabled={openingCash.trim().length === 0 || openMutation.isPending}
+          disabled={!isValidOpeningCash || openMutation.isPending}
         >
           Открыть
         </Button>
