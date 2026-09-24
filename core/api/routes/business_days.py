@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.api.clock import now as _now
@@ -53,5 +53,7 @@ async def business_day_summary(
 
 
 @router.get("", response_model=list[BusinessDayResponse])
-async def list_days(limit: int = 30, db: AsyncSession = Depends(get_session)):  # noqa: B008
+async def list_days(
+    limit: int = Query(30, ge=1, le=365), db: AsyncSession = Depends(get_session)  # noqa: B008
+):
     return await business_days.list_business_days(db, limit=limit)

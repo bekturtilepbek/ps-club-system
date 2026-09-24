@@ -67,3 +67,15 @@ async def test_list_business_days(client):
     assert response.status_code == 200
     ids = [d["id"] for d in response.json()]
     assert opened["id"] in ids
+
+
+@pytest.mark.asyncio
+async def test_list_business_days_rejects_an_out_of_range_limit(client):
+    response = await client.get("/api/business-days?limit=-1")
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_list_business_days_rejects_a_limit_over_365(client):
+    response = await client.get("/api/business-days?limit=400")
+    assert response.status_code == 422
