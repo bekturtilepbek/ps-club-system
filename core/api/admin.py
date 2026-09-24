@@ -54,11 +54,6 @@ class TariffAdmin(ModelView, model=Tariff):
             details={k: v for k, v in data.items() if k != "id"},
         )
 
-    async def after_model_delete(self, model: Any, request: Request) -> None:
-        await _write_audit_log(
-            action="tariff_delete", entity="tariff", entity_id=model.id, details={}
-        )
-
 
 class ProductAdmin(ModelView, model=Product):
     column_list = [Product.id, Product.name, Product.price, Product.is_active]
@@ -67,6 +62,7 @@ class ProductAdmin(ModelView, model=Product):
 
 class SettingAdmin(ModelView, model=Setting):
     column_list = [Setting.key, Setting.value]
+    can_delete = False
 
     async def after_model_change(
         self, data: dict, model: Any, is_created: bool, request: Request
