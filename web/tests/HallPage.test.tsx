@@ -101,6 +101,15 @@ function stubApi(hall: HallSnapshotResponse | "pending") {
     if (url === "/api/tariffs") return { ok: true, json: async () => [] };
     if (url === "/api/products") return { ok: true, json: async () => [] };
     if (url === "/api/auth/logout") return { ok: true, json: async () => ({ authenticated: false }) };
+    if (url.endsWith("/summary")) {
+      return {
+        ok: true,
+        json: async () => ({
+          opening_cash: 5000, cash_total: 0, qr_total: 0, transfer_total: 0, expected_cash: 5000,
+          sessions_count: 0, minutes_total: 0, bar_sales_total: 0, has_active_sessions: false,
+        }),
+      };
+    }
     return { ok: true, json: async () => ({}) };
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -388,6 +397,58 @@ describe("HallPage", () => {
       await waitFor(() =>
         expect(fetchMock.mock.calls.some(([url]) => url === "/api/sessions/9/stop")).toBe(true),
       );
+    });
+  });
+
+  describe("closing the business day", () => {
+    it("shows a Закрыть день button only while the day is open", async () => {
+      stubApi(snapshot([freeConsole(1)]));
+      renderHall();
+
+      await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
+      expect(screen.getByRole("button", { name: "Закрыть день" })).toBeInTheDocument();
+    });
+
+    it("does not show a Закрыть день button while the day is closed", async () => {
+      stubApi({ ...snapshot([freeConsole(1)]), business_day_open: false });
+      renderHall();
+
+      await waitFor(() => expect(screen.getByText("День не открыт. Открыть?")).toBeInTheDocument());
+      expect(screen.queryByRole("button", { name: "Закрыть день" })).not.toBeInTheDocument();
+    });
+
+    it("opens the close-day dialog listing an active session, and finishing it reaches the reconciliation screen", async () => {
+      let hall = snapshot([paidConsole(1, 7, 0)]);
+      const fetchMock = vi.fn(async (url: string) => {
+        if (url === "/api/hall") return { ok: true, json: async () => hall };
+        if (url === "/api/settings") return { ok: true, json: async () => ({ grace_minutes: 3, warn_minutes: 5 }) };
+        if (url === "/api/sessions/7/stop") {
+          hall = snapshot([freeConsole(1)]);
+          return { ok: true, json: async () => ({ id: 7, status: "finished", balance: 0 }) };
+        }
+        if (url.endsWith("/summary")) {
+          return {
+            ok: true,
+            json: async () => ({
+              opening_cash: 5000, cash_total: 0, qr_total: 0, transfer_total: 0, expected_cash: 5000,
+              sessions_count: 1, minutes_total: 10, bar_sales_total: 0, has_active_sessions: false,
+            }),
+          };
+        }
+        return { ok: true, json: async () => ({}) };
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      renderHall();
+
+      await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "Закрыть день" }));
+
+      await waitFor(() =>
+        expect(screen.getByText("Нельзя закрыть день, пока есть незавершённые сессии.")).toBeInTheDocument(),
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Завершить" }));
+
+      await waitFor(() => expect(screen.getByText("Наличные ожидается: 5000 сом")).toBeInTheDocument());
     });
   });
 });

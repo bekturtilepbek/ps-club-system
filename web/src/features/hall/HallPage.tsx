@@ -7,6 +7,7 @@ import { formatSom } from "@/lib/format";
 import { useAuth } from "@/features/auth/useAuth";
 import { BarDialog } from "./BarDialog";
 import { BusinessDayGuard } from "./BusinessDayGuard";
+import { CloseBusinessDayDialog } from "./CloseBusinessDayDialog";
 import { ConsoleCard } from "./ConsoleCard";
 import { ExtendSessionDialog } from "./ExtendSessionDialog";
 import { PaymentDialog } from "./PaymentDialog";
@@ -28,7 +29,8 @@ type DialogState =
   // in the hall snapshot, so its balance comes from the stop response and is
   // tracked here; the charge is frozen once stopped, so only payments made
   // through this dialog change it.
-  | { kind: "settle"; sessionId: number; balance: number };
+  | { kind: "settle"; sessionId: number; balance: number }
+  | { kind: "close-day" };
 
 export function HallPage() {
   const { logout } = useAuth();
@@ -65,6 +67,15 @@ export function HallPage() {
     action().catch(() => setActionError(ACTION_ERROR));
   }
 
+  function finishSession(sessionId: number) {
+    runSessionAction(async () => {
+      const stopped = await stop(sessionId);
+      if (stopped.balance > 0) {
+        setDialog({ kind: "settle", sessionId: stopped.id, balance: stopped.balance });
+      }
+    });
+  }
+
   const openTicketMutation = useMutation({
     mutationFn: api.openTicket,
     onSuccess: (created) => {
@@ -77,9 +88,16 @@ export function HallPage() {
     <div data-testid="hall-page" className="min-h-screen p-4">
       <header className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-semibold">Зал</h1>
-        <Button variant="ghost" size="sm" onClick={() => logout().catch(() => {})}>
-          Выйти
-        </Button>
+        <div className="flex items-center gap-2">
+          {hall?.business_day_open && (
+            <Button variant="outline" size="sm" onClick={() => setDialog({ kind: "close-day" })}>
+              Закрыть день
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={() => logout().catch(() => {})}>
+            Выйти
+          </Button>
+        </div>
       </header>
 
       {actionError && <p className="mb-4 text-sm text-red-600">{actionError}</p>}
@@ -99,15 +117,7 @@ export function HallPage() {
                   warnMinutes={warnMinutes}
                   onStart={() => setDialog({ kind: "start", consoleId: consoleView.id })}
                   onExtend={() => session && setDialog({ kind: "extend", sessionId: session.id })}
-                  onStop={() =>
-                    session &&
-                    runSessionAction(async () => {
-                      const stopped = await stop(session.id);
-                      if (stopped.balance > 0) {
-                        setDialog({ kind: "settle", sessionId: stopped.id, balance: stopped.balance });
-                      }
-                    })
-                  }
+                  onStop={() => session && finishSession(session.id)}
                   onCancel={() =>
                     session &&
                     runSessionAction(async () => {
@@ -202,6 +212,16 @@ export function HallPage() {
             const remaining = dialog.balance - amount;
             setDialog(remaining > 0 ? { ...dialog, balance: remaining } : { kind: "none" });
           }}
+        />
+      )}
+      {dialog.kind === "close-day" && hall && hall.business_day_id != null && (
+        <CloseBusinessDayDialog
+          open
+          businessDayId={hall.business_day_id}
+          hall={hall}
+          onOpenChange={(open) => !open && closeDialog()}
+          onFinishSession={finishSession}
+          onClosed={closeDialog}
         />
       )}
     </div>

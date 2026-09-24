@@ -8,3 +8,9 @@ export function formatDuration(ms: number): string {
 export function formatSom(amount: number): string {
   return `${amount} сом`;
 }
+
+export function formatHoursMinutes(totalMinutes: number): string {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours} ч ${minutes} мин`;
+}
