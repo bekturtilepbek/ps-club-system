@@ -16,6 +16,8 @@ export function LoginPage() {
     setSubmitting(true);
     try {
       await login(password);
+    } catch {
+      // error already surfaces via loginError
     } finally {
       setSubmitting(false);
     }
