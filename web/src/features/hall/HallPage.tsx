@@ -62,7 +62,7 @@ export function HallPage() {
     <div data-testid="hall-page" className="min-h-screen p-4">
       <header className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-semibold">Зал</h1>
-        <Button variant="ghost" size="sm" onClick={() => logout()}>
+        <Button variant="ghost" size="sm" onClick={() => logout().catch(() => {})}>
           Выйти
         </Button>
       </header>
