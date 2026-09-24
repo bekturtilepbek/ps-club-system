@@ -26,6 +26,7 @@ interface ConsoleCardProps {
   onStop: () => void;
   onCancel: () => void;
   onPay: () => void;
+  onBar: () => void;
 }
 
 export function ConsoleCard({
@@ -37,6 +38,7 @@ export function ConsoleCard({
   onStop,
   onCancel,
   onPay,
+  onBar,
 }: ConsoleCardProps) {
   const timing = computeCardTiming(consoleView, nowMs, warnMinutes);
   useAlertSound(timing.status);
@@ -44,7 +46,7 @@ export function ConsoleCard({
   const session = consoleView.session;
   const isOvertime = timing.status === "package_overtime";
   const isWarn = timing.status === "package_warn";
-  const canCancel = session != null && new Date(session.grace_until).getTime() > nowMs;
+  const canCancel = session?.grace_until != null && new Date(session.grace_until).getTime() > nowMs;
 
   return (
     <Card
@@ -91,6 +93,9 @@ export function ConsoleCard({
             )}
             <Button onClick={onStop} size="sm" variant="outline">
               Стоп
+            </Button>
+            <Button onClick={onBar} size="sm" variant="outline">
+              Бар
             </Button>
             {canCancel && (
               <Button onClick={onCancel} size="sm" variant="ghost">

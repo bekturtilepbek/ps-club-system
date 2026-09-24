@@ -9,6 +9,8 @@ export type AuthStatusResponse = components["schemas"]["AuthStatusResponse"];
 export type TariffResponse = components["schemas"]["TariffResponse"];
 export type SessionKind = components["schemas"]["SessionKind"];
 export type PaymentMethod = components["schemas"]["PaymentMethod"];
+export type ProductResponse = components["schemas"]["ProductResponse"];
+export type OrderResponse = components["schemas"]["OrderResponse"];
 
 export class ApiError extends Error {
   status: number;
@@ -69,4 +71,12 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ amount, method }),
     }),
+  products: () => request<ProductResponse[]>("/api/products"),
+  addOrder: (sessionId: number, productId: number, qty: number) =>
+    request<OrderResponse>(`/api/sessions/${sessionId}/orders`, {
+      method: "POST",
+      body: JSON.stringify({ product_id: productId, qty }),
+    }),
+  removeOrder: (orderId: number) => request(`/api/orders/${orderId}`, { method: "DELETE" }),
+  openTicket: () => request<SessionResponse>("/api/tickets", { method: "POST" }),
 };

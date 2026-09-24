@@ -2,19 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-from core.api.schemas.sessions import SegmentResponse
-from core.db.models import SessionKind, SessionStatus
+from core.api.schemas.sessions import SessionResponse, build_session_response
 from core.services.hall import HallSnapshot
-
-
-class HallSessionResponse(BaseModel):
-    id: int
-    kind: SessionKind
-    reason: str | None
-    status: SessionStatus
-    started_at: datetime
-    grace_until: datetime
-    segments: list[SegmentResponse]
 
 
 class HallConsoleResponse(BaseModel):
@@ -22,7 +11,7 @@ class HallConsoleResponse(BaseModel):
     zone_id: int
     name: str
     is_active: bool
-    session: HallSessionResponse | None
+    session: SessionResponse | None
     charge_total: int
     paid_total: int
     balance: int
@@ -32,6 +21,7 @@ class HallSnapshotResponse(BaseModel):
     generated_at: datetime
     business_day_open: bool
     consoles: list[HallConsoleResponse]
+    tickets: list[SessionResponse]
 
 
 def hall_snapshot_to_response(snapshot: HallSnapshot) -> HallSnapshotResponse:
@@ -39,14 +29,8 @@ def hall_snapshot_to_response(snapshot: HallSnapshot) -> HallSnapshotResponse:
     for view in snapshot.consoles:
         session_response = None
         if view.session is not None:
-            session_response = HallSessionResponse(
-                id=view.session.id,
-                kind=view.session.kind,
-                reason=view.session.reason,
-                status=view.session.status,
-                started_at=view.session.started_at,
-                grace_until=view.session.grace_until,
-                segments=[SegmentResponse.model_validate(s) for s in view.session.segments],
+            session_response = build_session_response(
+                view.session, charge_total=view.charge_total, paid_total=view.paid_total
             )
         consoles.append(
             HallConsoleResponse(
@@ -60,8 +44,13 @@ def hall_snapshot_to_response(snapshot: HallSnapshot) -> HallSnapshotResponse:
                 balance=view.balance,
             )
         )
+    tickets = [
+        build_session_response(t.session, charge_total=t.charge_total, paid_total=t.paid_total)
+        for t in snapshot.tickets
+    ]
     return HallSnapshotResponse(
         generated_at=snapshot.generated_at,
         business_day_open=snapshot.business_day_open,
         consoles=consoles,
+        tickets=tickets,
     )

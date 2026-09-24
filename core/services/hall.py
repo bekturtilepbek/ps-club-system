@@ -23,10 +23,19 @@ class ConsoleHallView:
 
 
 @dataclass(frozen=True)
+class TicketHallView:
+    session: SessionModel
+    charge_total: int
+    paid_total: int
+    balance: int
+
+
+@dataclass(frozen=True)
 class HallSnapshot:
     generated_at: datetime
     business_day_open: bool
     consoles: list[ConsoleHallView]
+    tickets: list[TicketHallView]
 
 
 async def build_hall_snapshot(db: AsyncSession, now: datetime) -> HallSnapshot:
@@ -36,7 +45,9 @@ async def build_hall_snapshot(db: AsyncSession, now: datetime) -> HallSnapshot:
     sessions_result = await db.execute(
         select(SessionModel).where(SessionModel.status == SessionStatus.active)
     )
-    active_by_console = {s.console_id: s for s in sessions_result.scalars().all()}
+    active_sessions = sessions_result.scalars().all()
+    active_by_console = {s.console_id: s for s in active_sessions if s.console_id is not None}
+    ticket_sessions = [s for s in active_sessions if s.console_id is None]
 
     views: list[ConsoleHallView] = []
     for console in consoles:
@@ -59,5 +70,17 @@ async def build_hall_snapshot(db: AsyncSession, now: datetime) -> HallSnapshot:
             )
         )
 
+    tickets: list[TicketHallView] = []
+    for session in ticket_sessions:
+        charge = await payments_service.session_charge_total(db, session.id, now)
+        paid = await payments_service.session_paid_total(db, session.id)
+        tickets.append(
+            TicketHallView(
+                session=session, charge_total=charge, paid_total=paid, balance=charge - paid
+            )
+        )
+
     day = await business_days.get_open_business_day(db)
-    return HallSnapshot(generated_at=now, business_day_open=day is not None, consoles=views)
+    return HallSnapshot(
+        generated_at=now, business_day_open=day is not None, consoles=views, tickets=tickets
+    )

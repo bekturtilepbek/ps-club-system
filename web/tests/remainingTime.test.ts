@@ -32,6 +32,7 @@ function consoleWithSession(overrides: Partial<HallConsoleResponse["session"]> =
           ...overrides,
         },
       ],
+      orders: [],
       ...overrides,
     },
   } as HallConsoleResponse;
@@ -175,5 +176,19 @@ describe("computeCardTiming", () => {
     // Strictly increasing as time passes — never stuck at a fixed value.
     expect(ninetySecondsOver.overtimeMs!).toBeGreaterThan(oneSecondOver.overtimeMs!);
     expect(tenMinutesOver.overtimeMs!).toBeGreaterThan(ninetySecondsOver.overtimeMs!);
+  });
+
+  it("includes bar orders in the live open-time charge", () => {
+    const console = consoleWithSession({ kind: "open", ends_at: null, amount: null, price_snapshot: 120 } as never);
+    console.session!.orders = [
+      { id: 1, session_id: 1, product_id: 1, qty: 2, unit_price: 80, created_at: "2026-01-01T10:00:00+06:00" },
+    ];
+    console.charge_total = 0;
+    console.paid_total = 0;
+    const startMs = new Date("2026-01-01T10:03:00+06:00").getTime();
+
+    const timing = computeCardTiming(console, startMs + 30 * 60_000, WARN_MINUTES);
+    // 30 min at 2 som/min (120/h) = 60, plus 2 colas at 80 = 160 → 220 total.
+    expect(timing.chargeTotal).toBe(220);
   });
 });

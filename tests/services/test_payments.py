@@ -204,3 +204,51 @@ async def test_add_payment_rejects_a_non_positive_amount(db_session):
         await add_payment(
             db_session, session_id=session.id, amount=-10, method=PaymentMethod.cash, now=T
         )
+
+
+@pytest.mark.asyncio
+async def test_charge_total_includes_bar_orders_on_a_paid_session(db_session):
+    from core.db.models import Product
+    from core.services.bar import add_order
+
+    console_id, package_id = await _setup(db_session)
+    session = await start_session(
+        db_session,
+        console_id=console_id,
+        kind=SessionKind.paid,
+        tariff_id=package_id,
+        reason=None,
+        comment=None,
+        now=T,
+    )
+    cola = Product(name="Кола", price=80, is_active=True)
+    db_session.add(cola)
+    await db_session.flush()
+
+    await add_order(db_session, session_id=session.id, product_id=cola.id, qty=2, now=T)
+
+    assert await session_charge_total(db_session, session.id, now=T) == 150 + 160
+
+
+@pytest.mark.asyncio
+async def test_free_session_still_charges_for_bar_orders(db_session):
+    from core.db.models import Product
+    from core.services.bar import add_order
+
+    console_id, _ = await _setup(db_session)
+    session = await start_session(
+        db_session,
+        console_id=console_id,
+        kind=SessionKind.free,
+        tariff_id=None,
+        reason="друг владельца",
+        comment=None,
+        now=T,
+    )
+    water = Product(name="Вода", price=50, is_active=True)
+    db_session.add(water)
+    await db_session.flush()
+
+    await add_order(db_session, session_id=session.id, product_id=water.id, qty=1, now=T)
+
+    assert await session_charge_total(db_session, session.id, now=T) == 50

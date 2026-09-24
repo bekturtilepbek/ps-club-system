@@ -7,6 +7,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from core.api.admin import register_admin
 from core.api.errors import register_exception_handlers
 from core.api.routes.auth import router as auth_router
+from core.api.routes.bar import orders_router, products_router
 from core.api.routes.business_days import router as business_days_router
 from core.api.routes.hall import router as hall_router
 from core.api.routes.hall_ws import router as hall_ws_router
@@ -14,6 +15,7 @@ from core.api.routes.health import router as health_router
 from core.api.routes.sessions import router as sessions_router
 from core.api.routes.settings import router as settings_router
 from core.api.routes.tariffs import router as tariffs_router
+from core.api.routes.tickets import router as tickets_router
 from core.api.ws.listener import hall_listener
 from core.config import DEV_ADMIN_PASSWORD_HASH, DEV_SESSION_SECRET, Settings, settings
 from core.db.session import engine
@@ -69,6 +71,9 @@ def create_app() -> FastAPI:
     app.include_router(tariffs_router, prefix="/api")
     app.include_router(business_days_router, prefix="/api")
     app.include_router(sessions_router, prefix="/api")
+    app.include_router(tickets_router, prefix="/api")
+    app.include_router(products_router, prefix="/api")
+    app.include_router(orders_router, prefix="/api")
     app.include_router(hall_router, prefix="/api")
     app.include_router(hall_ws_router, prefix="/api")
     return app

@@ -26,11 +26,15 @@ function paidConsole(id: number, sessionId: number, balance: number): HallConsol
     is_active: true,
     session: {
       id: sessionId,
+      console_id: id,
+      business_day_id: 1,
       kind: "paid",
       reason: null,
       status: "active",
       started_at: new Date(now - 10 * 60_000).toISOString(),
       grace_until: new Date(now - 7 * 60_000).toISOString(),
+      ended_at: null,
+      comment: null,
       segments: [
         {
           id: 1,
@@ -42,6 +46,10 @@ function paidConsole(id: number, sessionId: number, balance: number): HallConsol
           amount: 300,
         },
       ],
+      orders: [],
+      charge_total: 300,
+      paid_total: 300 - balance,
+      balance,
     },
     charge_total: 300,
     paid_total: 300 - balance,
@@ -49,8 +57,32 @@ function paidConsole(id: number, sessionId: number, balance: number): HallConsol
   };
 }
 
-function snapshot(consoles: HallConsoleResponse[]): HallSnapshotResponse {
-  return { generated_at: new Date().toISOString(), business_day_open: true, consoles };
+function ticket(id: number, balance: number, orders: HallSnapshotResponse["tickets"][number]["orders"] = []): HallSnapshotResponse["tickets"][number] {
+  const now = new Date().toISOString();
+  return {
+    id,
+    console_id: null,
+    business_day_id: 1,
+    kind: "paid",
+    reason: null,
+    status: "active",
+    started_at: now,
+    grace_until: null, // a ticket has no grace period (Task 4)
+    ended_at: null,
+    comment: null,
+    segments: [],
+    orders,
+    charge_total: orders.reduce((sum, o) => sum + o.qty * o.unit_price, 0),
+    paid_total: orders.reduce((sum, o) => sum + o.qty * o.unit_price, 0) - balance,
+    balance,
+  };
+}
+
+function snapshot(
+  consoles: HallConsoleResponse[],
+  tickets: HallSnapshotResponse["tickets"] = [],
+): HallSnapshotResponse {
+  return { generated_at: new Date().toISOString(), business_day_open: true, consoles, tickets };
 }
 
 function stubApi(hall: HallSnapshotResponse | "pending") {
@@ -61,6 +93,7 @@ function stubApi(hall: HallSnapshotResponse | "pending") {
     }
     if (url === "/api/settings") return { ok: true, json: async () => ({ grace_minutes: 3, warn_minutes: 5 }) };
     if (url === "/api/tariffs") return { ok: true, json: async () => [] };
+    if (url === "/api/products") return { ok: true, json: async () => [] };
     if (url === "/api/auth/logout") return { ok: true, json: async () => ({ authenticated: false }) };
     return { ok: true, json: async () => ({}) };
   });
@@ -242,5 +275,113 @@ describe("HallPage", () => {
       queryClient.setQueryData(HALL_QUERY_KEY, snapshot([freeConsole(1)]));
     });
     await waitFor(() => expect(screen.queryByText(/Оплата — остаток/)).not.toBeInTheDocument());
+  });
+
+  it("opens the settle dialog when cancelling a session with an unpaid bar tab", async () => {
+    const now = Date.now();
+    const withinGraceConsole = paidConsole(1, 7, 300);
+    withinGraceConsole.session!.grace_until = new Date(now + 60_000).toISOString();
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/hall") return { ok: true, json: async () => snapshot([withinGraceConsole]) };
+      if (url === "/api/settings") return { ok: true, json: async () => ({ grace_minutes: 3, warn_minutes: 5 }) };
+      if (url === "/api/products") return { ok: true, json: async () => [] };
+      if (url === "/api/sessions/7/cancel") {
+        return { ok: true, json: async () => ({ id: 7, status: "cancelled", balance: 80 }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderHall();
+
+    await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Отменить" }));
+
+    await waitFor(() => expect(screen.getByText("Оплата — остаток 80 сом")).toBeInTheDocument());
+  });
+
+  it("opens the bar dialog for a console session", async () => {
+    stubApi(snapshot([paidConsole(1, 7, 300)]));
+    renderHall();
+
+    await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Бар" }));
+    await waitFor(() => expect(screen.getByText("Бар — на счету 0 сом")).toBeInTheDocument());
+  });
+
+  describe("продажа без игры", () => {
+    it("opens a new ticket's bar dialog right after creating it", async () => {
+      let hall = snapshot([]);
+      const fetchMock = vi.fn(async (url: string) => {
+        if (url === "/api/hall") return { ok: true, json: async () => hall };
+        if (url === "/api/settings") return { ok: true, json: async () => ({ grace_minutes: 3, warn_minutes: 5 }) };
+        if (url === "/api/products") return { ok: true, json: async () => [] };
+        if (url === "/api/tickets") {
+          const created = ticket(9, 0);
+          hall = snapshot([], [created]);
+          return { ok: true, json: async () => created };
+        }
+        return { ok: true, json: async () => ({}) };
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      renderHall();
+
+      await waitFor(() => expect(screen.getByText("Продажа без игры")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "+ Продажа" }));
+
+      await waitFor(() => expect(screen.getByText("Бар — на счету 0 сом")).toBeInTheDocument());
+    });
+
+    it("shows an error when creating a new ticket fails", async () => {
+      const fetchMock = vi.fn(async (url: string) => {
+        if (url === "/api/hall") return { ok: true, json: async () => snapshot([]) };
+        if (url === "/api/settings") return { ok: true, json: async () => ({ grace_minutes: 3, warn_minutes: 5 }) };
+        if (url === "/api/products") return { ok: true, json: async () => [] };
+        if (url === "/api/tickets") return { ok: false, status: 409, json: async () => ({ detail: "no open business day" }) };
+        return { ok: true, json: async () => ({}) };
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      renderHall();
+
+      await waitFor(() => expect(screen.getByText("Продажа без игры")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "+ Продажа" }));
+
+      await waitFor(() =>
+        expect(screen.getByText("Не удалось выполнить действие. Попробуйте ещё раз.")).toBeInTheDocument(),
+      );
+    });
+
+    it("lets the operator pay off an open ticket", async () => {
+      stubApi(snapshot([], [ticket(9, 150)]));
+      renderHall();
+
+      await waitFor(() => expect(screen.getByText(/Чек №9/)).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "Оплатить" }));
+
+      await waitFor(() => expect(screen.getByText("Оплата — остаток 150 сом")).toBeInTheDocument());
+    });
+
+    it("finishes a fully paid ticket", async () => {
+      const fetchMock = stubApi(snapshot([], [ticket(9, 0)]));
+      renderHall();
+
+      await waitFor(() => expect(screen.getByText(/Чек №9/)).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "Завершить" }));
+
+      await waitFor(() =>
+        expect(fetchMock.mock.calls.some(([url]) => url === "/api/sessions/9/stop")).toBe(true),
+      );
+    });
+
+    it("allows finishing an overpaid ticket (negative balance)", async () => {
+      const fetchMock = stubApi(snapshot([], [ticket(9, -20)]));
+      renderHall();
+
+      await waitFor(() => expect(screen.getByText(/Чек №9/)).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "Завершить" }));
+
+      await waitFor(() =>
+        expect(fetchMock.mock.calls.some(([url]) => url === "/api/sessions/9/stop")).toBe(true),
+      );
+    });
   });
 });

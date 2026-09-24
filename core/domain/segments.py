@@ -41,5 +41,5 @@ def next_segment_start(now: datetime, active: ActiveSegment | None) -> datetime:
     return max(now, active.starts_at)
 
 
-def is_within_grace(now: datetime, grace_until_at: datetime) -> bool:
-    return now <= grace_until_at
+def is_within_grace(now: datetime, grace_until_at: datetime | None) -> bool:
+    return grace_until_at is not None and now <= grace_until_at
