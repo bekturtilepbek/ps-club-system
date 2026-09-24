@@ -13,7 +13,8 @@ interface PaymentDialogProps {
   sessionId: number;
   balance: number;
   onOpenChange: (open: boolean) => void;
-  onPaid: () => void;
+  /** Called after each successful payment with the amount just recorded. */
+  onPaid: (amount: number) => void;
 }
 
 const METHODS: { value: PaymentMethod; label: string }[] = [
@@ -28,10 +29,10 @@ export function PaymentDialog({ open, sessionId, balance, onOpenChange, onPaid }
   const queryClient = useQueryClient();
 
   const payMutation = useMutation({
-    mutationFn: () => api.paySession(sessionId, Number(amount), method),
-    onSuccess: () => {
+    mutationFn: (paidAmount: number) => api.paySession(sessionId, paidAmount, method),
+    onSuccess: (_payment, paidAmount) => {
       queryClient.invalidateQueries({ queryKey: HALL_QUERY_KEY });
-      onPaid();
+      onPaid(paidAmount);
       setAmount("");
     },
   });
@@ -73,7 +74,7 @@ export function PaymentDialog({ open, sessionId, balance, onOpenChange, onPaid }
         )}
 
         <DialogFooter>
-          <Button onClick={() => payMutation.mutate()} disabled={!isValidAmount || payMutation.isPending}>
+          <Button onClick={() => payMutation.mutate(amountValue)} disabled={!isValidAmount || payMutation.isPending}>
             Внести
           </Button>
         </DialogFooter>

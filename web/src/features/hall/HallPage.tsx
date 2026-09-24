@@ -19,7 +19,12 @@ type DialogState =
   | { kind: "none" }
   | { kind: "start"; consoleId: number }
   | { kind: "extend"; sessionId: number }
-  | { kind: "pay"; sessionId: number };
+  | { kind: "pay"; sessionId: number }
+  // Paying off a session this tab just stopped. A finished session is no longer
+  // in the hall snapshot, so its balance comes from the stop response and is
+  // tracked here; the charge is frozen once stopped, so only payments made
+  // through this dialog change it.
+  | { kind: "settle"; sessionId: number; balance: number };
 
 export function HallPage() {
   const { logout } = useAuth();
@@ -79,7 +84,15 @@ export function HallPage() {
                   warnMinutes={warnMinutes}
                   onStart={() => setDialog({ kind: "start", consoleId: consoleView.id })}
                   onExtend={() => session && setDialog({ kind: "extend", sessionId: session.id })}
-                  onStop={() => session && runSessionAction(() => stop(session.id))}
+                  onStop={() =>
+                    session &&
+                    runSessionAction(async () => {
+                      const stopped = await stop(session.id);
+                      if (stopped.balance > 0) {
+                        setDialog({ kind: "settle", sessionId: stopped.id, balance: stopped.balance });
+                      }
+                    })
+                  }
                   onCancel={() => session && runSessionAction(() => cancel(session.id))}
                   onPay={() => session && setDialog({ kind: "pay", sessionId: session.id })}
                 />
@@ -114,6 +127,18 @@ export function HallPage() {
           balance={payTarget.balance}
           onOpenChange={(open) => !open && closeDialog()}
           onPaid={() => {}}
+        />
+      )}
+      {dialog.kind === "settle" && (
+        <PaymentDialog
+          open
+          sessionId={dialog.sessionId}
+          balance={dialog.balance}
+          onOpenChange={(open) => !open && closeDialog()}
+          onPaid={(amount) => {
+            const remaining = dialog.balance - amount;
+            setDialog(remaining > 0 ? { ...dialog, balance: remaining } : { kind: "none" });
+          }}
         />
       )}
     </div>

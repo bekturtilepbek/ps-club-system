@@ -156,6 +156,80 @@ describe("HallPage", () => {
     expect(fetchMock.mock.calls.some(([url]) => url === "/api/sessions/7/stop")).toBe(true);
   });
 
+  describe("settling a stopped session", () => {
+    // Stopping finishes the session, so it drops out of the hall snapshot; the
+    // final balance only exists in the stop response itself.
+    function stubStop(stopBalance: number) {
+      let hall = snapshot([paidConsole(1, 7, 300)]);
+      const fetchMock = vi.fn(async (url: string) => {
+        if (url === "/api/hall") return { ok: true, json: async () => hall };
+        if (url === "/api/settings") return { ok: true, json: async () => ({ grace_minutes: 3, warn_minutes: 5 }) };
+        if (url === "/api/sessions/7/stop") {
+          hall = snapshot([freeConsole(1)]);
+          return { ok: true, json: async () => ({ id: 7, status: "finished", balance: stopBalance }) };
+        }
+        if (url === "/api/sessions/7/payments") return { ok: true, json: async () => ({ id: 1 }) };
+        return { ok: true, json: async () => ({}) };
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      return fetchMock;
+    }
+
+    it("opens the payment dialog with the final balance after a stop, even once the session leaves the hall", async () => {
+      stubStop(150);
+      const queryClient = renderHall();
+
+      await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "Стоп" }));
+
+      await waitFor(() => expect(screen.getByText("Оплата — остаток 150 сом")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText("Свободна")).toBeInTheDocument());
+      act(() => {
+        queryClient.setQueryData(HALL_QUERY_KEY, snapshot([freeConsole(1)]));
+      });
+      expect(screen.getByText("Оплата — остаток 150 сом")).toBeInTheDocument();
+    });
+
+    it("tracks the remaining balance across a split settlement and closes once it is paid off", async () => {
+      const fetchMock = stubStop(150);
+      renderHall();
+
+      await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "Стоп" }));
+      await waitFor(() => expect(screen.getByText("Оплата — остаток 150 сом")).toBeInTheDocument());
+
+      fireEvent.change(screen.getByLabelText("Сумма"), { target: { value: "100" } });
+      fireEvent.click(screen.getByRole("button", { name: "Внести" }));
+      await waitFor(() => expect(screen.getByText("Оплата — остаток 50 сом")).toBeInTheDocument());
+
+      fireEvent.change(screen.getByLabelText("Сумма"), { target: { value: "50" } });
+      fireEvent.click(screen.getByRole("button", { name: "QR" }));
+      fireEvent.click(screen.getByRole("button", { name: "Внести" }));
+      await waitFor(() => expect(screen.queryByText(/Оплата — остаток/)).not.toBeInTheDocument());
+
+      const calls = fetchMock.mock.calls as unknown as [string, RequestInit | undefined][];
+      const payments = calls
+        .filter(([url]) => url === "/api/sessions/7/payments")
+        .map(([, init]) => JSON.parse(init!.body as string));
+      expect(payments).toEqual([
+        { amount: 100, method: "cash" },
+        { amount: 50, method: "qr" },
+      ]);
+    });
+
+    it("does not open the payment dialog when the stopped session is already paid", async () => {
+      const fetchMock = stubStop(0);
+      renderHall();
+
+      await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "Стоп" }));
+
+      await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => url === "/api/sessions/7/stop")).toBe(true));
+      await waitFor(() => expect(screen.getByText("Свободна")).toBeInTheDocument());
+      expect(screen.queryByText(/Оплата — остаток/)).not.toBeInTheDocument();
+    });
+  });
+
   it("closes the payment dialog when its session leaves the hall", async () => {
     stubApi(snapshot([paidConsole(1, 7, 300)]));
     const queryClient = renderHall();

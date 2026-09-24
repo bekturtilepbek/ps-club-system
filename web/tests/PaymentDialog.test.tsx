@@ -22,7 +22,7 @@ describe("PaymentDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Наличные" }));
     fireEvent.click(screen.getByRole("button", { name: "Внести" }));
 
-    await waitFor(() => expect(onPaid).toHaveBeenCalled());
+    await waitFor(() => expect(onPaid).toHaveBeenCalledWith(100));
     const calls = fetchMock.mock.calls as unknown as [string, RequestInit][];
     const payCall = calls.find(([url]) => url === "/api/sessions/5/payments");
     expect(JSON.parse(payCall![1].body as string)).toEqual({ amount: 100, method: "cash" });
