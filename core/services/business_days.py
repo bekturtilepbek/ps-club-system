@@ -22,8 +22,10 @@ async def open_business_day(db: AsyncSession, *, opening_cash: int, now: datetim
     db.add(day)
     try:
         await db.commit()
-    except IntegrityError:
+    except IntegrityError as exc:
         await db.rollback()
+        if "ux_business_days_one_open" not in str(exc.orig):
+            raise
         raise ConflictError("business day already open") from None
     await db.refresh(day)
     return day

@@ -106,8 +106,10 @@ async def start_session(
     db.add(session)
     try:
         await db.flush()  # assigns session.id, needed below before it's committed
-    except IntegrityError:
+    except IntegrityError as exc:
         await db.rollback()
+        if "ux_sessions_one_active_per_console" not in str(exc.orig):
+            raise
         raise ConflictError(f"console {console_id} already has an active session") from None
 
     if kind == SessionKind.free:
