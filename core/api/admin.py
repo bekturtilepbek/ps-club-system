@@ -44,14 +44,36 @@ class TariffAdmin(ModelView, model=Tariff):
     ]
     can_delete = False
 
+    async def on_model_change(
+        self, data: dict, model: Any, is_created: bool, request: Request
+    ) -> None:
+        # Runs before the change is committed — model still holds the old values
+        # here. Stashed on request.state (per-request, safe under concurrent admin
+        # edits) so after_model_change can build a before/after pair below; a plain
+        # instance attribute on TariffAdmin would leak between concurrent requests,
+        # since SQLAdmin reuses one TariffAdmin instance for every request.
+        if not is_created:
+            request.state.tariff_before = {
+                "name": model.name,
+                "kind": model.kind.value if model.kind else None,
+                "duration_min": model.duration_min,
+                "price": model.price,
+                "hourly_rate": model.hourly_rate,
+                "is_active": model.is_active,
+            }
+
     async def after_model_change(
         self, data: dict, model: Any, is_created: bool, request: Request
     ) -> None:
+        details: dict[str, Any] = {"after": {k: v for k, v in data.items() if k != "id"}}
+        before = getattr(request.state, "tariff_before", None)
+        if before is not None:
+            details["before"] = before
         await _write_audit_log(
             action="tariff_create" if is_created else "tariff_update",
             entity="tariff",
             entity_id=model.id,
-            details={k: v for k, v in data.items() if k != "id"},
+            details=details,
         )
 
 
