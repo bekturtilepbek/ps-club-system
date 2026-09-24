@@ -33,7 +33,10 @@ export function useHallSnapshot() {
       }
       return snapshot;
     },
-    refetchInterval: connected ? false : 5000,
+    // Fast poll while the socket is down. While it is up, still refetch slowly as a
+    // safety net: the socket can stay open even if the server's LISTEN connection to
+    // Postgres died, and then no pushes would ever arrive.
+    refetchInterval: connected ? 60_000 : 5000,
   });
 
   useEffect(() => {

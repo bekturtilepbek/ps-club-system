@@ -54,11 +54,13 @@ describe("useHallSnapshot", () => {
     const { result } = renderHook(() => useHallSnapshot(), { wrapper });
 
     const socket = FakeWebSocket.instances[0];
-    socket.emitOpen();
-    socket.emitMessage({
-      generated_at: new Date().toISOString(),
-      business_day_open: true,
-      consoles: [{ id: 1, zone_id: 1, name: "PS5-1", is_active: true, session: null, charge_total: 0, paid_total: 0, balance: 0 }],
+    act(() => {
+      socket.emitOpen();
+      socket.emitMessage({
+        generated_at: new Date().toISOString(),
+        business_day_open: true,
+        consoles: [{ id: 1, zone_id: 1, name: "PS5-1", is_active: true, session: null, charge_total: 0, paid_total: 0, balance: 0 }],
+      });
     });
 
     await waitFor(() => expect(result.current.connected).toBe(true));
@@ -81,6 +83,33 @@ describe("useHallSnapshot", () => {
     const socket = FakeWebSocket.instances[0];
     act(() => socket.emitOpen());
     await waitFor(() => expect(result.current.connected).toBe(true));
+  });
+
+  it("polls every 5 s while disconnected and only every 60 s as a safety net once connected", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ generated_at: new Date().toISOString(), business_day_open: false, consoles: [] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("WebSocket", FakeWebSocket as unknown as typeof WebSocket);
+
+    renderHook(() => useHallSnapshot(), { wrapper });
+    await act(() => vi.advanceTimersByTimeAsync(0));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // Disconnected: fast poll.
+    await act(() => vi.advanceTimersByTimeAsync(5000));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    // Connected: no fast poll any more...
+    act(() => FakeWebSocket.instances[0].emitOpen());
+    await act(() => vi.advanceTimersByTimeAsync(59_000));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    // ...but a slow safety refetch still happens, in case pushes silently stopped.
+    await act(() => vi.advanceTimersByTimeAsync(1000));
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it("reconnects with a growing backoff and resets it after a successful open", async () => {
