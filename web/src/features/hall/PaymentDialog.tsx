@@ -36,6 +36,8 @@ export function PaymentDialog({ open, sessionId, balance, onOpenChange, onPaid }
     },
   });
 
+  const paymentFailed = payMutation.isError;
+
   const amountValue = Number(amount);
   const isValidAmount = Number.isFinite(amountValue) && amountValue > 0;
 
@@ -65,6 +67,10 @@ export function PaymentDialog({ open, sessionId, balance, onOpenChange, onPaid }
             ))}
           </div>
         </div>
+
+        {paymentFailed && (
+          <p className="text-sm text-red-600">Не удалось провести оплату. Попробуйте ещё раз.</p>
+        )}
 
         <DialogFooter>
           <Button onClick={() => payMutation.mutate()} disabled={!isValidAmount || payMutation.isPending}>
