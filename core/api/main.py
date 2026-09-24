@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -6,17 +8,31 @@ from core.api.errors import register_exception_handlers
 from core.api.routes.auth import router as auth_router
 from core.api.routes.business_days import router as business_days_router
 from core.api.routes.hall import router as hall_router
+from core.api.routes.hall_ws import router as hall_ws_router
 from core.api.routes.health import router as health_router
 from core.api.routes.sessions import router as sessions_router
 from core.api.routes.settings import router as settings_router
 from core.api.routes.tariffs import router as tariffs_router
+from core.api.ws.listener import hall_listener
 from core.config import settings
+from core.db.session import engine
 
 SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30  # 30 days — one login per till PC per month
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await hall_listener.start()
+    try:
+        yield
+    finally:
+        await hall_listener.stop()
+        # Pooled asyncpg connections are bound to this event loop; close them with it.
+        await engine.dispose()
+
+
 def create_app() -> FastAPI:
-    app = FastAPI(title="PS Club API")
+    app = FastAPI(title="PS Club API", lifespan=lifespan)
     app.add_middleware(
         SessionMiddleware,
         secret_key=settings.session_secret,
@@ -33,6 +49,7 @@ def create_app() -> FastAPI:
     app.include_router(business_days_router, prefix="/api")
     app.include_router(sessions_router, prefix="/api")
     app.include_router(hall_router, prefix="/api")
+    app.include_router(hall_ws_router, prefix="/api")
     return app
 
 

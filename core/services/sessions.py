@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -123,6 +123,7 @@ async def start_session(
             )
         )
 
+    await db.execute(text("NOTIFY hall_changed"))
     await db.commit()
     await db.refresh(session)
     return session
@@ -171,6 +172,7 @@ async def extend_session(
         )
 
     session.segments.append(_new_segment_from_tariff(tariff, starts_at=start))
+    await db.execute(text("NOTIFY hall_changed"))
     await db.commit()
     await db.refresh(session)
     return session
@@ -228,6 +230,7 @@ async def stop_session(db: AsyncSession, *, session_id: int, now: datetime) -> S
 
     session.status = SessionStatus.finished
     session.ended_at = now
+    await db.execute(text("NOTIFY hall_changed"))
     await db.commit()
     await db.refresh(session)
     return session
@@ -258,6 +261,7 @@ async def cancel_session(db: AsyncSession, *, session_id: int, now: datetime) ->
             created_at=now,
         )
     )
+    await db.execute(text("NOTIFY hall_changed"))
     await db.commit()
     await db.refresh(session)
     return session

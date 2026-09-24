@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.models import Payment, PaymentMethod, SessionKind
@@ -60,6 +60,7 @@ async def add_payment(
         created_at=now,
     )
     db.add(payment)
+    await db.execute(text("NOTIFY hall_changed"))
     await db.commit()
     await db.refresh(payment)
     return payment

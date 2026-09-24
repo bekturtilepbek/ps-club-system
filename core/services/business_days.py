@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,6 +21,7 @@ async def open_business_day(db: AsyncSession, *, opening_cash: int, now: datetim
     day = BusinessDay(opened_at=now, opening_cash=opening_cash)
     db.add(day)
     try:
+        await db.execute(text("NOTIFY hall_changed"))
         await db.commit()
     except IntegrityError as exc:
         await db.rollback()
@@ -60,6 +61,7 @@ async def close_business_day(
     day.closed_at = now
     day.expected_cash = day.opening_cash + cash_total
     day.counted_cash = counted_cash
+    await db.execute(text("NOTIFY hall_changed"))
     await db.commit()
     await db.refresh(day)
     return day
