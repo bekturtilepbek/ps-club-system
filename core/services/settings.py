@@ -19,7 +19,7 @@ def _parse_int_setting(key: str, value: str | None, default: int) -> int:
     if value is None:
         return default
     try:
-        return int(value)
+        parsed = int(value)
     except ValueError:
         logger.warning(
             "setting %r has a non-numeric value %r, using default %d",
@@ -28,6 +28,15 @@ def _parse_int_setting(key: str, value: str | None, default: int) -> int:
             default,
         )
         return default
+    if parsed < 0:
+        logger.warning(
+            "setting %r has a negative value %r, using default %d",
+            key,
+            value,
+            default,
+        )
+        return default
+    return parsed
 
 
 async def get_grace_minutes(db: AsyncSession) -> int:

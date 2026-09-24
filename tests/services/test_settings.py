@@ -36,3 +36,19 @@ async def test_get_warn_minutes_falls_back_to_default_on_a_non_numeric_value(db_
     await db_session.commit()
 
     assert await get_warn_minutes(db_session) == DEFAULT_WARN_MINUTES
+
+
+@pytest.mark.asyncio
+async def test_get_grace_minutes_falls_back_to_default_on_a_negative_value(db_session):
+    db_session.add(Setting(key="grace_minutes", value="-5"))
+    await db_session.commit()
+
+    assert await get_grace_minutes(db_session) == DEFAULT_GRACE_MINUTES
+
+
+@pytest.mark.asyncio
+async def test_get_grace_minutes_accepts_zero(db_session):
+    db_session.add(Setting(key="grace_minutes", value="0"))
+    await db_session.commit()
+
+    assert await get_grace_minutes(db_session) == 0
