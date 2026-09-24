@@ -74,4 +74,37 @@ describe("BarDialog", () => {
 
     expect(screen.getByText("Бар — на счету 160 сом")).toBeInTheDocument();
   });
+
+  it("shows an error when adding an item fails", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/products") {
+        return { ok: true, json: async () => [{ id: 1, name: "Кола", price: 80, is_active: true }] };
+      }
+      return { ok: false, status: 400, json: async () => ({ detail: "product not found" }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderDialog([]);
+
+    await waitFor(() => expect(screen.getByText("Кола")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("Кола"));
+
+    await waitFor(() =>
+      expect(screen.getByText("Не удалось добавить товар. Попробуйте ещё раз.")).toBeInTheDocument(),
+    );
+  });
+
+  it("shows an error when removing an item fails", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/products") return { ok: true, json: async () => [] };
+      return { ok: false, status: 404, json: async () => ({ detail: "order not found" }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderDialog([order({ id: 7 })]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Убрать" }));
+
+    await waitFor(() =>
+      expect(screen.getByText("Не удалось убрать товар. Попробуйте ещё раз.")).toBeInTheDocument(),
+    );
+  });
 });

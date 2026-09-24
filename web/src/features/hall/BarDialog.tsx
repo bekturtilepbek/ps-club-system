@@ -82,6 +82,13 @@ export function BarDialog({ open, sessionId, orders, onOpenChange }: BarDialogPr
           ))}
         </div>
 
+        {addMutation.isError && (
+          <p className="text-sm text-red-600">Не удалось добавить товар. Попробуйте ещё раз.</p>
+        )}
+        {removeMutation.isError && (
+          <p className="text-sm text-red-600">Не удалось убрать товар. Попробуйте ещё раз.</p>
+        )}
+
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Готово

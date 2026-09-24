@@ -331,6 +331,25 @@ describe("HallPage", () => {
       await waitFor(() => expect(screen.getByText("Бар — на счету 0 сом")).toBeInTheDocument());
     });
 
+    it("shows an error when creating a new ticket fails", async () => {
+      const fetchMock = vi.fn(async (url: string) => {
+        if (url === "/api/hall") return { ok: true, json: async () => snapshot([]) };
+        if (url === "/api/settings") return { ok: true, json: async () => ({ grace_minutes: 3, warn_minutes: 5 }) };
+        if (url === "/api/products") return { ok: true, json: async () => [] };
+        if (url === "/api/tickets") return { ok: false, status: 409, json: async () => ({ detail: "no open business day" }) };
+        return { ok: true, json: async () => ({}) };
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      renderHall();
+
+      await waitFor(() => expect(screen.getByText("Продажа без игры")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "+ Продажа" }));
+
+      await waitFor(() =>
+        expect(screen.getByText("Не удалось выполнить действие. Попробуйте ещё раз.")).toBeInTheDocument(),
+      );
+    });
+
     it("lets the operator pay off an open ticket", async () => {
       stubApi(snapshot([], [ticket(9, 150)]));
       renderHall();

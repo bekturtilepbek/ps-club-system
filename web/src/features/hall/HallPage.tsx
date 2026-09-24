@@ -127,7 +127,7 @@ export function HallPage() {
           <section className="mt-6">
             <div className="mb-2 flex items-center justify-between">
               <h2 className="text-lg font-semibold">Продажа без игры</h2>
-              <Button size="sm" variant="outline" onClick={() => openTicketMutation.mutate()}>
+              <Button size="sm" variant="outline" onClick={() => runSessionAction(() => openTicketMutation.mutateAsync())}>
                 + Продажа
               </Button>
             </div>
