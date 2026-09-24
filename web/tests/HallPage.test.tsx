@@ -450,5 +450,28 @@ describe("HallPage", () => {
 
       await waitFor(() => expect(screen.getByText("Наличные ожидается: 5000 сом")).toBeInTheDocument());
     });
+
+    it("opens the history dialog and shows a closed day", async () => {
+      const fetchMock = vi.fn(async (url: string) => {
+        if (url === "/api/hall") return { ok: true, json: async () => snapshot([freeConsole(1)]) };
+        if (url === "/api/settings") return { ok: true, json: async () => ({ grace_minutes: 3, warn_minutes: 5 }) };
+        if (url === "/api/business-days?limit=30") {
+          return {
+            ok: true,
+            json: async () => [
+              { id: 2, opened_at: "2026-09-23T04:00:00Z", closed_at: "2026-09-23T20:00:00Z", opening_cash: 1000, expected_cash: 1200, counted_cash: 1200 },
+            ],
+          };
+        }
+        return { ok: true, json: async () => ({}) };
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      renderHall();
+
+      await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "История дней" }));
+
+      await waitFor(() => expect(screen.getByText(/Начало: 1000 сом/)).toBeInTheDocument());
+    });
   });
 });

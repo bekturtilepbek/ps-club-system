@@ -7,6 +7,7 @@ import { formatSom } from "@/lib/format";
 import { useAuth } from "@/features/auth/useAuth";
 import { BarDialog } from "./BarDialog";
 import { BusinessDayGuard } from "./BusinessDayGuard";
+import { BusinessDayHistoryDialog } from "./BusinessDayHistoryDialog";
 import { CloseBusinessDayDialog } from "./CloseBusinessDayDialog";
 import { ConsoleCard } from "./ConsoleCard";
 import { ExtendSessionDialog } from "./ExtendSessionDialog";
@@ -30,7 +31,8 @@ type DialogState =
   // tracked here; the charge is frozen once stopped, so only payments made
   // through this dialog change it.
   | { kind: "settle"; sessionId: number; balance: number }
-  | { kind: "close-day" };
+  | { kind: "close-day" }
+  | { kind: "history" };
 
 export function HallPage() {
   const { logout } = useAuth();
@@ -89,6 +91,9 @@ export function HallPage() {
       <header className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-semibold">Зал</h1>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setDialog({ kind: "history" })}>
+            История дней
+          </Button>
           {hall?.business_day_open && (
             <Button variant="outline" size="sm" onClick={() => setDialog({ kind: "close-day" })}>
               Закрыть день
@@ -223,6 +228,9 @@ export function HallPage() {
           onFinishSession={finishSession}
           onClosed={closeDialog}
         />
+      )}
+      {dialog.kind === "history" && (
+        <BusinessDayHistoryDialog open onOpenChange={(open) => !open && closeDialog()} />
       )}
     </div>
   );
