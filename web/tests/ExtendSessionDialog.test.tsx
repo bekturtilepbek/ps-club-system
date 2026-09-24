@@ -37,4 +37,34 @@ describe("ExtendSessionDialog", () => {
     const extendCall = calls.find(([url]) => url === "/api/sessions/5/extend");
     expect(JSON.parse(extendCall![1].body as string)).toEqual({ tariff_id: 2 });
   });
+
+  it("shows an error message when extending fails", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/tariffs") {
+        return {
+          ok: true,
+          json: async () => [
+            { id: 2, zone_id: 1, kind: "open", name: "Открытое время", duration_min: null, price: null, hourly_rate: 120, is_active: true },
+          ],
+        };
+      }
+      return { ok: false, status: 409, json: async () => ({ detail: "session is not active" }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const queryClient = new QueryClient();
+    const onExtended = vi.fn();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ExtendSessionDialog open sessionId={5} onOpenChange={() => {}} onExtended={onExtended} />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText(/Открытое время/)).toBeInTheDocument());
+    fireEvent.click(screen.getByText(/Открытое время/));
+    fireEvent.click(screen.getByRole("button", { name: "Продлить" }));
+
+    await waitFor(() => expect(screen.getByText("Не удалось продлить сессию. Попробуйте ещё раз.")).toBeInTheDocument());
+    expect(onExtended).not.toHaveBeenCalled();
+  });
 });

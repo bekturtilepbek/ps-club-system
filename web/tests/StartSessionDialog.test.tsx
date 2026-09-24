@@ -41,4 +41,27 @@ describe("StartSessionDialog", () => {
     expect(startCall).toBeTruthy();
     expect(JSON.parse(startCall![1].body as string)).toMatchObject({ console_id: 1, kind: "paid", tariff_id: 1 });
   });
+
+  it("shows an error message when starting the session fails", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/tariffs") {
+        return {
+          ok: true,
+          json: async () => [
+            { id: 1, zone_id: 1, kind: "package", name: "1 час", duration_min: 60, price: 150, hourly_rate: null, is_active: true },
+          ],
+        };
+      }
+      return { ok: false, status: 409, json: async () => ({ detail: "no open business day" }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { onStarted } = renderDialog();
+
+    await waitFor(() => expect(screen.getByText("1 час — 150 сом")).toBeInTheDocument());
+    fireEvent.click(screen.getByText("1 час — 150 сом"));
+    fireEvent.click(screen.getByRole("button", { name: "Начать" }));
+
+    await waitFor(() => expect(screen.getByText("Не удалось начать сессию. Попробуйте ещё раз.")).toBeInTheDocument());
+    expect(onStarted).not.toHaveBeenCalled();
+  });
 });

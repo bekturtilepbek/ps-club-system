@@ -90,6 +90,10 @@ export function StartSessionDialog({ open, consoleId, onOpenChange, onStarted }:
           )}
         </div>
 
+        {startMutation.isError && (
+          <p className="text-sm text-red-600">Не удалось начать сессию. Попробуйте ещё раз.</p>
+        )}
+
         <DialogFooter>
           <Button
             onClick={() => startMutation.mutate()}

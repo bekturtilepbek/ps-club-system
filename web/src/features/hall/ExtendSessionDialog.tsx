@@ -48,6 +48,10 @@ export function ExtendSessionDialog({ open, sessionId, onOpenChange, onExtended 
           ))}
         </div>
 
+        {extendMutation.isError && (
+          <p className="text-sm text-red-600">Не удалось продлить сессию. Попробуйте ещё раз.</p>
+        )}
+
         <DialogFooter>
           <Button onClick={() => extendMutation.mutate()} disabled={tariffId === null || extendMutation.isPending}>
             Продлить
