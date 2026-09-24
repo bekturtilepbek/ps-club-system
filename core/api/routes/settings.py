@@ -14,4 +14,6 @@ async def get_public_settings(db: AsyncSession = Depends(get_session)) -> Public
     return PublicSettingsResponse(
         grace_minutes=await settings_service.get_grace_minutes(db),
         warn_minutes=await settings_service.get_warn_minutes(db),
+        planned_open=await settings_service.get_planned_open(db),
+        planned_close=await settings_service.get_planned_close(db),
     )

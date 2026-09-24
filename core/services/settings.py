@@ -8,6 +8,8 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_GRACE_MINUTES = 3
 DEFAULT_WARN_MINUTES = 5
+DEFAULT_PLANNED_OPEN = "10:00"
+DEFAULT_PLANNED_CLOSE = "05:00"
 
 
 async def get_setting(db: AsyncSession, key: str) -> str | None:
@@ -47,3 +49,28 @@ async def get_grace_minutes(db: AsyncSession) -> int:
 async def get_warn_minutes(db: AsyncSession) -> int:
     value = await get_setting(db, "warn_minutes")
     return _parse_int_setting("warn_minutes", value, DEFAULT_WARN_MINUTES)
+
+
+def _parse_time_setting(key: str, value: str | None, default: str) -> str:
+    candidate = value if value is not None else default
+    try:
+        hours_str, minutes_str = candidate.split(":")
+        hours, minutes = int(hours_str), int(minutes_str)
+        if not (0 <= hours <= 23 and 0 <= minutes <= 59):
+            raise ValueError
+    except (ValueError, AttributeError):
+        logger.warning(
+            "setting %r has an invalid time value %r, using default %r", key, candidate, default
+        )
+        return default
+    return f"{hours:02d}:{minutes:02d}"
+
+
+async def get_planned_open(db: AsyncSession) -> str:
+    value = await get_setting(db, "planned_open")
+    return _parse_time_setting("planned_open", value, DEFAULT_PLANNED_OPEN)
+
+
+async def get_planned_close(db: AsyncSession) -> str:
+    value = await get_setting(db, "planned_close")
+    return _parse_time_setting("planned_close", value, DEFAULT_PLANNED_CLOSE)
