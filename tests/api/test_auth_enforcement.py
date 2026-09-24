@@ -35,3 +35,9 @@ async def test_tariffs_requires_auth(anonymous_client):
 async def test_logged_in_client_can_reach_protected_routes(client):
     response = await client.get("/api/settings")
     assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_hall_requires_auth(anonymous_client):
+    response = await anonymous_client.get("/api/hall")
+    assert response.status_code == 401
