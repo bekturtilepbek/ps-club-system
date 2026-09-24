@@ -473,5 +473,41 @@ describe("HallPage", () => {
 
       await waitFor(() => expect(screen.getByText(/Начало: 1000 сом/)).toBeInTheDocument());
     });
+
+    it("returns to the close-day dialog after settling a debt incurred while finishing a session from it", async () => {
+      let hall = snapshot([paidConsole(1, 7, 150)]);
+      const fetchMock = vi.fn(async (url: string) => {
+        if (url === "/api/hall") return { ok: true, json: async () => hall };
+        if (url === "/api/settings") return { ok: true, json: async () => ({ grace_minutes: 3, warn_minutes: 5 }) };
+        if (url === "/api/sessions/7/stop") {
+          hall = snapshot([freeConsole(1)]);
+          return { ok: true, json: async () => ({ id: 7, status: "finished", balance: 150 }) };
+        }
+        if (url === "/api/sessions/7/payments") return { ok: true, json: async () => ({ id: 1 }) };
+        if (url.endsWith("/summary")) {
+          return {
+            ok: true,
+            json: async () => ({
+              opening_cash: 5000, cash_total: 0, qr_total: 0, transfer_total: 0, expected_cash: 5000,
+              sessions_count: 1, minutes_total: 10, bar_sales_total: 0, has_active_sessions: false,
+            }),
+          };
+        }
+        return { ok: true, json: async () => ({}) };
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      renderHall();
+
+      await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "Закрыть день" }));
+      await waitFor(() => expect(screen.getByRole("button", { name: "Завершить" })).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "Завершить" }));
+
+      await waitFor(() => expect(screen.getByText("Оплата — остаток 150 сом")).toBeInTheDocument());
+      fireEvent.change(screen.getByLabelText("Сумма"), { target: { value: "150" } });
+      fireEvent.click(screen.getByRole("button", { name: "Внести" }));
+
+      await waitFor(() => expect(screen.getByText("Наличные ожидается: 5000 сом")).toBeInTheDocument());
+    });
   });
 });

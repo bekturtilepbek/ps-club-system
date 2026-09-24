@@ -18,6 +18,8 @@ interface CloseBusinessDayDialogProps {
   open: boolean;
   businessDayId: number;
   hall: HallSnapshotResponse;
+  error: string | null;
+  pending: boolean;
   onOpenChange: (open: boolean) => void;
   onFinishSession: (sessionId: number) => void;
   onClosed: () => void;
@@ -27,6 +29,8 @@ export function CloseBusinessDayDialog({
   open,
   businessDayId,
   hall,
+  error,
+  pending,
   onOpenChange,
   onFinishSession,
   onClosed,
@@ -87,11 +91,17 @@ export function CloseBusinessDayDialog({
                 <span>
                   {entry.label} — {formatSom(entry.balance)}
                 </span>
-                <Button size="sm" variant="outline" onClick={() => onFinishSession(entry.sessionId)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={pending}
+                  onClick={() => onFinishSession(entry.sessionId)}
+                >
                   Завершить
                 </Button>
               </div>
             ))}
+            {error && <p className="text-sm text-red-600">{error}</p>}
           </div>
         ) : summary === undefined ? (
           <div>Загрузка…</div>

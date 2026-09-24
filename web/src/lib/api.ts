@@ -8,6 +8,7 @@ export type BusinessDaySummaryResponse = components["schemas"]["BusinessDaySumma
 export type PublicSettingsResponse = components["schemas"]["PublicSettingsResponse"];
 export type AuthStatusResponse = components["schemas"]["AuthStatusResponse"];
 export type TariffResponse = components["schemas"]["TariffResponse"];
+export type SegmentResponse = components["schemas"]["SegmentResponse"];
 export type SessionKind = components["schemas"]["SessionKind"];
 export type PaymentMethod = components["schemas"]["PaymentMethod"];
 export type ProductResponse = components["schemas"]["ProductResponse"];

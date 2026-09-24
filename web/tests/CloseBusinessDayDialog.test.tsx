@@ -75,6 +75,8 @@ function renderDialog(hall: HallSnapshotResponse, onFinishSession = vi.fn(), onC
         open
         businessDayId={1}
         hall={hall}
+        error={null}
+        pending={false}
         onOpenChange={() => {}}
         onFinishSession={onFinishSession}
         onClosed={onClosed}
@@ -146,5 +148,34 @@ describe("CloseBusinessDayDialog", () => {
     const calls = fetchMock.mock.calls as unknown as [string, RequestInit][];
     const closeCall = calls.find(([url]) => url === "/api/business-days/1/close");
     expect(JSON.parse(closeCall![1].body as string)).toEqual({ counted_cash: 5300 });
+  });
+
+  it("shows an error message and disables Завершить buttons while a finish is pending", () => {
+    stubSummaryFetch();
+    const hall: HallSnapshotResponse = {
+      generated_at: new Date().toISOString(),
+      business_day_open: true,
+      business_day_id: 1,
+      consoles: [activeConsole(2, 10, 150)],
+      tickets: [],
+    };
+    const queryClient = new QueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <CloseBusinessDayDialog
+          open
+          businessDayId={1}
+          hall={hall}
+          error="Не удалось выполнить действие. Попробуйте ещё раз."
+          pending
+          onOpenChange={() => {}}
+          onFinishSession={() => {}}
+          onClosed={() => {}}
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByText("Не удалось выполнить действие. Попробуйте ещё раз.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Завершить" })).toBeDisabled();
   });
 });

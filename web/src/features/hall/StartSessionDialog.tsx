@@ -15,6 +15,7 @@ import { formatSom } from "@/lib/format";
 import { serverNow } from "@/lib/clock";
 import { HALL_QUERY_KEY } from "./useHallSnapshot";
 import { packageEndsAfterPlannedClose } from "./plannedClose";
+import { LatePackageWarning } from "./LatePackageWarning";
 
 interface StartSessionDialogProps {
   open: boolean;
@@ -107,11 +108,7 @@ export function StartSessionDialog({ open, consoleId, onOpenChange, onStarted }:
           )}
         </div>
 
-        {showsLateWarning && (
-          <p className="text-sm text-amber-600">
-            Пакет закончится после планового закрытия ({plannedClose}). Решение — за администратором.
-          </p>
-        )}
+        {showsLateWarning && <LatePackageWarning plannedClose={plannedClose} />}
 
         {startMutation.isError && (
           <p className="text-sm text-red-600">Не удалось начать сессию. Попробуйте ещё раз.</p>

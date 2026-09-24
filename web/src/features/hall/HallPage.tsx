@@ -30,7 +30,7 @@ type DialogState =
   // in the hall snapshot, so its balance comes from the stop response and is
   // tracked here; the charge is frozen once stopped, so only payments made
   // through this dialog change it.
-  | { kind: "settle"; sessionId: number; balance: number }
+  | { kind: "settle"; sessionId: number; balance: number; returnTo?: "close-day" }
   | { kind: "close-day" }
   | { kind: "history" };
 
@@ -38,7 +38,7 @@ export function HallPage() {
   const { logout } = useAuth();
   const { data: hall } = useHallSnapshot();
   const settingsQuery = useQuery({ queryKey: ["settings"], queryFn: api.settings });
-  const { stop, cancel } = useSessionActions();
+  const { stop, cancel, stopping } = useSessionActions();
   const queryClient = useQueryClient();
   const [dialog, setDialog] = useState<DialogState>({ kind: "none" });
   const [actionError, setActionError] = useState<string | null>(null);
@@ -69,11 +69,13 @@ export function HallPage() {
     action().catch(() => setActionError(ACTION_ERROR));
   }
 
-  function finishSession(sessionId: number) {
+  function finishSession(sessionId: number, returnTo?: "close-day") {
     runSessionAction(async () => {
       const stopped = await stop(sessionId);
       if (stopped.balance > 0) {
-        setDialog({ kind: "settle", sessionId: stopped.id, balance: stopped.balance });
+        setDialog({ kind: "settle", sessionId: stopped.id, balance: stopped.balance, returnTo });
+      } else if (returnTo === "close-day") {
+        setDialog({ kind: "close-day" });
       }
     });
   }
@@ -186,6 +188,7 @@ export function HallPage() {
         <ExtendSessionDialog
           open
           sessionId={extendTarget.id}
+          segments={extendTarget.segments}
           onOpenChange={(open) => !open && closeDialog()}
           onExtended={closeDialog}
         />
@@ -212,10 +215,17 @@ export function HallPage() {
           open
           sessionId={dialog.sessionId}
           balance={dialog.balance}
-          onOpenChange={(open) => !open && closeDialog()}
+          onOpenChange={(open) => {
+            if (open) return;
+            setDialog(dialog.returnTo === "close-day" ? { kind: "close-day" } : { kind: "none" });
+          }}
           onPaid={(amount) => {
             const remaining = dialog.balance - amount;
-            setDialog(remaining > 0 ? { ...dialog, balance: remaining } : { kind: "none" });
+            if (remaining > 0) {
+              setDialog({ ...dialog, balance: remaining });
+            } else {
+              setDialog(dialog.returnTo === "close-day" ? { kind: "close-day" } : { kind: "none" });
+            }
           }}
         />
       )}
@@ -224,8 +234,10 @@ export function HallPage() {
           open
           businessDayId={hall.business_day_id}
           hall={hall}
+          error={actionError}
+          pending={stopping}
           onOpenChange={(open) => !open && closeDialog()}
-          onFinishSession={finishSession}
+          onFinishSession={(sessionId) => finishSession(sessionId, "close-day")}
           onClosed={closeDialog}
         />
       )}

@@ -30,3 +30,23 @@ export function packageEndsAfterPlannedClose(
   const packageEndMs = packageStartMs + durationMin * 60_000;
   return packageEndMs > nextPlannedCloseMs(packageStartMs, plannedClose);
 }
+
+export interface SegmentTiming {
+  kind: string;
+  starts_at: string;
+  ends_at: string | null;
+}
+
+/**
+ * Where a new segment would start if the session were extended right now — mirrors
+ * `core/domain/segments.py`'s `next_segment_start` (advisory only; see the module note
+ * on `packageEndsAfterPlannedClose` above — this is not the real billing calculation).
+ */
+export function estimateExtendStartMs(nowMs: number, lastSegment: SegmentTiming | undefined): number {
+  if (!lastSegment) return nowMs;
+  if (lastSegment.kind === "package") {
+    const endsAtMs = lastSegment.ends_at ? new Date(lastSegment.ends_at).getTime() : nowMs;
+    return Math.max(endsAtMs, nowMs);
+  }
+  return Math.max(nowMs, new Date(lastSegment.starts_at).getTime());
+}
