@@ -29,13 +29,13 @@ def warn_about_dev_secrets(config: Settings) -> None:
     club's only till offline."""
     if config.session_secret == DEV_SESSION_SECRET:
         logger.warning(
-            "SESSION_SECRET is still the development default — anyone with the repo can "
+            "SESSION_SECRET is still the development default - anyone with the repo can "
             "forge a login cookie. Set a random value in .env before a real deployment "
             "(see .env.example)."
         )
     if config.admin_password_hash == DEV_ADMIN_PASSWORD_HASH:
         logger.warning(
-            "ADMIN_PASSWORD_HASH is still the development default — the password is "
+            "ADMIN_PASSWORD_HASH is still the development default - the password is "
             "'admin'. Set a real hash in .env before a real deployment (see .env.example)."
         )
 
