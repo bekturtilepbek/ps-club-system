@@ -9,3 +9,5 @@ web/src/types/api.ts
 .pytest_cache/
 .ruff_cache/
 *.egg-info/
+.worktrees/
+.superpowers/
