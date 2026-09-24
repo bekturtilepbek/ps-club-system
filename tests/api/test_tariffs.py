@@ -7,7 +7,9 @@ async def _seed_tariffs(db):
     zone = Zone(name="Зал", is_active=True)
     db.add(zone)
     await db.flush()
-    db.add(Tariff(zone_id=zone.id, kind=TariffKind.package, name="1 час", duration_min=60, price=150))
+    db.add(
+        Tariff(zone_id=zone.id, kind=TariffKind.package, name="1 час", duration_min=60, price=150)
+    )
     db.add(Tariff(zone_id=zone.id, kind=TariffKind.open, name="Открытое время", hourly_rate=120))
     db.add(
         Tariff(
