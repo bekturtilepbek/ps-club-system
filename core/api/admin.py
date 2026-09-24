@@ -4,7 +4,10 @@ from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Request
 from sqladmin import Admin, ModelView
+from sqladmin.authentication import AuthenticationBackend
+from starlette.responses import RedirectResponse
 
+from core.auth.password import verify_password
 from core.config import settings
 from core.db.models import AuditLog, Console, Product, Setting, Tariff, Zone
 from core.db.session import async_session_factory, engine
@@ -106,8 +109,27 @@ class SettingAdmin(ModelView, model=Setting):
         )
 
 
+class AdminAuth(AuthenticationBackend):
+    async def login(self, request: Request) -> bool:
+        form = await request.form()
+        password = form.get("password")
+        if not password or not verify_password(str(password), settings.admin_password_hash):
+            return False
+        request.session["authenticated"] = True
+        return True
+
+    async def logout(self, request: Request) -> bool:
+        request.session.clear()
+        return True
+
+    async def authenticate(self, request: Request) -> bool | RedirectResponse:
+        return bool(request.session.get("authenticated"))
+
+
 def register_admin(app: FastAPI) -> Admin:
-    admin = Admin(app, engine)
+    admin = Admin(
+        app, engine, authentication_backend=AdminAuth(secret_key=settings.session_secret)
+    )
     admin.add_view(ZoneAdmin)
     admin.add_view(ConsoleAdmin)
     admin.add_view(TariffAdmin)

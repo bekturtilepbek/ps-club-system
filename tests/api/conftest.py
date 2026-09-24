@@ -1,4 +1,5 @@
 import os
+from collections.abc import AsyncGenerator
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -14,8 +15,7 @@ TEST_DATABASE_URL = os.environ.get(
 )
 
 
-@pytest_asyncio.fixture
-async def client():
+async def _build_client(*, auto_login: bool) -> AsyncGenerator[AsyncClient, None]:
     engine = create_async_engine(TEST_DATABASE_URL)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
@@ -30,7 +30,23 @@ async def client():
     app.dependency_overrides[get_session] = override_get_session
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        if auto_login:
+            await ac.post("/api/auth/login", json={"password": "admin"})
         yield ac
 
     app.dependency_overrides.clear()
     await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def client():
+    """Authenticated client — every Stage 2 test and most Stage 3 tests use this."""
+    async for ac in _build_client(auto_login=True):
+        yield ac
+
+
+@pytest_asyncio.fixture
+async def anonymous_client():
+    """Not logged in — for asserting protected routes reject unauthenticated requests."""
+    async for ac in _build_client(auto_login=False):
+        yield ac

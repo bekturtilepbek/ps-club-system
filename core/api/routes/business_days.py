@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.api.clock import now as _now
+from core.api.deps import require_auth
 from core.api.schemas.business_days import (
     BusinessDayCloseRequest,
     BusinessDayOpenRequest,
@@ -11,7 +12,9 @@ from core.db.session import get_session
 from core.services import business_days
 from core.services.errors import NotFoundError
 
-router = APIRouter(prefix="/business-days", tags=["business-days"])
+router = APIRouter(
+    prefix="/business-days", tags=["business-days"], dependencies=[Depends(require_auth)]
+)
 
 
 @router.post("/open", response_model=BusinessDayResponse)

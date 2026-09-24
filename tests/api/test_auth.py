@@ -2,8 +2,8 @@ import pytest
 
 
 @pytest.mark.asyncio
-async def test_me_without_login_is_not_authenticated(client):
-    response = await client.get("/api/auth/me")
+async def test_me_without_login_is_not_authenticated(anonymous_client):
+    response = await anonymous_client.get("/api/auth/me")
     assert response.status_code == 200
     assert response.json() == {"authenticated": False}
 

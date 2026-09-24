@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.api.clock import now as _now
+from core.api.deps import require_auth
 from core.api.schemas.payments import PaymentRequest, PaymentResponse
 from core.api.schemas.sessions import (
     SegmentResponse,
@@ -17,7 +18,7 @@ from core.services import payments as payments_service
 from core.services import sessions as sessions_service
 from core.services.errors import NotFoundError
 
-router = APIRouter(prefix="/sessions", tags=["sessions"])
+router = APIRouter(prefix="/sessions", tags=["sessions"], dependencies=[Depends(require_auth)])
 
 
 async def _to_response(db: AsyncSession, session: SessionModel, now: datetime) -> SessionResponse:

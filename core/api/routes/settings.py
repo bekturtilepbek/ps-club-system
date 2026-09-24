@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.api.deps import require_auth
 from core.api.schemas.settings import PublicSettingsResponse
 from core.db.session import get_session
 from core.services import settings as settings_service
 
-router = APIRouter(prefix="/settings", tags=["settings"])
+router = APIRouter(prefix="/settings", tags=["settings"], dependencies=[Depends(require_auth)])
 
 
 @router.get("", response_model=PublicSettingsResponse)
