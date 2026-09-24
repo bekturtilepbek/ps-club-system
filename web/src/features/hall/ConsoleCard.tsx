@@ -64,6 +64,12 @@ export function ConsoleCard({
       {timing.overtimeMs != null && (
         <div className="font-mono text-3xl text-red-600">+{formatDuration(timing.overtimeMs)}</div>
       )}
+      {timing.elapsedMs != null && (
+        <div>
+          <div className="text-xs text-muted-foreground">Прошло</div>
+          <div className="font-mono text-3xl">{formatDuration(timing.elapsedMs)}</div>
+        </div>
+      )}
       {session && (
         <div className="text-sm text-muted-foreground">
           Счёт: {formatSom(timing.chargeTotal)} · Остаток: {formatSom(timing.balance)}
