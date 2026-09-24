@@ -7,14 +7,24 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from core.db.models import (
     Console,
+    Order,
     Payment,
     PaymentMethod,
+    Product,
+    SegmentKind,
     Session,
     SessionKind,
+    SessionSegment,
     SessionStatus,
     Zone,
 )
-from core.services.business_days import close_business_day, get_open_business_day, open_business_day
+from core.services.business_days import (
+    close_business_day,
+    day_summary,
+    get_open_business_day,
+    list_business_days,
+    open_business_day,
+)
 from core.services.errors import ConflictError, NotFoundError
 
 T = datetime(2026, 9, 23, 10, 0, 0, tzinfo=UTC)
@@ -134,3 +144,104 @@ async def test_concurrent_opens_only_one_succeeds(db_session):
     assert len(successes) == 1
     assert len(failures) == 1
     assert isinstance(failures[0], ConflictError)
+
+
+@pytest.mark.asyncio
+async def test_day_summary_of_unknown_day_raises_not_found(db_session):
+    with pytest.raises(NotFoundError):
+        await day_summary(db_session, business_day_id=999, now=T)
+
+
+@pytest.mark.asyncio
+async def test_day_summary_breaks_down_payments_by_method(db_session):
+    day = await open_business_day(db_session, opening_cash=5000, now=T)
+    session_id = await _make_finished_session(db_session, day.id)
+    db_session.add_all(
+        [
+            Payment(
+                session_id=session_id, business_day_id=day.id, amount=300,
+                method=PaymentMethod.cash, created_at=T,
+            ),
+            Payment(
+                session_id=session_id, business_day_id=day.id, amount=200,
+                method=PaymentMethod.qr, created_at=T,
+            ),
+            Payment(
+                session_id=session_id, business_day_id=day.id, amount=100,
+                method=PaymentMethod.transfer, created_at=T,
+            ),
+        ]
+    )
+    await db_session.commit()
+
+    summary = await day_summary(db_session, business_day_id=day.id, now=T)
+
+    assert summary.opening_cash == 5000
+    assert summary.cash_total == 300
+    assert summary.qr_total == 200
+    assert summary.transfer_total == 100
+    assert summary.expected_cash == 5300
+    assert summary.has_active_sessions is False
+
+
+@pytest.mark.asyncio
+async def test_day_summary_counts_sessions_minutes_and_bar_sales_excluding_cancelled(db_session):
+    day = await open_business_day(db_session, opening_cash=5000, now=T)
+    zone = Zone(name="Зал", is_active=True)
+    db_session.add(zone)
+    await db_session.flush()
+    console = Console(zone_id=zone.id, name="PS5-1")
+    db_session.add(console)
+    await db_session.flush()
+    product = Product(name="Кола", price=80, is_active=True)
+    db_session.add(product)
+    await db_session.flush()
+
+    finished = Session(
+        console_id=console.id, business_day_id=day.id, kind=SessionKind.paid,
+        status=SessionStatus.finished, started_at=T, grace_until=T, ended_at=T + timedelta(hours=1),
+    )
+    finished.segments.append(
+        SessionSegment(
+            kind=SegmentKind.package, starts_at=T, ends_at=T + timedelta(hours=1),
+            price_snapshot=150, amount=150,
+        )
+    )
+    finished.orders.append(Order(product_id=product.id, qty=2, unit_price=80, created_at=T))
+    db_session.add(finished)
+
+    active = Session(
+        console_id=None, business_day_id=day.id, kind=SessionKind.paid,
+        status=SessionStatus.active, started_at=T, grace_until=None,
+    )
+    db_session.add(active)
+
+    cancelled = Session(
+        console_id=None, business_day_id=day.id, kind=SessionKind.paid,
+        status=SessionStatus.cancelled, started_at=T, grace_until=None, ended_at=T,
+    )
+    db_session.add(cancelled)
+    await db_session.commit()
+
+    summary = await day_summary(db_session, business_day_id=day.id, now=T + timedelta(hours=1))
+
+    assert summary.sessions_count == 2  # cancelled excluded
+    assert summary.minutes_total == 60  # only the finished session's 1h package segment
+    assert summary.bar_sales_total == 160
+    assert summary.has_active_sessions is True
+
+
+@pytest.mark.asyncio
+async def test_list_business_days_orders_newest_first_and_respects_limit(db_session):
+    first = await open_business_day(db_session, opening_cash=1000, now=T)
+    await close_business_day(
+        db_session, business_day_id=first.id, counted_cash=1000, now=T + timedelta(hours=1)
+    )
+    second = await open_business_day(db_session, opening_cash=2000, now=T + timedelta(hours=2))
+    await close_business_day(
+        db_session, business_day_id=second.id, counted_cash=2000, now=T + timedelta(hours=3)
+    )
+
+    days = await list_business_days(db_session, limit=1)
+
+    assert [d.id for d in days] == [second.id]

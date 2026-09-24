@@ -7,6 +7,7 @@ from core.api.schemas.business_days import (
     BusinessDayCloseRequest,
     BusinessDayOpenRequest,
     BusinessDayResponse,
+    BusinessDaySummaryResponse,
 )
 from core.db.session import get_session
 from core.services import business_days
@@ -42,3 +43,15 @@ async def close_day(
         counted_cash=body.counted_cash,
         now=_now(),
     )
+
+
+@router.get("/{business_day_id}/summary", response_model=BusinessDaySummaryResponse)
+async def business_day_summary(
+    business_day_id: int, db: AsyncSession = Depends(get_session)  # noqa: B008
+):
+    return await business_days.day_summary(db, business_day_id=business_day_id, now=_now())
+
+
+@router.get("", response_model=list[BusinessDayResponse])
+async def list_days(limit: int = 30, db: AsyncSession = Depends(get_session)):  # noqa: B008
+    return await business_days.list_business_days(db, limit=limit)
