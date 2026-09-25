@@ -274,3 +274,44 @@ async def test_list_business_days_orders_newest_first_and_respects_limit(db_sess
     days = await list_business_days(db_session, limit=1)
 
     assert [d.id for d in days] == [second.id]
+
+
+@pytest.mark.asyncio
+async def test_day_summary_breaks_out_free_and_service_minutes(db_session):
+    day = await open_business_day(db_session, opening_cash=5000, now=T)
+    zone = Zone(name="Зал", is_active=True)
+    db_session.add(zone)
+    await db_session.flush()
+    console = Console(zone_id=zone.id, name="PS5-1")
+    db_session.add(console)
+    await db_session.flush()
+
+    paid = Session(
+        console_id=console.id, business_day_id=day.id, kind=SessionKind.paid,
+        status=SessionStatus.finished, started_at=T, grace_until=T, ended_at=T + timedelta(hours=1),
+    )
+    paid.segments.append(
+        SessionSegment(
+            kind=SegmentKind.package, starts_at=T, ends_at=T + timedelta(hours=1),
+            price_snapshot=150, amount=150,
+        )
+    )
+    db_session.add(paid)
+
+    free = Session(
+        console_id=None, business_day_id=day.id, kind=SessionKind.free, reason="друг",
+        status=SessionStatus.finished, started_at=T, grace_until=T, ended_at=T + timedelta(minutes=30),
+    )
+    free.segments.append(
+        SessionSegment(
+            kind=SegmentKind.open, starts_at=T, ends_at=T + timedelta(minutes=30),
+            price_snapshot=0, amount=0,
+        )
+    )
+    db_session.add(free)
+    await db_session.commit()
+
+    summary = await day_summary(db_session, business_day_id=day.id, now=T + timedelta(hours=1))
+
+    assert summary.minutes_total == 90
+    assert summary.free_minutes_total == 30

@@ -5,7 +5,7 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.db.models import BusinessDay, Payment, PaymentMethod, SessionStatus
+from core.db.models import BusinessDay, Payment, PaymentMethod, SessionKind, SessionStatus
 from core.db.models import Session as SessionModel
 from core.services.errors import ConflictError, NotFoundError
 
@@ -77,6 +77,7 @@ class DaySummary:
     expected_cash: int
     sessions_count: int
     minutes_total: int
+    free_minutes_total: int
     bar_sales_total: int
     has_active_sessions: bool
 
@@ -109,14 +110,19 @@ async def day_summary(db: AsyncSession, *, business_day_id: int, now: datetime) 
     sessions = sessions_result.scalars().all()
 
     minutes_total = 0
+    free_minutes_total = 0
     bar_sales_total = 0
     has_active = False
     for session in sessions:
         if session.status == SessionStatus.active:
             has_active = True
+        session_minutes = 0
         for segment in session.segments:
             end = segment.ends_at or now
-            minutes_total += int((end - segment.starts_at).total_seconds() // 60)
+            session_minutes += int((end - segment.starts_at).total_seconds() // 60)
+        minutes_total += session_minutes
+        if session.kind != SessionKind.paid:
+            free_minutes_total += session_minutes
         for order in session.orders:
             bar_sales_total += order.qty * order.unit_price
 
@@ -128,6 +134,7 @@ async def day_summary(db: AsyncSession, *, business_day_id: int, now: datetime) 
         expected_cash=day.opening_cash + cash_total,
         sessions_count=len(sessions),
         minutes_total=minutes_total,
+        free_minutes_total=free_minutes_total,
         bar_sales_total=bar_sales_total,
         has_active_sessions=has_active,
     )
