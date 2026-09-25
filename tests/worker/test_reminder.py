@@ -46,7 +46,8 @@ async def test_sends_the_reminder_and_records_it_once_past_the_threshold(db_sess
     await db_session.commit()
     day = await open_business_day(db_session, opening_cash=5000, now=T)
 
-    due_at = T + timedelta(hours=20)  # planned_close (+19h, 05:00 next day) + 60min default threshold
+    # planned_close (+19h, 05:00 next day) + 60min default threshold
+    due_at = T + timedelta(hours=20)
     monkeypatch.setattr("core.worker.main._worker_now", lambda: due_at)
 
     await _check_unclosed_day_reminder_async()

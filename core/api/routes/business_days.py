@@ -37,7 +37,9 @@ async def notify_day_closed(db: AsyncSession, day: BusinessDay) -> None:
         text = format_day_summary(day, summary)
         await telegram.send_message(owner_chat_id, text)
     except Exception:
-        logger.exception("failed to send the day-close summary to Telegram (business_day_id=%s)", day.id)
+        logger.exception(
+            "failed to send the day-close summary to Telegram (business_day_id=%s)", day.id
+        )
 
 
 @router.post("/open", response_model=BusinessDayResponse)

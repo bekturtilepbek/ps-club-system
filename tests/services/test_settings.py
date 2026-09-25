@@ -2,7 +2,6 @@ import pytest
 
 from core.db.models import Setting
 from core.services.settings import (
-    DEFAULT_DAY_REMINDER_INTERVAL_MINUTES,
     DEFAULT_DAY_REMINDER_THRESHOLD_MINUTES,
     DEFAULT_GRACE_MINUTES,
     DEFAULT_PLANNED_CLOSE,

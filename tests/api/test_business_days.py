@@ -1,4 +1,12 @@
+from datetime import UTC, datetime
+
 import pytest
+
+from core.api.routes.business_days import notify_day_closed
+from core.db.models import Setting
+from core.services.business_days import close_business_day, open_business_day
+
+T = datetime(2026, 9, 25, 10, 0, tzinfo=UTC)
 
 
 @pytest.mark.asyncio
@@ -79,15 +87,6 @@ async def test_list_business_days_rejects_an_out_of_range_limit(client):
 async def test_list_business_days_rejects_a_limit_over_365(client):
     response = await client.get("/api/business-days?limit=400")
     assert response.status_code == 422
-
-
-from datetime import UTC, datetime
-
-from core.api.routes.business_days import notify_day_closed
-from core.db.models import Setting
-from core.services.business_days import close_business_day, open_business_day
-
-T = datetime(2026, 9, 25, 10, 0, tzinfo=UTC)
 
 
 @pytest.mark.asyncio
