@@ -301,7 +301,7 @@ payments          id, session_id, business_day_id, amount,
                   method (cash|qr|transfer), created_at
 audit_log         id, action, entity, entity_id, details (jsonb), created_at
 settings          ключ-значение: grace_minutes, warn_minutes,
-                  planned_open, planned_close, telegram_owner_chat_id …
+                  planned_open, planned_close, owner_chat_id …
 plug_events       (фаза 2) id, console_id, action, expected_state,
                   actual_state, power_w, success, error, created_at
 ```

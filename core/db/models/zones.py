@@ -11,6 +11,9 @@ class Zone(Base):
     name: Mapped[str] = mapped_column(String(100))
     is_active: Mapped[bool] = mapped_column(default=True)
 
+    def __str__(self) -> str:
+        return self.name
+
 
 class Console(Base):
     __tablename__ = "consoles"
