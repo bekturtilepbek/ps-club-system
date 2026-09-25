@@ -23,3 +23,4 @@ class BusinessDay(Base):
     opening_cash: Mapped[int] = mapped_column()
     expected_cash: Mapped[int | None] = mapped_column(default=None)
     counted_cash: Mapped[int | None] = mapped_column(default=None)
+    last_reminder_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
