@@ -29,15 +29,15 @@ router = APIRouter(
 async def notify_day_closed(db: AsyncSession, day: BusinessDay) -> None:
     """Best-effort: a Telegram outage must never turn a successful close into a
     failed HTTP request for the operator standing at the till."""
-    owner_chat_id = await settings_service.get_owner_chat_id(db)
-    if owner_chat_id is None:
-        return
     try:
+        owner_chat_id = await settings_service.get_owner_chat_id(db)
+        if owner_chat_id is None:
+            return
         summary = await business_days.day_summary(db, business_day_id=day.id, now=_now())
         text = format_day_summary(day, summary)
         await telegram.send_message(owner_chat_id, text)
     except Exception:
-        logger.exception("failed to send the day-close summary to Telegram")
+        logger.exception("failed to send the day-close summary to Telegram (business_day_id=%s)", day.id)
 
 
 @router.post("/open", response_model=BusinessDayResponse)
