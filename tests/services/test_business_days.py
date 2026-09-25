@@ -16,9 +16,11 @@ from core.db.models import (
     SessionKind,
     SessionSegment,
     SessionStatus,
+    Setting,
     Zone,
 )
 from core.services.business_days import (
+    claim_unclosed_day_reminder,
     close_business_day,
     day_summary,
     get_open_business_day,
@@ -315,3 +317,65 @@ async def test_day_summary_breaks_out_free_and_service_minutes(db_session):
 
     assert summary.minutes_total == 90
     assert summary.free_minutes_total == 30
+
+
+@pytest.mark.asyncio
+async def test_claim_unclosed_day_reminder_is_none_when_no_day_open(db_session):
+    assert await claim_unclosed_day_reminder(db_session, now=T) is None
+
+
+@pytest.mark.asyncio
+async def test_claim_unclosed_day_reminder_is_none_before_the_threshold(db_session):
+    # Opened 10:00 -> planned_close (default 05:00) next occurs at +19h (next day 05:00);
+    # + 60min default threshold -> due_at = +20h (next day 06:00). One minute before that
+    # is still too soon.
+    day = await open_business_day(db_session, opening_cash=5000, now=T)
+
+    result = await claim_unclosed_day_reminder(
+        db_session, now=T + timedelta(hours=19, minutes=59)
+    )
+    assert result is None
+    await db_session.refresh(day)
+    assert day.last_reminder_at is None
+
+
+@pytest.mark.asyncio
+async def test_claim_unclosed_day_reminder_fires_once_past_the_threshold(db_session):
+    day = await open_business_day(db_session, opening_cash=5000, now=T)
+    due_at = T + timedelta(hours=20)  # planned_close (+19h, 05:00 next day) + 60min default threshold
+
+    result = await claim_unclosed_day_reminder(db_session, now=due_at)
+
+    assert result is not None
+    assert result.id == day.id
+    assert result.last_reminder_at == due_at
+
+
+@pytest.mark.asyncio
+async def test_claim_unclosed_day_reminder_waits_the_interval_before_firing_again(db_session):
+    day = await open_business_day(db_session, opening_cash=5000, now=T)
+    first_due = T + timedelta(hours=20)  # planned_close (+19h) + 60min default threshold
+    await claim_unclosed_day_reminder(db_session, now=first_due)
+
+    too_soon = await claim_unclosed_day_reminder(db_session, now=first_due + timedelta(minutes=30))
+    assert too_soon is None
+
+    second_due = await claim_unclosed_day_reminder(db_session, now=first_due + timedelta(minutes=60))
+    assert second_due is not None
+    assert second_due.id == day.id
+
+
+@pytest.mark.asyncio
+async def test_claim_unclosed_day_reminder_respects_configured_threshold(db_session):
+    db_session.add(Setting(key="day_reminder_threshold_minutes", value="10"))
+    await db_session.commit()
+    day = await open_business_day(db_session, opening_cash=5000, now=T)
+
+    # planned_close (+19h, 05:00 next day) + 10min configured threshold -> due_at = +19h10min.
+    too_soon = await claim_unclosed_day_reminder(
+        db_session, now=T + timedelta(hours=19, minutes=9)
+    )
+    assert too_soon is None
+
+    due = await claim_unclosed_day_reminder(db_session, now=T + timedelta(hours=19, minutes=10))
+    assert due is not None

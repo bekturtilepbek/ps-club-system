@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.models import BusinessDay, Payment, PaymentMethod, SessionKind, SessionStatus
 from core.db.models import Session as SessionModel
+from core.domain.planned_close import next_planned_close_at
+from core.services import settings as settings_service
 from core.services.errors import ConflictError, NotFoundError
 
 
@@ -145,3 +147,30 @@ async def list_business_days(db: AsyncSession, *, limit: int = 30) -> list[Busin
         select(BusinessDay).order_by(BusinessDay.opened_at.desc()).limit(limit)
     )
     return list(result.scalars().all())
+
+
+async def claim_unclosed_day_reminder(db: AsyncSession, *, now: datetime) -> BusinessDay | None:
+    """Returns the open day exactly when an unclosed-day reminder is due, and
+    records `now` onto it in the same transaction — so a re-run (e.g. two worker
+    ticks close together) never double-sends. SPEC.md §3.6: never auto-closes,
+    only reminds; CLAUDE.md: background jobs must be idempotent via a DB record."""
+    day = await get_open_business_day(db)
+    if day is None:
+        return None
+
+    planned_close = await settings_service.get_planned_close(db)
+    threshold_minutes = await settings_service.get_day_reminder_threshold_minutes(db)
+    interval_minutes = await settings_service.get_day_reminder_interval_minutes(db)
+
+    due_at = next_planned_close_at(day.opened_at, planned_close) + timedelta(minutes=threshold_minutes)
+    if now < due_at:
+        return None
+    if day.last_reminder_at is not None and now < day.last_reminder_at + timedelta(
+        minutes=interval_minutes
+    ):
+        return None
+
+    day.last_reminder_at = now
+    await db.commit()
+    await db.refresh(day)
+    return day
