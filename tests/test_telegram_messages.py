@@ -1,8 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
-from core.db.models import BusinessDay
+from core.db.models import BusinessDay, SegmentKind, SessionKind, SessionSegment, SessionStatus
 from core.db.models import Session as SessionModel
-from core.db.models import SessionKind, SessionSegment, SegmentKind, SessionStatus
 from core.services.business_days import DaySummary
 from core.services.hall import ConsoleHallView, HallSnapshot, TicketHallView
 from core.telegram_messages import (
@@ -48,6 +47,39 @@ def test_format_unclosed_day_reminder_names_the_open_time_and_planned_close():
 
     assert "05:00" in text
     assert "не закрыт" in text
+
+
+def test_format_day_summary_shows_bishkek_local_time_not_db_utc_tzinfo():
+    # Simulates what a real DB round-trip produces: a TIMESTAMP(timezone=True)
+    # column always reads back UTC-tagged, even for an instant that was originally
+    # written as Bishkek-aware. UTC 04:00 / 14:00 here is Bishkek 10:00 / 20:00.
+    day = BusinessDay(
+        id=1,
+        opened_at=datetime(2026, 9, 25, 4, 0, tzinfo=UTC),
+        closed_at=datetime(2026, 9, 25, 14, 0, tzinfo=UTC),
+        opening_cash=5000, expected_cash=5300, counted_cash=5300,
+    )
+    summary = DaySummary(
+        opening_cash=5000, cash_total=300, qr_total=200, transfer_total=100,
+        expected_cash=5300, sessions_count=3, minutes_total=150, free_minutes_total=30,
+        bar_sales_total=160, has_active_sessions=False,
+    )
+
+    text = format_day_summary(day, summary)
+
+    assert "10:00" in text
+    assert "20:00" in text
+    assert "04:00" not in text
+    assert "14:00" not in text
+
+
+def test_format_unclosed_day_reminder_shows_bishkek_local_time_not_db_utc_tzinfo():
+    day = BusinessDay(id=1, opened_at=datetime(2026, 9, 25, 4, 0, tzinfo=UTC), opening_cash=5000)
+
+    text = format_unclosed_day_reminder(day, "05:00")
+
+    assert "10:00" in text
+    assert "04:00" not in text
 
 
 def test_format_hall_status_lists_busy_and_free_consoles_and_tickets():

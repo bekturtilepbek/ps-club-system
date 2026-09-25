@@ -1,10 +1,12 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.config import settings
 from core.db.models import BusinessDay, Payment, PaymentMethod, SessionKind, SessionStatus
 from core.db.models import Session as SessionModel
 from core.domain.planned_close import next_planned_close_at
@@ -162,7 +164,12 @@ async def claim_unclosed_day_reminder(db: AsyncSession, *, now: datetime) -> Bus
     threshold_minutes = await settings_service.get_day_reminder_threshold_minutes(db)
     interval_minutes = await settings_service.get_day_reminder_interval_minutes(db)
 
-    due_at = next_planned_close_at(day.opened_at, planned_close) + timedelta(minutes=threshold_minutes)
+    # day.opened_at, loaded from a TIMESTAMP(timezone=True) column, round-trips
+    # through Postgres/asyncpg tagged UTC even when it was written as Bishkek-aware
+    # (same instant, different tzinfo). next_planned_close_at anchors on wall-clock
+    # hour/minute, so it must be given the Bishkek-local reading, not the raw UTC one.
+    anchor = day.opened_at.astimezone(ZoneInfo(settings.timezone))
+    due_at = next_planned_close_at(anchor, planned_close) + timedelta(minutes=threshold_minutes)
     if now < due_at:
         return None
     if day.last_reminder_at is not None and now < day.last_reminder_at + timedelta(

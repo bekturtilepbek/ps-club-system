@@ -1,6 +1,7 @@
 import asyncio
 import os
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -302,7 +303,8 @@ async def test_day_summary_breaks_out_free_and_service_minutes(db_session):
 
     free = Session(
         console_id=None, business_day_id=day.id, kind=SessionKind.free, reason="друг",
-        status=SessionStatus.finished, started_at=T, grace_until=T, ended_at=T + timedelta(minutes=30),
+        status=SessionStatus.finished, started_at=T, grace_until=T,
+        ended_at=T + timedelta(minutes=30),
     )
     free.segments.append(
         SessionSegment(
@@ -326,13 +328,14 @@ async def test_claim_unclosed_day_reminder_is_none_when_no_day_open(db_session):
 
 @pytest.mark.asyncio
 async def test_claim_unclosed_day_reminder_is_none_before_the_threshold(db_session):
-    # Opened 10:00 -> planned_close (default 05:00) next occurs at +19h (next day 05:00);
-    # + 60min default threshold -> due_at = +20h (next day 06:00). One minute before that
-    # is still too soon.
+    # T is UTC 10:00 = Bishkek 16:00 (UTC+6). planned_close (default 05:00 Bishkek)
+    # next occurs at Bishkek 05:00 the following day, i.e. +13h in UTC terms;
+    # + 60min default threshold -> due_at = +14h. One minute before that is still
+    # too soon.
     day = await open_business_day(db_session, opening_cash=5000, now=T)
 
     result = await claim_unclosed_day_reminder(
-        db_session, now=T + timedelta(hours=19, minutes=59)
+        db_session, now=T + timedelta(hours=13, minutes=59)
     )
     assert result is None
     await db_session.refresh(day)
@@ -342,7 +345,9 @@ async def test_claim_unclosed_day_reminder_is_none_before_the_threshold(db_sessi
 @pytest.mark.asyncio
 async def test_claim_unclosed_day_reminder_fires_once_past_the_threshold(db_session):
     day = await open_business_day(db_session, opening_cash=5000, now=T)
-    due_at = T + timedelta(hours=20)  # planned_close (+19h, 05:00 next day) + 60min default threshold
+    # T is UTC 10:00 = Bishkek 16:00; planned_close (+13h, 05:00 Bishkek next day)
+    # + 60min default threshold -> due_at = +14h.
+    due_at = T + timedelta(hours=14)
 
     result = await claim_unclosed_day_reminder(db_session, now=due_at)
 
@@ -354,13 +359,15 @@ async def test_claim_unclosed_day_reminder_fires_once_past_the_threshold(db_sess
 @pytest.mark.asyncio
 async def test_claim_unclosed_day_reminder_waits_the_interval_before_firing_again(db_session):
     day = await open_business_day(db_session, opening_cash=5000, now=T)
-    first_due = T + timedelta(hours=20)  # planned_close (+19h) + 60min default threshold
+    first_due = T + timedelta(hours=14)  # planned_close (+13h) + 60min default threshold
     await claim_unclosed_day_reminder(db_session, now=first_due)
 
     too_soon = await claim_unclosed_day_reminder(db_session, now=first_due + timedelta(minutes=30))
     assert too_soon is None
 
-    second_due = await claim_unclosed_day_reminder(db_session, now=first_due + timedelta(minutes=60))
+    second_due = await claim_unclosed_day_reminder(
+        db_session, now=first_due + timedelta(minutes=60)
+    )
     assert second_due is not None
     assert second_due.id == day.id
 
@@ -369,13 +376,41 @@ async def test_claim_unclosed_day_reminder_waits_the_interval_before_firing_agai
 async def test_claim_unclosed_day_reminder_respects_configured_threshold(db_session):
     db_session.add(Setting(key="day_reminder_threshold_minutes", value="10"))
     await db_session.commit()
-    day = await open_business_day(db_session, opening_cash=5000, now=T)
+    await open_business_day(db_session, opening_cash=5000, now=T)
 
-    # planned_close (+19h, 05:00 next day) + 10min configured threshold -> due_at = +19h10min.
+    # planned_close (+13h, 05:00 Bishkek next day) + 10min configured
+    # threshold -> due_at = +13h10min.
     too_soon = await claim_unclosed_day_reminder(
-        db_session, now=T + timedelta(hours=19, minutes=9)
+        db_session, now=T + timedelta(hours=13, minutes=9)
     )
     assert too_soon is None
 
-    due = await claim_unclosed_day_reminder(db_session, now=T + timedelta(hours=19, minutes=10))
+    due = await claim_unclosed_day_reminder(db_session, now=T + timedelta(hours=13, minutes=10))
     assert due is not None
+
+
+@pytest.mark.asyncio
+async def test_claim_unclosed_day_reminder_uses_bishkek_time_not_the_db_utc_tzinfo(db_session):
+    # Reproduces the asyncpg TIMESTAMP(timezone=True) round-trip: a Bishkek-aware
+    # `opened_at` is stored and re-read as the SAME INSTANT but tagged UTC (see
+    # core/services/business_days.py's claim_unclosed_day_reminder). Opened at
+    # Bishkek 2026-09-25 10:00 (= UTC 04:00). planned_close defaults to "05:00"
+    # Bishkek, so the correct next occurrence is Bishkek 2026-09-26 05:00, plus the
+    # default 60min threshold -> due at Bishkek 2026-09-26 06:00 (= UTC 00:00).
+    bishkek_open = datetime(2026, 9, 25, 10, 0, tzinfo=ZoneInfo("Asia/Bishkek"))
+    day = await open_business_day(db_session, opening_cash=5000, now=bishkek_open)
+
+    # day.opened_at now comes back from a real commit/refresh, i.e. UTC-tagged —
+    # this is the actual bug reproduction, not just an in-memory datetime.
+    assert day.opened_at.tzinfo == UTC
+
+    due_at_utc = datetime(2026, 9, 26, 0, 0, tzinfo=UTC)  # Bishkek 06:00 next day
+
+    too_soon = await claim_unclosed_day_reminder(
+        db_session, now=due_at_utc - timedelta(minutes=1)
+    )
+    assert too_soon is None
+
+    fired = await claim_unclosed_day_reminder(db_session, now=due_at_utc)
+    assert fired is not None
+    assert fired.id == day.id

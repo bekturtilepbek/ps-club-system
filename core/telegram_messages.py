@@ -1,5 +1,7 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
+from core.config import settings
 from core.db.models import BusinessDay, SegmentKind
 from core.services.business_days import DaySummary
 from core.services.hall import HallSnapshot
@@ -11,10 +13,15 @@ def format_hours_minutes(total_minutes: int) -> str:
 
 
 def format_day_summary(day: BusinessDay, summary: DaySummary) -> str:
+    # day.opened_at/closed_at, loaded from TIMESTAMP(timezone=True) columns, come
+    # back UTC-tagged even when written as Bishkek-aware (same instant, different
+    # tzinfo) — convert before formatting so the owner sees local wall-clock time.
+    opened_at = day.opened_at.astimezone(ZoneInfo(settings.timezone))
+    closed_at = day.closed_at.astimezone(ZoneInfo(settings.timezone)) if day.closed_at else None
     lines = [
-        f"Итоги дня — {day.opened_at:%d.%m %H:%M} — {day.closed_at:%d.%m %H:%M}"
-        if day.closed_at is not None
-        else f"Итоги дня — {day.opened_at:%d.%m %H:%M}",
+        f"Итоги дня — {opened_at:%d.%m %H:%M} — {closed_at:%d.%m %H:%M}"
+        if closed_at is not None
+        else f"Итоги дня — {opened_at:%d.%m %H:%M}",
         f"Наличные: {summary.cash_total} сом (ожидалось {summary.expected_cash}, "
         f"посчитано {day.counted_cash})",
         f"QR: {summary.qr_total} сом",
@@ -27,8 +34,9 @@ def format_day_summary(day: BusinessDay, summary: DaySummary) -> str:
 
 
 def format_unclosed_day_reminder(day: BusinessDay, planned_close: str) -> str:
+    opened_at = day.opened_at.astimezone(ZoneInfo(settings.timezone))
     return (
-        f"День открыт с {day.opened_at:%d.%m %H:%M} и всё ещё не закрыт "
+        f"День открыт с {opened_at:%d.%m %H:%M} и всё ещё не закрыт "
         f"(плановое закрытие — {planned_close}). Закройте день в приложении, когда "
         f"будете готовы — автоматически он не закроется."
     )
@@ -44,7 +52,11 @@ def format_hall_status(snapshot: HallSnapshot, now: datetime) -> str:
         session = console.session
         assert session is not None
         segment = session.segments[-1] if session.segments else None
-        if segment is not None and segment.kind == SegmentKind.package and segment.ends_at is not None:
+        if (
+            segment is not None
+            and segment.kind == SegmentKind.package
+            and segment.ends_at is not None
+        ):
             remaining_minutes = max(0, int((segment.ends_at - now).total_seconds() // 60))
             status = f"пакет, осталось {remaining_minutes} мин"
         else:
