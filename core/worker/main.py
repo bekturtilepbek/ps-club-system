@@ -7,7 +7,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 
 from core import telegram
 from core.config import settings
-from core.db.session import async_session_factory
+from core.db.session import async_session_factory, engine
 from core.services import business_days
 from core.services import settings as settings_service
 from core.telegram_messages import format_unclosed_day_reminder
@@ -27,7 +27,18 @@ def heartbeat() -> None:
 async def _check_unclosed_day_reminder_async() -> None:
     """Best-effort, like core/api/routes/business_days.py's notify_day_closed —
     a DB hiccup or a Telegram outage must never crash the worker process, so the
-    whole body (not just the send) is guarded."""
+    whole body (not just the send) is guarded.
+
+    This runs under a fresh `asyncio.run()` every tick (see
+    `check_unclosed_day_reminder` below). `core.db.session.engine` is a
+    module-level singleton whose pooled asyncpg connections are bound to the
+    event loop that created them — once `asyncio.run()` closes that loop, any
+    connection left in the pool is unusable on the next tick's new loop. So the
+    engine's pool must be disposed at the end of every tick, forcing a fresh pool
+    (and fresh connections bound to the *next* loop) to be created next time. Any
+    future job added to this worker that touches the DB via a fresh
+    `asyncio.run()` call needs the same treatment.
+    """
     now = _worker_now()
     try:
         async with async_session_factory() as db:
@@ -43,6 +54,8 @@ async def _check_unclosed_day_reminder_async() -> None:
         await telegram.send_message(owner_chat_id, text)
     except Exception:
         logger.exception("failed to check/send the unclosed-day reminder")
+    finally:
+        await engine.dispose()
 
 
 def check_unclosed_day_reminder() -> None:
