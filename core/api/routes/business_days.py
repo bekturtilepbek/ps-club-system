@@ -1,6 +1,9 @@
+import logging
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core import telegram
 from core.api.clock import now as _now
 from core.api.deps import require_auth
 from core.api.schemas.business_days import (
@@ -9,13 +12,32 @@ from core.api.schemas.business_days import (
     BusinessDayResponse,
     BusinessDaySummaryResponse,
 )
+from core.db.models import BusinessDay
 from core.db.session import get_session
 from core.services import business_days
+from core.services import settings as settings_service
 from core.services.errors import NotFoundError
+from core.telegram_messages import format_day_summary
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/business-days", tags=["business-days"], dependencies=[Depends(require_auth)]
 )
+
+
+async def notify_day_closed(db: AsyncSession, day: BusinessDay) -> None:
+    """Best-effort: a Telegram outage must never turn a successful close into a
+    failed HTTP request for the operator standing at the till."""
+    owner_chat_id = await settings_service.get_owner_chat_id(db)
+    if owner_chat_id is None:
+        return
+    try:
+        summary = await business_days.day_summary(db, business_day_id=day.id, now=_now())
+        text = format_day_summary(day, summary)
+        await telegram.send_message(owner_chat_id, text)
+    except Exception:
+        logger.exception("failed to send the day-close summary to Telegram")
 
 
 @router.post("/open", response_model=BusinessDayResponse)
@@ -37,12 +59,14 @@ async def close_day(
     body: BusinessDayCloseRequest,
     db: AsyncSession = Depends(get_session),  # noqa: B008
 ):
-    return await business_days.close_business_day(
+    day = await business_days.close_business_day(
         db,
         business_day_id=business_day_id,
         counted_cash=body.counted_cash,
         now=_now(),
     )
+    await notify_day_closed(db, day)
+    return day
 
 
 @router.get("/{business_day_id}/summary", response_model=BusinessDaySummaryResponse)

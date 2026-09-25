@@ -79,3 +79,79 @@ async def test_list_business_days_rejects_an_out_of_range_limit(client):
 async def test_list_business_days_rejects_a_limit_over_365(client):
     response = await client.get("/api/business-days?limit=400")
     assert response.status_code == 422
+
+
+from datetime import UTC, datetime
+
+from core.api.routes.business_days import notify_day_closed
+from core.db.models import Setting
+from core.services.business_days import close_business_day, open_business_day
+
+T = datetime(2026, 9, 25, 10, 0, tzinfo=UTC)
+
+
+@pytest.mark.asyncio
+async def test_closing_the_day_over_http_does_not_error_when_owner_chat_id_is_unset(client):
+    opened = (await client.post("/api/business-days/open", json={"opening_cash": 5000})).json()
+
+    response = await client.post(
+        f"/api/business-days/{opened['id']}/close", json={"counted_cash": 5000}
+    )
+
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_notify_day_closed_sends_nothing_when_owner_chat_id_is_unset(db_session, monkeypatch):
+    sent = []
+
+    async def fake_send_message(chat_id, text):
+        sent.append((chat_id, text))
+
+    monkeypatch.setattr("core.api.routes.business_days.telegram.send_message", fake_send_message)
+
+    day = await open_business_day(db_session, opening_cash=5000, now=T)
+    closed = await close_business_day(db_session, business_day_id=day.id, counted_cash=5000, now=T)
+
+    await notify_day_closed(db_session, closed)
+
+    assert sent == []
+
+
+@pytest.mark.asyncio
+async def test_notify_day_closed_sends_a_formatted_summary_when_owner_chat_id_is_set(
+    db_session, monkeypatch
+):
+    sent = []
+
+    async def fake_send_message(chat_id, text):
+        sent.append((chat_id, text))
+
+    monkeypatch.setattr("core.api.routes.business_days.telegram.send_message", fake_send_message)
+
+    db_session.add(Setting(key="owner_chat_id", value="777"))
+    await db_session.commit()
+    day = await open_business_day(db_session, opening_cash=5000, now=T)
+    closed = await close_business_day(db_session, business_day_id=day.id, counted_cash=5000, now=T)
+
+    await notify_day_closed(db_session, closed)
+
+    assert len(sent) == 1
+    chat_id, text = sent[0]
+    assert chat_id == 777
+    assert "Итоги дня" in text
+
+
+@pytest.mark.asyncio
+async def test_notify_day_closed_never_raises_when_sending_fails(db_session, monkeypatch):
+    async def failing_send_message(chat_id, text):
+        raise RuntimeError("Telegram is down")
+
+    monkeypatch.setattr("core.api.routes.business_days.telegram.send_message", failing_send_message)
+
+    db_session.add(Setting(key="owner_chat_id", value="777"))
+    await db_session.commit()
+    day = await open_business_day(db_session, opening_cash=5000, now=T)
+    closed = await close_business_day(db_session, business_day_id=day.id, counted_cash=5000, now=T)
+
+    await notify_day_closed(db_session, closed)  # must not raise
