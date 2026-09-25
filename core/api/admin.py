@@ -87,6 +87,12 @@ class ProductAdmin(ModelView, model=Product):
 
 class SettingAdmin(ModelView, model=Setting):
     column_list = [Setting.key, Setting.value]
+    # Setting.key is the primary key but is not auto-generated (it's a
+    # hand-picked string like "owner_chat_id"), so SQLAdmin's default
+    # form_include_pk=False (which assumes a PK is auto-generated) leaves the
+    # create form with no way to set it at all, regardless of form_columns.
+    form_include_pk = True
+    form_columns = [Setting.key, Setting.value]
     can_delete = False
 
     async def after_model_change(
