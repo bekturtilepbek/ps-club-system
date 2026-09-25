@@ -2,11 +2,16 @@ import pytest
 
 from core.db.models import Setting
 from core.services.settings import (
+    DEFAULT_DAY_REMINDER_INTERVAL_MINUTES,
+    DEFAULT_DAY_REMINDER_THRESHOLD_MINUTES,
     DEFAULT_GRACE_MINUTES,
     DEFAULT_PLANNED_CLOSE,
     DEFAULT_PLANNED_OPEN,
     DEFAULT_WARN_MINUTES,
+    get_day_reminder_interval_minutes,
+    get_day_reminder_threshold_minutes,
     get_grace_minutes,
+    get_owner_chat_id,
     get_planned_close,
     get_planned_open,
     get_warn_minutes,
@@ -90,3 +95,40 @@ async def test_get_planned_close_falls_back_to_default_on_an_out_of_range_hour(d
     await db_session.commit()
 
     assert await get_planned_close(db_session) == DEFAULT_PLANNED_CLOSE
+
+
+@pytest.mark.asyncio
+async def test_get_owner_chat_id_is_none_when_unset(db_session):
+    assert await get_owner_chat_id(db_session) is None
+
+
+@pytest.mark.asyncio
+async def test_get_owner_chat_id_reads_a_configured_value(db_session):
+    db_session.add(Setting(key="owner_chat_id", value="123456789"))
+    await db_session.commit()
+
+    assert await get_owner_chat_id(db_session) == 123456789
+
+
+@pytest.mark.asyncio
+async def test_get_owner_chat_id_is_none_on_garbage(db_session):
+    db_session.add(Setting(key="owner_chat_id", value="not-a-chat-id"))
+    await db_session.commit()
+
+    assert await get_owner_chat_id(db_session) is None
+
+
+@pytest.mark.asyncio
+async def test_get_day_reminder_threshold_minutes_falls_back_to_default(db_session):
+    assert (
+        await get_day_reminder_threshold_minutes(db_session)
+        == DEFAULT_DAY_REMINDER_THRESHOLD_MINUTES
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_day_reminder_interval_minutes_reads_a_configured_value(db_session):
+    db_session.add(Setting(key="day_reminder_interval_minutes", value="30"))
+    await db_session.commit()
+
+    assert await get_day_reminder_interval_minutes(db_session) == 30

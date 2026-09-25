@@ -22,8 +22,10 @@
 Миграции применяются автоматически при старте контейнера `api`.
 
 Бот стартует без ошибок и без токена, но остаётся неактивным (см. лог: "BOT_TOKEN is
-not set — bot is idle"). Чтобы включить polling — впишите `BOT_TOKEN` и
-`OWNER_CHAT_ID` в `.env` и перезапустите контейнер: `docker compose up -d --build bot`.
+not set — bot is idle"). Чтобы включить polling — впишите `BOT_TOKEN` в `.env`
+и перезапустите контейнер: `docker compose up -d --build bot`. Затем зайдите в
+`/admin` → Setting и добавьте строку `owner_chat_id` со значением chat_id
+владельца — без неё бот отвечает на `/start`, но игнорирует все остальные команды.
 
 ## Разработка backend без Docker
 

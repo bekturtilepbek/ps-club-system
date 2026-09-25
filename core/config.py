@@ -14,7 +14,6 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+asyncpg://psclub:psclub@localhost:5432/psclub"
     bot_token: str | None = None
-    owner_chat_id: int | None = None
     timezone: str = "Asia/Bishkek"
 
     # Hall-screen login (Stage 3). These two dev defaults let a fresh checkout run

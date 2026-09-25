@@ -10,6 +10,8 @@ DEFAULT_GRACE_MINUTES = 3
 DEFAULT_WARN_MINUTES = 5
 DEFAULT_PLANNED_OPEN = "10:00"
 DEFAULT_PLANNED_CLOSE = "05:00"
+DEFAULT_DAY_REMINDER_THRESHOLD_MINUTES = 60
+DEFAULT_DAY_REMINDER_INTERVAL_MINUTES = 60
 
 
 async def get_setting(db: AsyncSession, key: str) -> str | None:
@@ -74,3 +76,28 @@ async def get_planned_open(db: AsyncSession) -> str:
 async def get_planned_close(db: AsyncSession) -> str:
     value = await get_setting(db, "planned_close")
     return _parse_time_setting("planned_close", value, DEFAULT_PLANNED_CLOSE)
+
+
+async def get_owner_chat_id(db: AsyncSession) -> int | None:
+    value = await get_setting(db, "owner_chat_id")
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        logger.warning("setting 'owner_chat_id' has a non-numeric value %r, ignoring", value)
+        return None
+
+
+async def get_day_reminder_threshold_minutes(db: AsyncSession) -> int:
+    value = await get_setting(db, "day_reminder_threshold_minutes")
+    return _parse_int_setting(
+        "day_reminder_threshold_minutes", value, DEFAULT_DAY_REMINDER_THRESHOLD_MINUTES
+    )
+
+
+async def get_day_reminder_interval_minutes(db: AsyncSession) -> int:
+    value = await get_setting(db, "day_reminder_interval_minutes")
+    return _parse_int_setting(
+        "day_reminder_interval_minutes", value, DEFAULT_DAY_REMINDER_INTERVAL_MINUTES
+    )
