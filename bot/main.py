@@ -5,12 +5,14 @@ from aiogram import Bot, Dispatcher
 from aiogram.filters import Command
 from aiogram.types import Message
 
+from bot.filters import OwnerOnlyFilter
 from core.config import settings
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("bot")
 
 dp = Dispatcher()
+dp.message.filter(OwnerOnlyFilter())
 
 
 @dp.message(Command("start"))
