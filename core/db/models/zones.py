@@ -1,5 +1,5 @@
 from sqlalchemy import ForeignKey, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.db.base import Base
 
@@ -21,3 +21,5 @@ class Console(Base):
     plug_driver: Mapped[str] = mapped_column(String(50), default="manual")
     plug_address: Mapped[str | None] = mapped_column(String(200), default=None)
     is_active: Mapped[bool] = mapped_column(default=True)
+
+    zone: Mapped["Zone"] = relationship("Zone")

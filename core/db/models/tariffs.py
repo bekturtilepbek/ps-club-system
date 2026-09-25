@@ -1,9 +1,10 @@
 import enum
 
 from sqlalchemy import CheckConstraint, Enum, ForeignKey, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.db.base import Base
+from core.db.models.zones import Zone
 
 
 class TariffKind(str, enum.Enum):
@@ -31,3 +32,5 @@ class Tariff(Base):
     price: Mapped[int | None] = mapped_column(default=None)
     hourly_rate: Mapped[int | None] = mapped_column(default=None)
     is_active: Mapped[bool] = mapped_column(default=True)
+
+    zone: Mapped[Zone] = relationship("Zone")
