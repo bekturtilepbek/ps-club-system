@@ -24,14 +24,17 @@ export const STATUS_VISUALS: Record<CardStatus, StatusVisual> = {
 export const BLOCK_MS = 15 * 60_000;
 
 /**
- * Fill (0–1) of each 15-minute block of the running package segment. Lit blocks are
- * time still ahead, draining from the right, so "three lit blocks" reads as "under 45
- * minutes" at a glance.
+ * Fill (0–1) of each block of the running package segment. Lit blocks are time still
+ * ahead, draining from the right. The block count is the duration in 15-minute units
+ * (at least one) and the segment is split evenly, so 15-minute multiples get exact
+ * 15-minute blocks while a 10-minute package is one full block and 20 minutes is one
+ * 20-minute block, never a sliver.
  */
 export function packageBlocks(remainingMs: number, segmentMs: number): number[] {
   const count = Math.max(1, Math.round(segmentMs / BLOCK_MS));
+  const blockMs = segmentMs > 0 ? segmentMs / count : BLOCK_MS;
   return Array.from({ length: count }, (_, index) =>
-    Math.min(1, Math.max(0, (remainingMs - index * BLOCK_MS) / BLOCK_MS)),
+    Math.min(1, Math.max(0, (remainingMs - index * blockMs) / blockMs)),
   );
 }
 
