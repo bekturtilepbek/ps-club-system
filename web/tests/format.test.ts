@@ -4,6 +4,7 @@ import {
   formatAmount,
   formatDuration,
   formatHoursClock,
+  formatShortMinutes,
   formatSignedSom,
   formatSom,
   pluralRu,
@@ -67,5 +68,13 @@ describe("pluralRu", () => {
 describe("capitalize", () => {
   it("upper-cases the first letter only", () => {
     expect(capitalize("вода × 2, сникерс")).toBe("Вода × 2, сникерс");
+  });
+});
+
+describe("formatShortMinutes", () => {
+  it("drops the zero part", () => {
+    expect(formatShortMinutes(43)).toBe("43 мин");
+    expect(formatShortMinutes(130)).toBe("2 ч 10 мин");
+    expect(formatShortMinutes(180)).toBe("3 ч");
   });
 });

@@ -109,4 +109,11 @@ describe("ConsoleCard", () => {
     renderCard(busy({ balance: 120, withBar: true }));
     expect(screen.getByText("Не оплачен бар: кола × 2")).toBeInTheDocument();
   });
+
+  it("says how long a free console has been idle", () => {
+    renderCard({ ...FREE, free_since: new Date(NOW - 43 * 60_000).toISOString() });
+    expect(screen.getByText((_, element) => {
+      return element?.textContent === "с 23:57 · простой 43 мин";
+    })).toBeInTheDocument();
+  });
 });

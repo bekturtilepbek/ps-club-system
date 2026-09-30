@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { StateChip } from "@/components/ui/state-chip";
 import type { HallConsoleResponse, SegmentResponse, SessionResponse } from "@/lib/api";
 import { formatClock } from "@/lib/bishkek";
-import { formatAmount, formatDuration } from "@/lib/format";
+import { formatAmount, formatDuration, formatShortMinutes } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ordersTotal, summarizeOrders } from "./barLines";
 import { STATUS_VISUALS, packageBlocks } from "./cardModel";
@@ -75,7 +75,7 @@ export function ConsoleCard(props: ConsoleCardProps) {
         <div className="card-timer">{timerText(timing, session, nowMs)}</div>
       )}
       <div className="min-h-[19px] text-[13px] text-fg-muted [&_b]:font-medium [&_b]:text-fg">
-        {caption(timing, session, lastSegment)}
+        {caption(timing, consoleView, lastSegment, nowMs)}
       </div>
 
       <Blocks timing={timing} lastSegment={lastSegment} />
@@ -103,7 +103,18 @@ function timerText(timing: CardTiming, session: SessionResponse | null, nowMs: n
   }
 }
 
-function caption(timing: CardTiming, session: SessionResponse | null, last: SegmentResponse | undefined): ReactNode {
+function caption(timing: CardTiming, consoleView: HallConsoleResponse, last: SegmentResponse | undefined, nowMs: number): ReactNode {
+  const session = consoleView.session;
+
+  if (timing.status === "free" && consoleView.free_since) {
+    const freeSinceMs = Date.parse(consoleView.free_since);
+    return (
+      <>
+        с {formatClock(freeSinceMs)} · простой <b>{formatShortMinutes(Math.max(0, Math.floor((nowMs - freeSinceMs) / 60_000)))}</b>
+      </>
+    );
+  }
+
   if (!session) return null;
   const since = formatClock(Date.parse(session.started_at));
   switch (timing.status) {

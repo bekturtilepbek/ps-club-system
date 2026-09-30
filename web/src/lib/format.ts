@@ -54,3 +54,11 @@ export function pluralRu(count: number, [one, few, many]: [string, string, strin
 export function capitalize(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
+
+/** "43 мин", "2 ч 10 мин", "3 ч" — for idle time, where "0 ч" would be noise. */
+export function formatShortMinutes(totalMinutes: number): string {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0) return `${minutes} мин`;
+  return minutes === 0 ? `${hours} ч` : `${hours} ч ${minutes} мин`;
+}
