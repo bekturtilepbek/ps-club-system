@@ -45,9 +45,14 @@ async def build_hall_snapshot(db: AsyncSession, now: datetime) -> HallSnapshot:
 
     last_ended: dict[int, datetime] = {}
     if day is not None:
+        # Cancelled sessions count too: a console that was just used is not idle.
         ended_result = await db.execute(
             select(SessionModel.console_id, func.max(SessionModel.ended_at))
-            .where(SessionModel.console_id.is_not(None), SessionModel.ended_at.is_not(None))
+            .where(
+                SessionModel.console_id.is_not(None),
+                SessionModel.ended_at.is_not(None),
+                SessionModel.ended_at >= day.opened_at,
+            )
             .group_by(SessionModel.console_id)
         )
         last_ended = {console_id: ended_at for console_id, ended_at in ended_result.all()}

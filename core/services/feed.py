@@ -2,7 +2,7 @@ import enum
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import and_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.models import (
@@ -31,6 +31,16 @@ class FeedKind(str, enum.Enum):
     order = "order"
 
 
+_PRIORITY = {
+    FeedKind.session_started: 0,
+    FeedKind.session_extended: 1,
+    FeedKind.order: 2,
+    FeedKind.payment: 3,
+    FeedKind.session_finished: 4,
+    FeedKind.session_cancelled: 4,
+}
+
+
 @dataclass(frozen=True)
 class FeedEvent:
     at: datetime
@@ -55,11 +65,6 @@ async def day_feed(db: AsyncSession, *, business_day_id: int, limit: int = 200) 
     if day is None:
         raise NotFoundError(f"business day {business_day_id} not found")
 
-    def within_day(column):
-        if day.closed_at is None:
-            return column >= day.opened_at
-        return and_(column >= day.opened_at, column <= day.closed_at)
-
     console_names = {c.id: c.name for c in (await db.execute(select(Console))).scalars().all()}
     tariff_names = {t.id: t.name for t in (await db.execute(select(Tariff))).scalars().all()}
 
@@ -72,6 +77,10 @@ async def day_feed(db: AsyncSession, *, business_day_id: int, limit: int = 200) 
 
     events: list[FeedEvent] = []
 
+    # Every event kind belongs to the day of its session (business_day_id), so a session
+    # started on day A never leaks into day B's feed, whatever the clock says.
+    # Walk-in tickets (console_id NULL) get no "started" event on purpose: a bar-only sale
+    # is not a game start. Their orders and payments are still listed, with no console name.
     started = await db.execute(
         select(SessionModel).where(
             SessionModel.business_day_id == day.id, SessionModel.console_id.is_not(None)
@@ -92,7 +101,10 @@ async def day_feed(db: AsyncSession, *, business_day_id: int, limit: int = 200) 
             )
         )
 
-    ended = await db.execute(select(SessionModel).where(within_day(SessionModel.ended_at)))
+    ended = await db.execute(select(SessionModel).where(
+            SessionModel.business_day_id == day.id, SessionModel.ended_at.is_not(None)
+        )
+    )
     for session in ended.scalars().all():
         events.append(
             FeedEvent(
@@ -110,10 +122,13 @@ async def day_feed(db: AsyncSession, *, business_day_id: int, limit: int = 200) 
     sold = await db.execute(
         select(SessionSegment, SessionModel)
         .join(SessionModel, SessionSegment.session_id == SessionModel.id)
-        .where(within_day(SessionSegment.created_at))
+        .where(SessionModel.business_day_id == day.id)
     )
+    first_segment_id: dict[int, int] = {}
     for segment, session in sold.all():
-        if segment.id == min(s.id for s in session.segments):
+        if session.id not in first_segment_id:
+            first_segment_id[session.id] = min(s.id for s in session.segments)
+        if segment.id == first_segment_id[session.id]:
             continue  # the first segment is the start, already listed
         events.append(
             FeedEvent(
@@ -145,7 +160,7 @@ async def day_feed(db: AsyncSession, *, business_day_id: int, limit: int = 200) 
         select(Order, SessionModel, Product)
         .join(SessionModel, Order.session_id == SessionModel.id)
         .join(Product, Order.product_id == Product.id)
-        .where(within_day(Order.created_at))
+        .where(SessionModel.business_day_id == day.id)
     )
     for order, session, product in orders.all():
         events.append(
@@ -159,5 +174,7 @@ async def day_feed(db: AsyncSession, *, business_day_id: int, limit: int = 200) 
             )
         )
 
-    events.sort(key=lambda event: event.at, reverse=True)
+    # Newest first; at equal timestamps the later step of a session's story comes first
+    # (end > payment > order > extension > start), then the higher session id.
+    events.sort(key=lambda e: (e.at, _PRIORITY[e.kind], e.session_id), reverse=True)
     return events[:limit]
