@@ -86,62 +86,76 @@ class DaySummary:
     has_active_sessions: bool
 
 
+async def summaries_for_days(
+    db: AsyncSession, *, days: list[BusinessDay], now: datetime
+) -> dict[int, DaySummary]:
+    """Summaries for several days in a fixed number of queries: the history list shows
+    every day's totals, and one day_summary() per row would be one round-trip per day."""
+    if not days:
+        return {}
+    day_ids = [day.id for day in days]
+
+    payments_result = await db.execute(
+        select(Payment.business_day_id, Payment.method, Payment.amount).where(
+            Payment.business_day_id.in_(day_ids)
+        )
+    )
+    paid: dict[int, dict[PaymentMethod, int]] = {
+        day_id: {method: 0 for method in PaymentMethod} for day_id in day_ids
+    }
+    for day_id, method, amount in payments_result.all():
+        paid[day_id][method] += amount
+
+    sessions_result = await db.execute(
+        select(SessionModel).where(
+            SessionModel.business_day_id.in_(day_ids),
+            SessionModel.status != SessionStatus.cancelled,
+        )
+    )
+    # Session.segments and Session.orders are lazy="selectin" (core/db/models/sessions.py):
+    # they are loaded in bulk with this query, not one per session.
+    sessions_by_day: dict[int, list[SessionModel]] = {day_id: [] for day_id in day_ids}
+    for session in sessions_result.scalars().all():
+        sessions_by_day[session.business_day_id].append(session)
+
+    summaries: dict[int, DaySummary] = {}
+    for day in days:
+        minutes_total = free_minutes_total = bar_sales_total = 0
+        has_active = False
+        for session in sessions_by_day[day.id]:
+            if session.status == SessionStatus.active:
+                has_active = True
+            session_minutes = 0
+            for segment in session.segments:
+                end = segment.ends_at or now
+                session_minutes += int((end - segment.starts_at).total_seconds() // 60)
+            minutes_total += session_minutes
+            if session.kind != SessionKind.paid:
+                free_minutes_total += session_minutes
+            for order in session.orders:
+                bar_sales_total += order.qty * order.unit_price
+
+        cash_total = paid[day.id][PaymentMethod.cash]
+        summaries[day.id] = DaySummary(
+            opening_cash=day.opening_cash,
+            cash_total=cash_total,
+            qr_total=paid[day.id][PaymentMethod.qr],
+            transfer_total=paid[day.id][PaymentMethod.transfer],
+            expected_cash=day.opening_cash + cash_total,
+            sessions_count=len(sessions_by_day[day.id]),
+            minutes_total=minutes_total,
+            free_minutes_total=free_minutes_total,
+            bar_sales_total=bar_sales_total,
+            has_active_sessions=has_active,
+        )
+    return summaries
+
+
 async def day_summary(db: AsyncSession, *, business_day_id: int, now: datetime) -> DaySummary:
     day = await db.get(BusinessDay, business_day_id)
     if day is None:
         raise NotFoundError(f"business day {business_day_id} not found")
-
-    payments_result = await db.execute(
-        select(Payment.method, Payment.amount).where(Payment.business_day_id == business_day_id)
-    )
-    cash_total = qr_total = transfer_total = 0
-    for method, amount in payments_result.all():
-        if method == PaymentMethod.cash:
-            cash_total += amount
-        elif method == PaymentMethod.qr:
-            qr_total += amount
-        elif method == PaymentMethod.transfer:
-            transfer_total += amount
-
-    sessions_result = await db.execute(
-        select(SessionModel).where(
-            SessionModel.business_day_id == business_day_id,
-            SessionModel.status != SessionStatus.cancelled,
-        )
-    )
-    # Session.segments and Session.orders are lazy="selectin" (see core/db/models/sessions.py),
-    # so accessing them below on these ORM rows needs no extra eager-load option here.
-    sessions = sessions_result.scalars().all()
-
-    minutes_total = 0
-    free_minutes_total = 0
-    bar_sales_total = 0
-    has_active = False
-    for session in sessions:
-        if session.status == SessionStatus.active:
-            has_active = True
-        session_minutes = 0
-        for segment in session.segments:
-            end = segment.ends_at or now
-            session_minutes += int((end - segment.starts_at).total_seconds() // 60)
-        minutes_total += session_minutes
-        if session.kind != SessionKind.paid:
-            free_minutes_total += session_minutes
-        for order in session.orders:
-            bar_sales_total += order.qty * order.unit_price
-
-    return DaySummary(
-        opening_cash=day.opening_cash,
-        cash_total=cash_total,
-        qr_total=qr_total,
-        transfer_total=transfer_total,
-        expected_cash=day.opening_cash + cash_total,
-        sessions_count=len(sessions),
-        minutes_total=minutes_total,
-        free_minutes_total=free_minutes_total,
-        bar_sales_total=bar_sales_total,
-        has_active_sessions=has_active,
-    )
+    return (await summaries_for_days(db, days=[day], now=now))[day.id]
 
 
 async def list_business_days(db: AsyncSession, *, limit: int = 30) -> list[BusinessDay]:

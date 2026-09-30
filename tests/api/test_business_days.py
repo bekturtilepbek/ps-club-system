@@ -154,3 +154,29 @@ async def test_notify_day_closed_never_raises_when_sending_fails(db_session, mon
     closed = await close_business_day(db_session, business_day_id=day.id, counted_cash=5000, now=T)
 
     await notify_day_closed(db_session, closed)  # must not raise
+
+
+async def test_history_list_carries_each_days_totals(client):
+    opened = await client.post("/api/business-days/open", json={"opening_cash": 1000})
+    assert opened.status_code == 200
+
+    response = await client.get("/api/business-days")
+    assert response.status_code == 200
+    [day] = response.json()
+    assert day["opening_cash"] == 1000
+    for key in (
+        "cash_total",
+        "qr_total",
+        "transfer_total",
+        "sessions_count",
+        "minutes_total",
+        "free_minutes_total",
+        "bar_sales_total",
+    ):
+        assert day[key] == 0
+
+
+async def test_summary_exposes_free_minutes(client):
+    day = (await client.post("/api/business-days/open", json={"opening_cash": 0})).json()
+    summary = (await client.get(f"/api/business-days/{day['id']}/summary")).json()
+    assert summary["free_minutes_total"] == 0

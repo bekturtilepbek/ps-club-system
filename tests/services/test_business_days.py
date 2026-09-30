@@ -27,6 +27,7 @@ from core.services.business_days import (
     get_open_business_day,
     list_business_days,
     open_business_day,
+    summaries_for_days,
 )
 from core.services.errors import ConflictError, NotFoundError
 
@@ -414,3 +415,64 @@ async def test_claim_unclosed_day_reminder_uses_bishkek_time_not_the_db_utc_tzin
     fired = await claim_unclosed_day_reminder(db_session, now=due_at_utc)
     assert fired is not None
     assert fired.id == day.id
+
+
+async def test_summaries_for_days_keeps_each_day_apart(db_session):
+    first = await open_business_day(db_session, opening_cash=1000, now=T)
+    session_id = await _make_finished_session(db_session, first.id)
+    db_session.add_all(
+        [
+            Payment(
+                session_id=session_id,
+                business_day_id=first.id,
+                amount=300,
+                method=PaymentMethod.cash,
+                created_at=T,
+            ),
+            Payment(
+                session_id=session_id,
+                business_day_id=first.id,
+                amount=200,
+                method=PaymentMethod.qr,
+                created_at=T,
+            ),
+        ]
+    )
+    await db_session.commit()
+    await close_business_day(
+        db_session, business_day_id=first.id, counted_cash=1300, now=T + timedelta(hours=10)
+    )
+
+    second = await open_business_day(db_session, opening_cash=2000, now=T + timedelta(days=1))
+    # A late payment for yesterday's session lands in the day it was taken (SPEC §3.4).
+    db_session.add(
+        Payment(
+            session_id=session_id,
+            business_day_id=second.id,
+            amount=150,
+            method=PaymentMethod.transfer,
+            created_at=T + timedelta(days=1),
+        )
+    )
+    await db_session.commit()
+
+    now = T + timedelta(days=1, hours=2)
+    summaries = await summaries_for_days(db_session, days=[first, second], now=now)
+
+    assert summaries[first.id] == await day_summary(
+        db_session, business_day_id=first.id, now=now
+    )
+    first_summary = summaries[first.id]
+    assert (first_summary.cash_total, first_summary.qr_total, first_summary.transfer_total) == (
+        300,
+        200,
+        0,
+    )
+    assert summaries[first.id].sessions_count == 1
+    assert (summaries[second.id].cash_total, summaries[second.id].transfer_total) == (0, 150)
+    assert summaries[second.id].expected_cash == 2000
+    assert summaries[second.id].sessions_count == 0
+
+
+async def test_summaries_for_days_of_nothing_is_empty(db_session):
+    assert await summaries_for_days(db_session, days=[], now=T) == {}

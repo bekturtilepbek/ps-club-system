@@ -32,5 +32,19 @@ class BusinessDaySummaryResponse(BaseModel):
     expected_cash: int
     sessions_count: int
     minutes_total: int
+    free_minutes_total: int
     bar_sales_total: int
     has_active_sessions: bool
+
+
+class BusinessDayHistoryItem(BusinessDayResponse):
+    """A day in the history list, with its totals. Cash and non-cash stay apart
+    (CLAUDE.md rule 10)."""
+
+    cash_total: int
+    qr_total: int
+    transfer_total: int
+    sessions_count: int
+    minutes_total: int
+    free_minutes_total: int
+    bar_sales_total: int
