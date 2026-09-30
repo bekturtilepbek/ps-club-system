@@ -548,7 +548,8 @@ describe("HallPage", () => {
           return {
             ok: true,
             json: async () => [
-              { id: 2, opened_at: "2026-09-23T04:00:00Z", closed_at: "2026-09-23T20:00:00Z", opening_cash: 1000, expected_cash: 1200, counted_cash: 1200 },
+              { id: 2, opened_at: "2026-09-23T04:00:00Z", closed_at: "2026-09-23T20:00:00Z", opening_cash: 1000, expected_cash: 1200, counted_cash: 1200,
+                cash_total: 0, qr_total: 0, transfer_total: 0, sessions_count: 0, minutes_total: 0, free_minutes_total: 0, bar_sales_total: 0 },
             ],
           };
         }
