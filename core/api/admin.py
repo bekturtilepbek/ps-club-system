@@ -81,7 +81,13 @@ class TariffAdmin(ModelView, model=Tariff):
 
 
 class ProductAdmin(ModelView, model=Product):
-    column_list = [Product.id, Product.name, Product.price, Product.is_active]
+    column_list = [
+        Product.id,
+        Product.name,
+        Product.category,
+        Product.price,
+        Product.is_active,
+    ]
     can_delete = False
 
 

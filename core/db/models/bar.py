@@ -13,6 +13,8 @@ class Product(Base):
     name: Mapped[str] = mapped_column(String(100))
     price: Mapped[int] = mapped_column()
     is_active: Mapped[bool] = mapped_column(default=True)
+    # Free text set in SQLAdmin ("Напитки", "Еда", "Снеки"); the bar shows a tab per value.
+    category: Mapped[str | None] = mapped_column(String(40), default=None)
 
 
 class Order(Base):
