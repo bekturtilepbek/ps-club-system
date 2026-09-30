@@ -270,7 +270,8 @@ function CardActions({
   onBar,
 }: ConsoleCardProps & { timing: CardTiming; act: Act }) {
   const owes = timing.balance > 0;
-  const primary = "flex-[1.7]";
+  // The wrapper's `[&>button]:flex-1` is more specific than a plain flex class, so the primary needs `!`.
+  const primary = "!flex-[1.7]";
   switch (timing.status) {
     case "free":
       return (

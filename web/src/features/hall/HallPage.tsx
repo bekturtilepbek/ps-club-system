@@ -75,12 +75,15 @@ export function HallPage() {
     tickets.find((t) => t.id === sessionId);
 
   const openConsole = useCallback(
-    (consoleView: HallConsoleResponse) =>
+    (consoleView: HallConsoleResponse) => {
+      // A console under maintenance has nothing to open: it cannot take a session.
+      if (!consoleView.is_active) return;
       setDialog(
         consoleView.session
           ? { kind: "details", consoleId: consoleView.id }
           : { kind: "start", consoleId: consoleView.id },
-      ),
+      );
+    },
     [],
   );
   useHallHotkeys(consoles, openConsole, hall?.business_day_open === true);

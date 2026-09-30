@@ -305,6 +305,23 @@ describe("HallPage", () => {
       ]);
     });
 
+    it("leaves no panel open after a fully paid stop, even when a new session starts on the console", async () => {
+      stubStop(0);
+      const queryClient = renderHall();
+
+      await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("article", { name: "PS5-1" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Завершить сессию" }));
+      await waitFor(() => expect(screen.getByText("Свободна")).toBeInTheDocument());
+      expect(screen.queryByRole("dialog")).toBeNull();
+
+      act(() => {
+        queryClient.setQueryData(HALL_QUERY_KEY, snapshot([paidConsole(1, 8, 0)]));
+      });
+      await waitFor(() => expect(screen.queryByText("Свободна")).not.toBeInTheDocument());
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
     it("does not open the payment dialog when the stopped session is already paid", async () => {
       const fetchMock = stubStop(0);
       renderHall();
@@ -365,6 +382,16 @@ describe("HallPage", () => {
     expect(within(sheet).getByText("Отрезки")).toBeInTheDocument();
     fireEvent.click(within(sheet).getByRole("button", { name: "Принять 300" }));
     await waitFor(() => expect(screen.getByText("Оплата — остаток 300 сом")).toBeInTheDocument());
+  });
+
+  it("does not open anything for a console under maintenance", async () => {
+    stubApi(snapshot([{ ...freeConsole(1), is_active: false }]));
+    renderHall();
+
+    await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("article", { name: "PS5-1" }));
+    fireEvent.keyDown(window, { key: "1" });
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("opens the bar dialog for a console session", async () => {

@@ -126,6 +126,9 @@
       radial-gradient(120% 70% at 50% -10%, hsl(var(--c) / 0.14), transparent 60%),
       hsl(var(--surface));
   }
+  .console-card[data-status="maintenance"] {
+    cursor: default;
+  }
   /* The loud states flood the whole card so they read from two metres away. */
   .console-card[data-status="package_warn"] {
     background: color-mix(in srgb, hsl(var(--c)) 9%, hsl(var(--surface)));
