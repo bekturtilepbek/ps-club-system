@@ -18,7 +18,7 @@ export function SegmentedControl<T extends string>({ options, value, onChange, a
           aria-pressed={value === option.value}
           onClick={() => onChange(option.value)}
           className={cn(
-            "inline-flex h-[38px] items-center justify-center gap-1.5 whitespace-nowrap rounded-[9px] text-sm font-medium text-fg-muted transition-colors hover:text-fg",
+            "inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-[9px] text-sm font-medium text-fg-muted transition-colors hover:text-fg",
             value === option.value && "bg-surface-2 text-fg shadow-sm",
           )}
         >
