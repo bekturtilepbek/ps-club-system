@@ -193,6 +193,17 @@
   .qty-badge {
     @apply absolute -right-[7px] -top-[7px] grid h-[22px] min-w-[22px] place-items-center rounded-full bg-fg px-1.5 font-mono text-xs font-bold text-ink;
   }
+  .close-steps {
+    counter-reset: step;
+  }
+  .close-steps > li {
+    @apply grid grid-cols-[28px_minmax(0,1fr)] gap-3 border-b border-line py-4 last:border-b-0;
+    counter-increment: step;
+  }
+  .close-steps > li::before {
+    @apply grid h-7 w-7 place-items-center rounded-full bg-surface-2 font-mono text-[13px] text-fg-muted;
+    content: counter(step);
+  }
 }
 
 @media (max-height: 820px) and (min-width: 1101px) {

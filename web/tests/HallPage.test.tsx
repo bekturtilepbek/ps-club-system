@@ -536,7 +536,7 @@ describe("HallPage", () => {
       );
       fireEvent.click(screen.getByRole("button", { name: "Завершить" }));
 
-      await waitFor(() => expect(screen.getByText("Наличные ожидается: 5 000 сом")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByTestId("expected-cash")).toHaveTextContent("5 000 сом"));
     });
 
     it("opens the history dialog and shows a closed day", async () => {
@@ -595,7 +595,7 @@ describe("HallPage", () => {
       fireEvent.change(screen.getByLabelText("Сумма"), { target: { value: "150" } });
       fireEvent.click(screen.getByRole("button", { name: /^Внести/ }));
 
-      await waitFor(() => expect(screen.getByText("Наличные ожидается: 5 000 сом")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByTestId("expected-cash")).toHaveTextContent("5 000 сом"));
     });
   });
 });
