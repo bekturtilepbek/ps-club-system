@@ -1,5 +1,7 @@
+import { useRef } from "react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useDetailsDismiss } from "@/lib/useDetailsDismiss";
 
 const LEGEND: { glyph: string; tone: string; text: string }[] = [
   { glyph: "✕", tone: "text-status-cross", text: "Пакет" },
@@ -11,8 +13,10 @@ const LEGEND: { glyph: string; tone: string; text: string }[] = [
 
 /** Legend in a popover: learned in a day, so it should not take room on the hall. */
 export function HallHelp({ hotkeys = false }: { hotkeys?: boolean }) {
+  const ref = useRef<HTMLDetailsElement>(null);
+  useDetailsDismiss(ref);
   return (
-    <details className="relative max-sm:hidden">
+    <details ref={ref} className="relative max-sm:hidden">
       <summary
         aria-label="Обозначения"
         className={cn(buttonVariants({ variant: "outline", size: "icon" }), "cursor-pointer list-none font-bold [&::-webkit-details-marker]:hidden")}
