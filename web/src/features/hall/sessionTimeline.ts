@@ -41,16 +41,21 @@ export function sessionTimeline(
 
   session.segments.forEach((segment, index) => {
     const name = tariffName(segment.tariff_id) ?? (segment.kind === "package" ? "Пакет" : "Открытое время");
+    const startsAtMs = Date.parse(segment.starts_at);
     const note =
       segment.kind === "open"
-        ? `${formatAmount(segment.price_snapshot)} сом/ч${segment.ends_at ? "" : " · идёт"}`
+        ? segment.ends_at
+          ? `${formatAmount(segment.price_snapshot)} сом/ч`
+          : startsAtMs <= nowMs
+            ? `${formatAmount(segment.price_snapshot)} сом/ч · идёт`
+            : `${formatAmount(segment.price_snapshot)} сом/ч, с ${formatClock(startsAtMs)}`
         : segment.ends_at
           ? `до ${formatClock(Date.parse(segment.ends_at))}`
           : "";
     rows.push({
       key: `segment-${segment.id}`,
-      atMs: Date.parse(segment.starts_at),
-      title: index === 0 ? name : `Продление: ${name}`,
+      atMs: startsAtMs,
+      title: index === 0 || segment.kind === "open" ? name : `Продление: ${name}`,
       note,
       amount: segment.amount,
       tone: segment.kind === "open" ? "triangle" : "cross",

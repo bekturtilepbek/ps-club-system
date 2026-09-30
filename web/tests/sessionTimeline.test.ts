@@ -58,4 +58,19 @@ describe("sessionTimeline", () => {
     const rows = sessionTimeline(session({ kind: "free", reason: "друзья владельца", grace_until: null }), tariffName, 0);
     expect(rows).toEqual([expect.objectContaining({ title: "Бесплатная", note: "«друзья владельца»", tone: "square" })]);
   });
+
+  it("marks a queued open segment as not started yet", () => {
+    const rows = sessionTimeline(
+      session({
+        segments: [
+          { id: 1, tariff_id: 1, kind: "package", starts_at: "2026-09-29T14:31:00Z", ends_at: "2026-09-29T17:34:00Z", price_snapshot: 400, amount: 400 },
+          { id: 2, tariff_id: null, kind: "open", starts_at: "2026-09-29T17:34:00Z", ends_at: null, price_snapshot: 160, amount: null },
+        ],
+      }),
+      tariffName,
+      Date.parse("2026-09-29T16:00:00Z"),
+    );
+    expect(rows.map((row) => row.title)).toEqual(["Выбор игры", "3 часа", "Открытое время"]);
+    expect(rows[2]).toMatchObject({ note: "160 сом/ч, с 23:34", tone: "triangle" });
+  });
 });
