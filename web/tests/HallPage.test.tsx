@@ -160,8 +160,8 @@ describe("HallPage", () => {
     renderHall();
 
     await waitFor(() => expect(screen.getByText("PS5-2")).toBeInTheDocument());
-    fireEvent.click(screen.getAllByRole("button", { name: "Старт" })[1]);
-    await waitFor(() => expect(screen.getByText("Начать сессию")).toBeInTheDocument());
+    fireEvent.click(screen.getAllByRole("button", { name: "Начать сессию" })[1]);
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Служебная" }));
     fireEvent.click(screen.getByRole("button", { name: "Начать" }));
 
@@ -177,7 +177,7 @@ describe("HallPage", () => {
     const queryClient = renderHall();
 
     await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: "Оплата" }));
+    fireEvent.click(screen.getByRole("button", { name: "Принять 300" }));
     await waitFor(() => expect(screen.getByText("Оплата — остаток 300 сом")).toBeInTheDocument());
 
     // A split payment lands; the next snapshot carries the reduced balance.
@@ -266,7 +266,8 @@ describe("HallPage", () => {
       const queryClient = renderHall();
 
       await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
-      fireEvent.click(screen.getByRole("button", { name: "Стоп" }));
+      fireEvent.click(screen.getByRole("article", { name: "PS5-1" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Завершить сессию" }));
 
       await waitFor(() => expect(screen.getByText("Оплата — остаток 150 сом")).toBeInTheDocument());
       await waitFor(() => expect(screen.getByText("Свободна")).toBeInTheDocument());
@@ -281,7 +282,8 @@ describe("HallPage", () => {
       renderHall();
 
       await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
-      fireEvent.click(screen.getByRole("button", { name: "Стоп" }));
+      fireEvent.click(screen.getByRole("article", { name: "PS5-1" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Завершить сессию" }));
       await waitFor(() => expect(screen.getByText("Оплата — остаток 150 сом")).toBeInTheDocument());
 
       fireEvent.change(screen.getByLabelText("Сумма"), { target: { value: "100" } });
@@ -308,7 +310,8 @@ describe("HallPage", () => {
       renderHall();
 
       await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
-      fireEvent.click(screen.getByRole("button", { name: "Стоп" }));
+      fireEvent.click(screen.getByRole("article", { name: "PS5-1" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Завершить сессию" }));
 
       await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => url === "/api/sessions/7/stop")).toBe(true));
       await waitFor(() => expect(screen.getByText("Свободна")).toBeInTheDocument());
@@ -321,7 +324,7 @@ describe("HallPage", () => {
     const queryClient = renderHall();
 
     await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: "Оплата" }));
+    fireEvent.click(screen.getByRole("button", { name: "Принять 300" }));
     await waitFor(() => expect(screen.getByText("Оплата — остаток 300 сом")).toBeInTheDocument());
 
     act(() => {
@@ -347,9 +350,21 @@ describe("HallPage", () => {
     renderHall();
 
     await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: "Отменить" }));
+    fireEvent.click(screen.getByRole("button", { name: "Отменить без оплаты" }));
 
     await waitFor(() => expect(screen.getByText("Оплата — остаток 80 сом")).toBeInTheDocument());
+  });
+
+  it("opens the session details when a busy card is clicked", async () => {
+    stubApi(snapshot([paidConsole(1, 7, 300)]));
+    renderHall();
+
+    await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("article", { name: "PS5-1" }));
+    const sheet = await screen.findByRole("dialog", { name: "PS5-1" });
+    expect(within(sheet).getByText("Отрезки")).toBeInTheDocument();
+    fireEvent.click(within(sheet).getByRole("button", { name: "Принять 300" }));
+    await waitFor(() => expect(screen.getByText("Оплата — остаток 300 сом")).toBeInTheDocument());
   });
 
   it("opens the bar dialog for a console session", async () => {

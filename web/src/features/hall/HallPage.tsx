@@ -1,4 +1,4 @@
-import { type CSSProperties, useEffect, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
@@ -13,14 +13,16 @@ import { ConsoleCard } from "./ConsoleCard";
 import { ExtendSessionDialog } from "./ExtendSessionDialog";
 import { HallHelp } from "./HallHelp";
 import { PaymentDialog } from "./PaymentDialog";
+import { SessionSheet } from "./SessionSheet";
 import { StartSessionDialog } from "./StartSessionDialog";
 import { TopBar } from "./TopBar";
 import { summarizeOrders } from "./barLines";
 import { hallColumns } from "./cardModel";
 import { computeCardTiming } from "./remainingTime";
 import { HALL_QUERY_KEY, useHallSnapshot } from "./useHallSnapshot";
+import { useHallHotkeys } from "./useHallHotkeys";
 import { useSessionActions } from "./useSessionActions";
-import type { SessionResponse } from "@/lib/api";
+import type { HallConsoleResponse, SessionResponse } from "@/lib/api";
 
 const DEFAULT_WARN_MINUTES = 5;
 const ACTION_ERROR = "Не удалось выполнить действие. Попробуйте ещё раз.";
@@ -31,6 +33,7 @@ type DialogState =
   | { kind: "extend"; sessionId: number }
   | { kind: "pay"; sessionId: number }
   | { kind: "bar"; sessionId: number }
+  | { kind: "details"; consoleId: number }
   // Paying off a session this tab just stopped. A finished session is no longer
   // in the hall snapshot, so its balance comes from the stop response and is
   // tracked here; the charge is frozen once stopped, so only payments made
@@ -71,6 +74,19 @@ export function HallPage() {
     consoles.find((c) => c.session?.id === sessionId)?.session ??
     tickets.find((t) => t.id === sessionId);
 
+  const openConsole = useCallback(
+    (consoleView: HallConsoleResponse) =>
+      setDialog(
+        consoleView.session
+          ? { kind: "details", consoleId: consoleView.id }
+          : { kind: "start", consoleId: consoleView.id },
+      ),
+    [],
+  );
+  useHallHotkeys(consoles, openConsole, hall?.business_day_open === true);
+  const detailsConsole =
+    dialog.kind === "details" ? consoles.find((c) => c.id === dialog.consoleId && c.session !== null) : undefined;
+
   const extendTarget = dialog.kind === "extend" ? findSession(dialog.sessionId) : undefined;
   const payTarget = dialog.kind === "pay" ? findSession(dialog.sessionId) : undefined;
   const barTarget = dialog.kind === "bar" ? findSession(dialog.sessionId) : undefined;
@@ -85,8 +101,8 @@ export function HallPage() {
       const stopped = await stop(sessionId);
       if (stopped.balance > 0) {
         setDialog({ kind: "settle", sessionId: stopped.id, balance: stopped.balance, returnTo });
-      } else if (returnTo === "close-day") {
-        setDialog({ kind: "close-day" });
+      } else {
+        setDialog(returnTo === "close-day" ? { kind: "close-day" } : { kind: "none" });
       }
     });
   }
@@ -138,7 +154,7 @@ export function HallPage() {
             <Button variant="ghost" onClick={() => setDialog({ kind: "history" })}>
               История дней
             </Button>
-            <HallHelp />
+            <HallHelp hotkeys />
           </div>
         </div>
 
@@ -157,7 +173,7 @@ export function HallPage() {
               className="grid grid-cols-1 gap-4 md:grid-cols-2 min-[1101px]:grid-cols-[repeat(var(--cols),minmax(0,1fr))]"
               style={{ "--cols": hallColumns(consoles.length) } as CSSProperties}
             >
-              {consoles.map((consoleView) => {
+              {consoles.map((consoleView, index) => {
                 const session = consoleView.session;
                 return (
                   <ConsoleCard
@@ -165,6 +181,9 @@ export function HallPage() {
                     console={consoleView}
                     nowMs={nowMs}
                     warnMinutes={warnMinutes}
+                    hotkey={index < 9 ? index + 1 : undefined}
+                    productName={productName}
+                    onOpen={() => openConsole(consoleView)}
                     onStart={() => setDialog({ kind: "start", consoleId: consoleView.id })}
                     onExtend={() => session && setDialog({ kind: "extend", sessionId: session.id })}
                     onStop={() => session && finishSession(session.id)}
@@ -230,6 +249,21 @@ export function HallPage() {
           consoleId={dialog.consoleId}
           onOpenChange={(open) => !open && closeDialog()}
           onStarted={closeDialog}
+        />
+      )}
+      {detailsConsole && (
+        <SessionSheet
+          open
+          onOpenChange={(open) => !open && closeDialog()}
+          consoleView={detailsConsole}
+          nowMs={nowMs}
+          warnMinutes={warnMinutes}
+          productName={productName}
+          stopping={stopping}
+          onPay={() => setDialog({ kind: "pay", sessionId: detailsConsole.session!.id })}
+          onExtend={() => setDialog({ kind: "extend", sessionId: detailsConsole.session!.id })}
+          onBar={() => setDialog({ kind: "bar", sessionId: detailsConsole.session!.id })}
+          onStop={() => finishSession(detailsConsole.session!.id)}
         />
       )}
       {extendTarget && (

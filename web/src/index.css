@@ -119,6 +119,77 @@
     @apply text-fg;
     border-color: hsl(var(--amber) / 0.45);
   }
+  .console-card {
+    @apply relative flex min-h-[300px] cursor-pointer flex-col overflow-hidden rounded-2xl border border-line p-5 pt-[22px] transition-colors hover:border-hover-line short:min-h-0 short:p-4;
+    container-type: inline-size;
+    background:
+      radial-gradient(120% 70% at 50% -10%, hsl(var(--c) / 0.14), transparent 60%),
+      hsl(var(--surface));
+  }
+  /* The loud states flood the whole card so they read from two metres away. */
+  .console-card[data-status="package_warn"] {
+    background: color-mix(in srgb, hsl(var(--c)) 9%, hsl(var(--surface)));
+    border-color: hsl(var(--c) / 0.65);
+  }
+  .console-card[data-status="package_overtime"] {
+    background: color-mix(in srgb, hsl(var(--c)) 13%, hsl(var(--surface)));
+    border-color: hsl(var(--c));
+    box-shadow: inset 0 0 0 1px hsl(var(--c)), 0 0 40px -12px hsl(var(--c));
+  }
+  /* The DualSense light bar. */
+  .light-bar {
+    @apply absolute left-[18%] right-[18%] top-0 h-1 rounded-b;
+    background: hsl(var(--c));
+    box-shadow: 0 0 14px 1px hsl(var(--c)), 0 0 42px 4px hsl(var(--c) / 0.45);
+  }
+  [data-theme="light"] .light-bar {
+    box-shadow: 0 2px 10px hsl(var(--c) / 0.45);
+  }
+  .console-card[data-status="free"] .light-bar,
+  .console-card[data-status="maintenance"] .light-bar {
+    box-shadow: none;
+  }
+  .console-card[data-status="package_warn"] .light-bar,
+  .console-card[data-status="package_overtime"] .light-bar {
+    @apply inset-x-0 rounded-none;
+  }
+  .console-card[data-status="package_warn"] .light-bar {
+    @apply animate-breathe;
+  }
+  .console-card[data-status="package_overtime"] .light-bar {
+    @apply animate-breathe-fast;
+  }
+  .card-timer {
+    @apply mb-1.5 mt-5 font-mono font-extrabold leading-none tracking-[-0.03em] short:mt-2.5;
+    font-size: clamp(48px, 17cqi, 104px);
+    font-variant-numeric: tabular-nums;
+  }
+  .console-card[data-status="package_warn"] .card-timer {
+    color: hsl(var(--amber-text));
+  }
+  .console-card[data-status="package_overtime"] .card-timer {
+    color: hsl(var(--circle));
+  }
+  .card-timer-idle {
+    @apply mb-1.5 mt-7 font-display font-semibold text-fg-faint;
+    font-size: clamp(28px, 7cqi, 40px);
+  }
+  .blocks > i {
+    flex: 1;
+    border-radius: 2px;
+    background: linear-gradient(90deg, hsl(var(--c)) calc(var(--f) * 100%), hsl(var(--line)) 0);
+  }
+  .blocks-flow {
+    background: repeating-linear-gradient(90deg, hsl(var(--c)) 0 10px, transparent 10px 16px);
+    background-size: 16px 4px;
+    opacity: 0.6;
+  }
+}
+
+@media (max-height: 820px) and (min-width: 1101px) {
+  .card-timer {
+    font-size: clamp(44px, 13cqi, 80px);
+  }
 }
 
 @layer utilities {
