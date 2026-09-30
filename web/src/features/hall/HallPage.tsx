@@ -7,11 +7,11 @@ import { capitalize, formatAmount } from "@/lib/format";
 import { useAuth } from "@/features/auth/useAuth";
 import { BarDialog } from "./BarDialog";
 import { BusinessDayGuard } from "./BusinessDayGuard";
-import { BusinessDayHistoryDialog } from "./BusinessDayHistoryDialog";
 import { CloseBusinessDayDialog } from "./CloseBusinessDayDialog";
 import { ConsoleCard } from "./ConsoleCard";
 import { ExtendSessionDialog } from "./ExtendSessionDialog";
 import { HallHelp } from "./HallHelp";
+import { HistoryPage } from "./HistoryPage";
 import { PaymentDialog } from "./PaymentDialog";
 import { SessionSheet } from "./SessionSheet";
 import { StartSessionDialog } from "./StartSessionDialog";
@@ -39,8 +39,7 @@ type DialogState =
   // tracked here; the charge is frozen once stopped, so only payments made
   // through this dialog change it.
   | { kind: "settle"; sessionId: number; balance: number; returnTo?: "close-day" }
-  | { kind: "close-day" }
-  | { kind: "history" };
+  | { kind: "close-day" };
 
 export function HallPage() {
   const { logout } = useAuth();
@@ -50,6 +49,7 @@ export function HallPage() {
   const queryClient = useQueryClient();
   const [dialog, setDialog] = useState<DialogState>({ kind: "none" });
   const [actionError, setActionError] = useState<string | null>(null);
+  const [view, setView] = useState<"hall" | "history">("hall");
   const [nowMs, setNowMs] = useState(serverNow);
 
   useEffect(() => {
@@ -86,7 +86,7 @@ export function HallPage() {
     },
     [],
   );
-  useHallHotkeys(consoles, openConsole, hall?.business_day_open === true);
+  useHallHotkeys(consoles, openConsole, hall?.business_day_open === true && view === "hall");
   const detailsConsole =
     dialog.kind === "details" ? consoles.find((c) => c.id === dialog.consoleId && c.session !== null) : undefined;
 
@@ -130,36 +130,38 @@ export function HallPage() {
       />
 
       <main className="px-4 pb-10 pt-[18px] short:pt-2.5 sm:px-6">
-        <div className="mb-4 flex flex-wrap items-center gap-3 short:mb-2.5">
-          <h1 className="mr-1 font-display text-[26px] font-extrabold tracking-tight">Зал</h1>
-          {hall?.business_day_open && (
-            <>
-              <span className="inline-flex h-[30px] items-center gap-1.5 whitespace-nowrap rounded-full border border-line bg-surface px-3 text-[13px] text-fg-muted">
-                <b className="font-semibold text-fg">
-                  {busyCount} из {consoles.length}
-                </b>{" "}
-                <span>заняты</span>
-              </span>
-              {alertCount > 0 && (
-                <span className="inline-flex h-[30px] items-center gap-1.5 whitespace-nowrap rounded-full border border-status-circle/50 bg-status-circle/10 px-3 text-[13px] text-fg">
-                  <b className="font-semibold text-status-circle">{alertCount}</b>{" "}
-                  <span>ждут решения</span>
-                </span>
-              )}
-            </>
-          )}
-          <div className="ml-auto flex flex-wrap gap-2 max-sm:ml-0 max-sm:w-full max-sm:[&>button]:flex-1">
+        {view === "hall" && (
+          <div className="mb-4 flex flex-wrap items-center gap-3 short:mb-2.5">
+            <h1 className="mr-1 font-display text-[26px] font-extrabold tracking-tight">Зал</h1>
             {hall?.business_day_open && (
-              <Button variant="outline" onClick={() => runSessionAction(() => openTicketMutation.mutateAsync())}>
-                + Продажа без игры
-              </Button>
+              <>
+                <span className="inline-flex h-[30px] items-center gap-1.5 whitespace-nowrap rounded-full border border-line bg-surface px-3 text-[13px] text-fg-muted">
+                  <b className="font-semibold text-fg">
+                    {busyCount} из {consoles.length}
+                  </b>{" "}
+                  <span>заняты</span>
+                </span>
+                {alertCount > 0 && (
+                  <span className="inline-flex h-[30px] items-center gap-1.5 whitespace-nowrap rounded-full border border-status-circle/50 bg-status-circle/10 px-3 text-[13px] text-fg">
+                    <b className="font-semibold text-status-circle">{alertCount}</b>{" "}
+                    <span>ждут решения</span>
+                  </span>
+                )}
+              </>
             )}
-            <Button variant="ghost" onClick={() => setDialog({ kind: "history" })}>
-              История дней
-            </Button>
-            <HallHelp hotkeys />
+            <div className="ml-auto flex flex-wrap gap-2 max-sm:ml-0 max-sm:w-full max-sm:[&>button]:flex-1">
+              {hall?.business_day_open && (
+                <Button variant="outline" onClick={() => runSessionAction(() => openTicketMutation.mutateAsync())}>
+                  + Продажа без игры
+                </Button>
+              )}
+              <Button variant="ghost" onClick={() => setView("history")}>
+                История дней
+              </Button>
+              <HallHelp hotkeys />
+            </div>
           </div>
-        </div>
+        )}
 
         {actionError && (
           <p role="alert" className="mb-4 text-sm text-status-circle">
@@ -167,7 +169,9 @@ export function HallPage() {
           </p>
         )}
 
-        {hall === undefined ? (
+        {view === "history" ? (
+          <HistoryPage onBack={() => setView("hall")} />
+        ) : hall === undefined ? (
           <div>Загрузка…</div>
         ) : (
           <BusinessDayGuard businessDayOpen={hall.business_day_open}>
@@ -330,9 +334,6 @@ export function HallPage() {
           onFinishSession={(sessionId) => finishSession(sessionId, "close-day")}
           onClosed={closeDialog}
         />
-      )}
-      {dialog.kind === "history" && (
-        <BusinessDayHistoryDialog open onOpenChange={(open) => !open && closeDialog()} />
       )}
     </div>
   );

@@ -539,7 +539,7 @@ describe("HallPage", () => {
       await waitFor(() => expect(screen.getByTestId("expected-cash")).toHaveTextContent("5 000 сом"));
     });
 
-    it("opens the history dialog and shows a closed day", async () => {
+    it("opens the history page and shows a closed day", async () => {
       const fetchMock = vi.fn(async (url: string) => {
         if (url === "/api/hall") return { ok: true, json: async () => snapshot([freeConsole(1)]) };
         if (url === "/api/settings") return { ok: true, json: async () => ({ grace_minutes: 3, warn_minutes: 5 }) };
@@ -559,7 +559,10 @@ describe("HallPage", () => {
       await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
       fireEvent.click(screen.getByRole("button", { name: "История дней" }));
 
-      await waitFor(() => expect(screen.getByText(/Начало: 1 000 сом/)).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByRole("heading", { name: "История дней" })).toBeInTheDocument());
+      expect(await screen.findByRole("button", { name: /ср, 23\.09/ })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "← Зал" }));
+      await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
     });
 
     it("returns to the close-day dialog after settling a debt incurred while finishing a session from it", async () => {
