@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HallPage } from "@/features/hall/HallPage";
+import { ThemeModeProvider } from "@/features/theme/ThemeModeProvider";
 import { HALL_QUERY_KEY } from "@/features/hall/useHallSnapshot";
 import type { HallConsoleResponse, HallSnapshotResponse } from "@/lib/api";
 
@@ -120,7 +121,9 @@ function renderHall() {
   const queryClient = new QueryClient();
   render(
     <QueryClientProvider client={queryClient}>
-      <HallPage />
+      <ThemeModeProvider>
+        <HallPage />
+      </ThemeModeProvider>
     </QueryClientProvider>,
   );
   return queryClient;
@@ -202,6 +205,41 @@ describe("HallPage", () => {
       expect(screen.getByText("Не удалось выполнить действие. Попробуйте ещё раз.")).toBeInTheDocument(),
     );
     expect(fetchMock.mock.calls.some(([url]) => url === "/api/sessions/7/stop")).toBe(true);
+  });
+
+  it("shows the day's till with cash and non-cash apart", async () => {
+    const fetchMock = stubApi(snapshot([freeConsole(1)]));
+    const baseImpl = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith("/summary")) {
+        return {
+          ok: true,
+          json: async () => ({
+            opening_cash: 2000, cash_total: 3830, qr_total: 2150, transfer_total: 600, expected_cash: 5830,
+            sessions_count: 23, minutes_total: 1900, bar_sales_total: 690, has_active_sessions: true,
+          }),
+        };
+      }
+      return baseImpl(url);
+    });
+    renderHall();
+
+    const till = await screen.findByRole("region", { name: "Касса дня" });
+    await waitFor(() => expect(within(till).getByText("5 830")).toBeInTheDocument());
+    expect(within(till).getByText("2 150")).toBeInTheDocument();
+    expect(within(till).getByText("600")).toBeInTheDocument();
+    expect(within(till).getByText("23 сессии · 31 ч 40 мин · бар 690")).toBeInTheDocument();
+  });
+
+  it("counts consoles that need a decision", async () => {
+    const overtime = paidConsole(1, 7, 0);
+    overtime.session!.segments[0].ends_at = new Date(Date.now() - 60_000).toISOString();
+    stubApi(snapshot([overtime, freeConsole(2)]));
+    renderHall();
+
+    await waitFor(() => expect(screen.getByText("ждут решения")).toBeInTheDocument());
+    expect(screen.getByText("ждут решения").parentElement).toHaveTextContent("1 ждут решения");
+    expect(screen.getByText("заняты").parentElement).toHaveTextContent("1 из 2 заняты");
   });
 
   describe("settling a stopped session", () => {
@@ -340,8 +378,8 @@ describe("HallPage", () => {
       vi.stubGlobal("fetch", fetchMock);
       renderHall();
 
-      await waitFor(() => expect(screen.getByText("Продажа без игры")).toBeInTheDocument());
-      fireEvent.click(screen.getByRole("button", { name: "+ Продажа" }));
+      await waitFor(() => expect(screen.getByRole("button", { name: "+ Продажа без игры" })).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "+ Продажа без игры" }));
 
       await waitFor(() => expect(screen.getByText("Бар — на счету 0 сом")).toBeInTheDocument());
     });
@@ -357,8 +395,8 @@ describe("HallPage", () => {
       vi.stubGlobal("fetch", fetchMock);
       renderHall();
 
-      await waitFor(() => expect(screen.getByText("Продажа без игры")).toBeInTheDocument());
-      fireEvent.click(screen.getByRole("button", { name: "+ Продажа" }));
+      await waitFor(() => expect(screen.getByRole("button", { name: "+ Продажа без игры" })).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "+ Продажа без игры" }));
 
       await waitFor(() =>
         expect(screen.getByText("Не удалось выполнить действие. Попробуйте ещё раз.")).toBeInTheDocument(),
@@ -369,8 +407,8 @@ describe("HallPage", () => {
       stubApi(snapshot([], [ticket(9, 150)]));
       renderHall();
 
-      await waitFor(() => expect(screen.getByText(/Чек №9/)).toBeInTheDocument());
-      fireEvent.click(screen.getByRole("button", { name: "Оплатить" }));
+      await waitFor(() => expect(screen.getByText("№9")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "Принять 150" }));
 
       await waitFor(() => expect(screen.getByText("Оплата — остаток 150 сом")).toBeInTheDocument());
     });
@@ -379,7 +417,7 @@ describe("HallPage", () => {
       const fetchMock = stubApi(snapshot([], [ticket(9, 0)]));
       renderHall();
 
-      await waitFor(() => expect(screen.getByText(/Чек №9/)).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText("№9")).toBeInTheDocument());
       fireEvent.click(screen.getByRole("button", { name: "Завершить" }));
 
       await waitFor(() =>
@@ -391,7 +429,7 @@ describe("HallPage", () => {
       const fetchMock = stubApi(snapshot([], [ticket(9, -20)]));
       renderHall();
 
-      await waitFor(() => expect(screen.getByText(/Чек №9/)).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText("№9")).toBeInTheDocument());
       fireEvent.click(screen.getByRole("button", { name: "Завершить" }));
 
       await waitFor(() =>
