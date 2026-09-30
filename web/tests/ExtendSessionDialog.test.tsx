@@ -27,7 +27,7 @@ describe("ExtendSessionDialog", () => {
     const onExtended = vi.fn();
     render(
       <QueryClientProvider client={queryClient}>
-        <ExtendSessionDialog open sessionId={5} segments={[]} onOpenChange={() => {}} onExtended={onExtended} />
+        <ExtendSessionDialog open sessionId={5} consoleName="PS5-1" segments={[]} onOpenChange={() => {}} onExtended={onExtended} />
       </QueryClientProvider>,
     );
 
@@ -59,7 +59,7 @@ describe("ExtendSessionDialog", () => {
     const onExtended = vi.fn();
     render(
       <QueryClientProvider client={queryClient}>
-        <ExtendSessionDialog open sessionId={5} segments={[]} onOpenChange={() => {}} onExtended={onExtended} />
+        <ExtendSessionDialog open sessionId={5} consoleName="PS5-1" segments={[]} onOpenChange={() => {}} onExtended={onExtended} />
       </QueryClientProvider>,
     );
 
@@ -91,15 +91,15 @@ describe("ExtendSessionDialog", () => {
     const queryClient = new QueryClient();
     render(
       <QueryClientProvider client={queryClient}>
-        <ExtendSessionDialog open sessionId={5} segments={[]} onOpenChange={() => {}} onExtended={() => {}} />
+        <ExtendSessionDialog open sessionId={5} consoleName="PS5-1" segments={[]} onOpenChange={() => {}} onExtended={() => {}} />
       </QueryClientProvider>,
     );
 
-    await waitFor(() => expect(screen.getByText("5 часов — 700 сом")).toBeInTheDocument());
-    fireEvent.click(screen.getByText("5 часов — 700 сом"));
+    await waitFor(() => expect(screen.getByRole("button", { name: /^\+5 часов/ })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /^\+5 часов/ }));
 
     await waitFor(() =>
-      expect(screen.getByText(/Пакет закончится после планового закрытия \(05:00\)/)).toBeInTheDocument(),
+      expect(screen.getByText(/после планового закрытия \(05:00\)/)).toBeInTheDocument(),
     );
   });
 
@@ -130,15 +130,15 @@ describe("ExtendSessionDialog", () => {
     const queryClient = new QueryClient();
     render(
       <QueryClientProvider client={queryClient}>
-        <ExtendSessionDialog open sessionId={5} segments={runningPackage} onOpenChange={() => {}} onExtended={() => {}} />
+        <ExtendSessionDialog open sessionId={5} consoleName="PS5-1" segments={runningPackage} onOpenChange={() => {}} onExtended={() => {}} />
       </QueryClientProvider>,
     );
 
-    await waitFor(() => expect(screen.getByText("2 часа — 300 сом")).toBeInTheDocument());
-    fireEvent.click(screen.getByText("2 часа — 300 сом"));
+    await waitFor(() => expect(screen.getByRole("button", { name: /^\+2 часа/ })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /^\+2 часа/ }));
 
     await waitFor(() =>
-      expect(screen.getByText(/Пакет закончится после планового закрытия \(05:00\)/)).toBeInTheDocument(),
+      expect(screen.getByText(/после планового закрытия \(05:00\)/)).toBeInTheDocument(),
     );
   });
 });

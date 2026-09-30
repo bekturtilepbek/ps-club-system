@@ -250,6 +250,7 @@ export function HallPage() {
         <StartSessionDialog
           open
           consoleId={dialog.consoleId}
+          consoleName={consoles.find((c) => c.id === dialog.consoleId)?.name ?? ""}
           onOpenChange={(open) => !open && closeDialog()}
           onStarted={closeDialog}
         />
@@ -273,6 +274,7 @@ export function HallPage() {
         <ExtendSessionDialog
           open
           sessionId={extendTarget.id}
+          consoleName={consoles.find((c) => c.session?.id === extendTarget.id)?.name ?? ""}
           segments={extendTarget.segments}
           onOpenChange={(open) => !open && closeDialog()}
           onExtended={closeDialog}

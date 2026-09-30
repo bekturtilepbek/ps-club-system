@@ -1,37 +1,46 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { api, type SegmentResponse } from "@/lib/api";
-import { formatSom } from "@/lib/format";
+import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { StateChip } from "@/components/ui/state-chip";
+import { api, type SegmentResponse, type TariffResponse } from "@/lib/api";
+import { formatClock } from "@/lib/bishkek";
 import { serverNow } from "@/lib/clock";
-import { HALL_QUERY_KEY } from "./useHallSnapshot";
-import { estimateExtendStartMs, packageEndsAfterPlannedClose } from "./plannedClose";
 import { LatePackageWarning } from "./LatePackageWarning";
+import { TariffTile } from "./TariffTile";
+import { estimateExtendStartMs, packageEndsAfterPlannedClose } from "./plannedClose";
+import { HALL_QUERY_KEY } from "./useHallSnapshot";
 
 interface ExtendSessionDialogProps {
   open: boolean;
   sessionId: number;
+  consoleName: string;
   segments: SegmentResponse[];
   onOpenChange: (open: boolean) => void;
   onExtended: () => void;
 }
 
-export function ExtendSessionDialog({ open, sessionId, segments, onOpenChange, onExtended }: ExtendSessionDialogProps) {
+export function ExtendSessionDialog({ open, sessionId, consoleName, segments, onOpenChange, onExtended }: ExtendSessionDialogProps) {
   const tariffsQuery = useQuery({ queryKey: ["tariffs"], queryFn: api.tariffs, enabled: open });
   const settingsQuery = useQuery({ queryKey: ["settings"], queryFn: api.settings, enabled: open });
   const [tariffId, setTariffId] = useState<number | null>(null);
   const queryClient = useQueryClient();
 
-  const selectedTariff = (tariffsQuery.data ?? []).find((t) => t.id === tariffId);
+  const tariffs = tariffsQuery.data ?? [];
+  const selectedTariff = tariffs.find((t) => t.id === tariffId);
   const plannedClose = settingsQuery.data?.planned_close;
-  const lastSegment = segments[segments.length - 1];
-  const estimatedStartMs = estimateExtendStartMs(serverNow(), lastSegment);
-  const showsLateWarning =
-    selectedTariff?.kind === "package" &&
-    selectedTariff.duration_min != null &&
+  // Open time queued behind a running package starts at the package's end (CLAUDE.md rule 3).
+  const startMs = estimateExtendStartMs(serverNow(), segments[segments.length - 1]);
+
+  const isLate = (tariff: TariffResponse) =>
+    tariff.kind === "package" &&
+    tariff.duration_min != null &&
     plannedClose !== undefined &&
-    packageEndsAfterPlannedClose(estimatedStartMs, selectedTariff.duration_min, plannedClose);
+    packageEndsAfterPlannedClose(startMs, tariff.duration_min, plannedClose);
+  const endsLabel = (tariff: TariffResponse) =>
+    tariff.kind === "package" && tariff.duration_min != null
+      ? `до ${formatClock(startMs + tariff.duration_min * 60_000)}${isLate(tariff) ? " · после закрытия" : ""}`
+      : `с ${formatClock(startMs)}, поминутно`;
 
   const extendMutation = useMutation({
     mutationFn: () => api.extendSession(sessionId, tariffId as number),
@@ -43,38 +52,50 @@ export function ExtendSessionDialog({ open, sessionId, segments, onOpenChange, o
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Продлить сессию</DialogTitle>
-        </DialogHeader>
-
-        <div className="flex flex-col gap-1">
-          {(tariffsQuery.data ?? []).map((tariff) => (
-            <button
-              key={tariff.id}
-              type="button"
-              className={"rounded border p-2 text-left" + (tariffId === tariff.id ? " border-primary" : "")}
-              onClick={() => setTariffId(tariff.id)}
-            >
-              {tariff.name} — {formatSom(tariff.kind === "package" ? (tariff.price ?? 0) : (tariff.hourly_rate ?? 0))}
-              {tariff.kind === "open" ? "/час" : ""}
-            </button>
-          ))}
-        </div>
-
-        {showsLateWarning && <LatePackageWarning plannedClose={plannedClose} />}
-
-        {extendMutation.isError && (
-          <p className="text-sm text-red-600">Не удалось продлить сессию. Попробуйте ещё раз.</p>
-        )}
-
-        <DialogFooter>
-          <Button onClick={() => extendMutation.mutate()} disabled={tariffId === null || extendMutation.isPending}>
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent tone="cross">
+        <SheetHeader>
+          <SheetTitle>{consoleName}</SheetTitle>
+          <StateChip tone="cross">Продление</StateChip>
+        </SheetHeader>
+        <SheetBody>
+          <div>
+            <span className="field-label">Продлить на</span>
+            <div className="grid grid-cols-2 gap-2.5">
+              {tariffs.map((tariff) => (
+                <TariffTile
+                  key={tariff.id}
+                  tariff={tariff}
+                  prefix={tariff.kind === "package" ? "+" : ""}
+                  selected={tariffId === tariff.id}
+                  onSelect={() => setTariffId(tariff.id)}
+                  endsLabel={endsLabel(tariff)}
+                  late={isLate(tariff)}
+                />
+              ))}
+            </div>
+          </div>
+          {selectedTariff && isLate(selectedTariff) && plannedClose && (
+            <LatePackageWarning endsAtMs={startMs + (selectedTariff.duration_min ?? 0) * 60_000} plannedClose={plannedClose} />
+          )}
+          {extendMutation.isError && (
+            <p role="alert" className="text-sm text-status-circle">
+              Не удалось продлить сессию. Попробуйте ещё раз.
+            </p>
+          )}
+        </SheetBody>
+        <SheetFooter>
+          <Button
+            variant="state"
+            size="lg"
+            data-tone={selectedTariff?.kind === "open" ? "triangle" : "cross"}
+            onClick={() => extendMutation.mutate()}
+            disabled={tariffId === null || extendMutation.isPending}
+          >
             Продлить
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

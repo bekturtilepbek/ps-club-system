@@ -163,7 +163,7 @@ describe("HallPage", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Начать сессию" })[1]);
     await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Служебная" }));
-    fireEvent.click(screen.getByRole("button", { name: "Начать" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Начать на/ }));
 
     await waitFor(() => {
       const calls = fetchMock.mock.calls as unknown as [string, RequestInit | undefined][];
