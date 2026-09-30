@@ -10,13 +10,12 @@ import { Till } from "./Till";
 interface TopBarProps {
   businessDayOpen: boolean;
   businessDayId: number | null;
-  snapshotAt: string | undefined;
   nowMs: number;
   onCloseDay: () => void;
   onLogout: () => void;
 }
 
-export function TopBar({ businessDayOpen, businessDayId, snapshotAt, nowMs, onCloseDay, onLogout }: TopBarProps) {
+export function TopBar({ businessDayOpen, businessDayId, nowMs, onCloseDay, onLogout }: TopBarProps) {
   const dayQuery = useQuery({
     queryKey: ["business-day", "current"],
     queryFn: api.currentBusinessDay,
@@ -48,7 +47,7 @@ export function TopBar({ businessDayOpen, businessDayId, snapshotAt, nowMs, onCl
           {dayLine}
         </div>
       </div>
-      {businessDayOpen && businessDayId !== null && <Till businessDayId={businessDayId} snapshotAt={snapshotAt} />}
+      {businessDayOpen && businessDayId !== null && <Till businessDayId={businessDayId} />}
       <div className="hidden flex-1 sm:block" />
       <div className="whitespace-nowrap font-display text-[26px] font-extrabold tracking-tight">
         {formatClock(nowMs)}
