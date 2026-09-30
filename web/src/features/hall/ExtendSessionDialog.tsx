@@ -5,10 +5,10 @@ import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle } 
 import { StateChip } from "@/components/ui/state-chip";
 import { api, type SegmentResponse, type TariffResponse } from "@/lib/api";
 import { formatClock } from "@/lib/bishkek";
-import { serverNow } from "@/lib/clock";
 import { LatePackageWarning } from "./LatePackageWarning";
 import { TariffTile } from "./TariffTile";
 import { estimateExtendStartMs, packageEndsAfterPlannedClose } from "./plannedClose";
+import { useNow } from "./useNow";
 import { HALL_QUERY_KEY } from "./useHallSnapshot";
 
 interface ExtendSessionDialogProps {
@@ -30,7 +30,7 @@ export function ExtendSessionDialog({ open, sessionId, consoleName, segments, on
   const selectedTariff = tariffs.find((t) => t.id === tariffId);
   const plannedClose = settingsQuery.data?.planned_close;
   // Open time queued behind a running package starts at the package's end (CLAUDE.md rule 3).
-  const startMs = estimateExtendStartMs(serverNow(), segments[segments.length - 1]);
+  const startMs = estimateExtendStartMs(useNow(open), segments[segments.length - 1]);
 
   const isLate = (tariff: TariffResponse) =>
     tariff.kind === "package" &&
