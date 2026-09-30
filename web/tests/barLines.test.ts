@@ -44,6 +44,12 @@ function product(id: number, category: string | null): ProductResponse {
 }
 
 describe("productCategories", () => {
+  it("treats categories that differ only by surrounding spaces as one", () => {
+    const products = [product(1, "Напитки"), product(2, "Напитки "), product(3, "Еда")];
+    expect(productCategories(products)).toEqual(["Напитки", "Еда"]);
+    expect(inCategory(products[1], "Напитки")).toBe(true);
+  });
+
   it("lists categories in catalog order and gathers the rest under «Другое»", () => {
     const products = [product(1, "Напитки"), product(2, "Еда"), product(3, "Напитки"), product(4, null)];
     expect(productCategories(products)).toEqual(["Напитки", "Еда", OTHER_CATEGORY]);
