@@ -39,6 +39,13 @@ export function useHallSnapshot() {
     refetchInterval: connected ? 60_000 : 5000,
   });
 
+  // Any hall change (a payment is one) moves the till: refresh the day summaries whenever a
+  // new snapshot lands, from the socket or from the poll.
+  const generatedAt = query.data?.generated_at;
+  useEffect(() => {
+    if (generatedAt) void queryClient.invalidateQueries({ queryKey: ["business-day-summary"] });
+  }, [generatedAt, queryClient]);
+
   useEffect(() => {
     let socket: WebSocket | null = null;
     let cancelled = false;

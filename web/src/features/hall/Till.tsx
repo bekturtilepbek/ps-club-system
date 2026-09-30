@@ -1,19 +1,16 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { formatAmount, formatHoursMinutes, pluralRu } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 interface TillProps {
   businessDayId: number;
-  /** The hall snapshot's generated_at: any hall change (a payment is one) refreshes the till. */
-  snapshotAt: string | undefined;
 }
 
-export function Till({ businessDayId, snapshotAt }: TillProps) {
+export function Till({ businessDayId }: TillProps) {
   const { data } = useQuery({
-    queryKey: ["business-day-summary", businessDayId, "till", snapshotAt],
+    queryKey: ["business-day-summary", businessDayId, "till"],
     queryFn: () => api.businessDaySummary(businessDayId),
-    placeholderData: keepPreviousData,
   });
   if (!data || typeof data.expected_cash !== "number") return null;
 

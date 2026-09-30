@@ -1,4 +1,4 @@
-const NBSP = " ";
+const NBSP = "\u00a0";
 const MINUS = "−";
 
 function pad2(value: number): string {

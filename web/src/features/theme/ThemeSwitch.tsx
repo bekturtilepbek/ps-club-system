@@ -3,6 +3,7 @@ import { Moon, Sun, SunMoon } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import type { ThemeMode } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { useDetailsDismiss } from "@/lib/useDetailsDismiss";
 import { useThemeMode } from "./themeContext";
 
 const OPTIONS: { mode: ThemeMode; title: string; hint: string }[] = [
@@ -14,19 +15,20 @@ const OPTIONS: { mode: ThemeMode; title: string; hint: string }[] = [
 export function ThemeSwitch() {
   const { mode, setMode } = useThemeMode();
   const detailsRef = useRef<HTMLDetailsElement>(null);
+  useDetailsDismiss(detailsRef);
   const Icon = mode === "light" ? Sun : mode === "dark" ? Moon : SunMoon;
 
   return (
     <details ref={detailsRef} className="relative">
       <summary
-        aria-label="Тема оформления"
+        aria-label="Сменить тему"
         className={cn(buttonVariants({ variant: "outline", size: "icon" }), "cursor-pointer list-none [&::-webkit-details-marker]:hidden")}
       >
         <Icon />
       </summary>
       <div
         role="group"
-        aria-label="Тема оформления"
+        aria-label="Режим темы"
         className="absolute right-0 top-[calc(100%+8px)] z-30 grid w-[280px] gap-1 rounded-xl border border-hover-line bg-surface-2 p-1.5 shadow-[var(--shadow-lg)]"
       >
         {OPTIONS.map((option) => (

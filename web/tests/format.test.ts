@@ -11,7 +11,7 @@ import {
 } from "@/lib/format";
 
 // Amounts group thousands with a non-breaking space (U+00A0).
-const NBSP = " ";
+const NBSP = "\u00a0";
 
 describe("formatDuration", () => {
   it("shows mm:ss under an hour", () => {

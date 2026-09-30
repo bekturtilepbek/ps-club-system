@@ -131,7 +131,6 @@ export function HallPage() {
       <TopBar
         businessDayOpen={hall?.business_day_open ?? false}
         businessDayId={hall?.business_day_id ?? null}
-        snapshotAt={hall?.generated_at}
         nowMs={nowMs}
         onCloseDay={() => setDialog({ kind: "close-day" })}
         onLogout={() => logout().catch(() => {})}
