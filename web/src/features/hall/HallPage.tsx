@@ -127,17 +127,19 @@ export function HallPage() {
                   <span>ждут решения</span>
                 </span>
               )}
-              <div className="ml-auto flex flex-wrap gap-2 max-sm:ml-0 max-sm:w-full max-sm:[&>button]:flex-1">
-                <Button variant="outline" onClick={() => runSessionAction(() => openTicketMutation.mutateAsync())}>
-                  + Продажа без игры
-                </Button>
-                <Button variant="ghost" onClick={() => setDialog({ kind: "history" })}>
-                  История дней
-                </Button>
-                <HallHelp />
-              </div>
             </>
           )}
+          <div className="ml-auto flex flex-wrap gap-2 max-sm:ml-0 max-sm:w-full max-sm:[&>button]:flex-1">
+            {hall?.business_day_open && (
+              <Button variant="outline" onClick={() => runSessionAction(() => openTicketMutation.mutateAsync())}>
+                + Продажа без игры
+              </Button>
+            )}
+            <Button variant="ghost" onClick={() => setDialog({ kind: "history" })}>
+              История дней
+            </Button>
+            <HallHelp />
+          </div>
         </div>
 
         {actionError && (

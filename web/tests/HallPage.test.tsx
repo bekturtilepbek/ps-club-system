@@ -455,6 +455,14 @@ describe("HallPage", () => {
       expect(screen.queryByRole("button", { name: "Закрыть день" })).not.toBeInTheDocument();
     });
 
+    it("keeps the day history reachable while the day is closed", async () => {
+      stubApi({ ...snapshot([freeConsole(1)]), business_day_open: false });
+      renderHall();
+
+      await waitFor(() => expect(screen.getByText("День не открыт. Открыть?")).toBeInTheDocument());
+      expect(screen.getByRole("button", { name: "История дней" })).toBeInTheDocument();
+    });
+
     it("opens the close-day dialog listing an active session, and finishing it reaches the reconciliation screen", async () => {
       let hall = snapshot([paidConsole(1, 7, 0)]);
       const fetchMock = vi.fn(async (url: string) => {
