@@ -20,7 +20,7 @@ const SheetContent = React.forwardRef<
       aria-describedby={undefined}
       className={cn(
         "fixed z-50 flex flex-col border-line bg-surface text-fg shadow-[var(--shadow-lg)] outline-none",
-        "inset-x-0 bottom-0 h-[88vh] rounded-t-2xl border-t",
+        "inset-x-0 bottom-0 h-[88vh] supports-[height:1dvh]:h-[88dvh] rounded-t-2xl border-t",
         "sm:inset-y-0 sm:left-auto sm:right-0 sm:h-full sm:w-[460px] sm:rounded-none sm:border-l sm:border-t-0",
         "data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom sm:data-[state=closed]:slide-out-to-right sm:data-[state=open]:slide-in-from-right",
         className,
@@ -38,7 +38,7 @@ function SheetHeader({ className, children, ...props }: React.HTMLAttributes<HTM
     <div className={cn("relative flex items-center gap-3 border-b border-line px-5 py-4", className)} {...props}>
       <span aria-hidden className="absolute bottom-4 left-0 top-4 w-[3px] rounded-r bg-tone shadow-[0_0_12px_hsl(var(--c))]" />
       {children}
-      <DialogPrimitive.Close className="ml-auto inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] text-fg-muted hover:bg-hover hover:text-fg">
+      <DialogPrimitive.Close className="ml-auto inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] text-fg-muted hover:bg-hover hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-bg">
         <X className="h-4 w-4" />
         <span className="sr-only">Закрыть</span>
       </DialogPrimitive.Close>
