@@ -1,0 +1,1362 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Зал — концепт v2</title>
+<script>
+  // Set the theme before the first paint so the page never flashes the wrong one.
+  // The concept clock is pinned to 00:40, so "По времени суток" resolves to dark here.
+  (function () {
+    var mode = "auto";
+    try { mode = new URLSearchParams(location.search).get("theme") || localStorage.getItem("ps-theme") || "auto"; } catch (e) {}
+    var hour = 0;
+    document.documentElement.dataset.theme = mode === "auto" ? (hour >= 9 && hour < 19 ? "light" : "dark") : mode;
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700;800&family=Unbounded:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/*
+  Concept v2: "Световая полоса" + the best of the Stitch round.
+  Type (from Stitch C3): Unbounded for names and headings, JetBrains Mono for
+  timers and money, Golos Text for everything else.
+  - DualSense light bar and face-button status shapes stay (✕ △ ○ □).
+  - Loudness escalates: calm states keep a quiet card, "скоро конец" and
+    "переигрыш" flood the whole card so they read from two metres away.
+  - The primary button wears the card's colour: the colour of the problem,
+    or, on a free console, the colour of the session it will start.
+  - The till moved to the top bar; the day feed is a drawer (a column only on
+    very wide screens).
+  - Package progress is drawn in 15-minute blocks: remaining blocks stay lit.
+*/
+:root {
+  --bg: #0B0E15;
+  --surface: #121723;
+  --surface-2: #192031;
+  --line: #242C3E;
+  --text: #E9EDF5;
+  --muted: #8B94A8;
+  --faint: #7A8399;    /* small secondary text, AA on every dark surface */
+  --ink: #0B0E15;       /* text on coloured buttons */
+
+  --cross: #5B8CFF;     /* ✕ package running */
+  --triangle: #3DD6B5;  /* △ open time */
+  --circle: #FF5468;    /* ○ overtime */
+  --square: #E77AD4;    /* □ free session */
+  --amber: #FFB547;     /* time warnings only: last minutes, ends after closing */
+  --amber-text: #FFB547;
+  --idle: #394258;      /* console asleep */
+
+  --tint-to: #fff;      /* status text is the status colour pushed toward the text colour */
+  --hover-bg: #20283B;
+  --hover-line: #313B52;
+  --primary-hover: #fff;
+  --topbar-bg: rgba(11, 14, 21, .9);
+  --rail-bg: #0E121B;
+  --scrim: rgba(4, 6, 10, .55);
+  --modal-bg: rgba(4, 6, 10, .7);
+  --gate-bg: rgba(8, 10, 16, .78);
+  --shadow: 0 30px 80px rgba(0, 0, 0, .5);
+  --tv-strip: rgba(0, 0, 0, .25);
+  --glow: 0 0 14px 1px var(--c), 0 0 42px 4px color-mix(in srgb, var(--c) 45%, transparent);
+  color-scheme: dark;
+
+  --radius: 14px;
+  --display: "Unbounded", "Golos Text", system-ui, sans-serif;  /* names, headings, clock */
+  --mono: "JetBrains Mono", ui-monospace, monospace;             /* timers, money */
+  --body: "Golos Text", system-ui, sans-serif;
+}
+
+/* Light theme for daytime. Status colours are darker so text on white passes AA;
+   amber stays bright for fills, and --amber-text carries it as text. */
+:root[data-theme="light"] {
+  --bg: #EDF0F5;
+  --surface: #FFFFFF;
+  --surface-2: #F1F4F8;
+  --line: #D9DFE8;
+  --text: #111722;
+  --muted: #545E73;
+  --faint: #636C80;
+  --ink: #FFFFFF;
+
+  --cross: #2F63E3;
+  --triangle: #0A8671;
+  --circle: #D42A45;
+  --square: #B0379F;
+  --amber: #F4A51C;
+  --amber-text: #955B00;
+  --idle: #C2C9D5;
+
+  --tint-to: #000;
+  --hover-bg: #E4E9F0;
+  --hover-line: #C3CBD8;
+  --primary-hover: #000;
+  --topbar-bg: rgba(237, 240, 245, .9);
+  --rail-bg: #F6F8FB;
+  --scrim: rgba(17, 23, 34, .28);
+  --modal-bg: rgba(17, 23, 34, .4);
+  --gate-bg: rgba(237, 240, 245, .72);
+  --shadow: 0 24px 64px rgba(20, 30, 50, .16);
+  --tv-strip: rgba(255, 255, 255, .7);
+  --glow: 0 2px 10px color-mix(in srgb, var(--c) 45%, transparent);
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.45 var(--body);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--cross); outline-offset: 2px; }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.cur { font-family: var(--body); font-size: .55em; color: var(--muted); margin-left: 3px; font-weight: 400; }
+.spacer { flex: 1; }
+kbd {
+  display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px;
+  border-radius: 5px; border: 1px solid var(--line); border-bottom-width: 2px;
+  font: 600 11px var(--body); color: var(--faint); background: var(--bg);
+}
+
+/* ---------- buttons ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 40px; padding: 0 14px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--surface-2);
+  font-weight: 500; font-size: 14px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: background .15s, border-color .15s, filter .15s;
+}
+.btn:hover { background: var(--hover-bg); border-color: var(--hover-line); }
+.btn-ghost { background: transparent; border-color: transparent; color: var(--muted); }
+.btn-ghost:hover { background: var(--surface); color: var(--text); }
+.btn-primary { background: var(--text); color: var(--ink); border-color: var(--text); font-weight: 600; }
+.btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+/* the primary action wears the colour of its card */
+.btn-state { background: var(--c); border-color: var(--c); color: var(--on-c, var(--ink)); font-weight: 600; }
+.btn-state:hover { background: var(--c); border-color: var(--c); filter: brightness(1.1); }
+.card[data-state="free"] .btn-state { --c: var(--cross); } /* the colour of the session it starts */
+.btn:disabled { opacity: .38; cursor: not-allowed; filter: none; }
+.btn-lg { height: 48px; font-size: 15px; border-radius: 12px; padding: 0 20px; }
+
+/* ---------- top bar: day + till ---------- */
+.topbar {
+  display: flex; align-items: center; gap: 20px;
+  padding: 10px 24px;
+  border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; z-index: 5;
+  background: var(--topbar-bg);
+  backdrop-filter: blur(10px);
+}
+.brand { display: grid; gap: 2px; }
+.wordmark { font-family: var(--display); font-weight: 800; letter-spacing: .02em; font-size: 16px; }
+.wordmark span { color: var(--muted); font-weight: 400; }
+.day { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--triangle); box-shadow: 0 0 8px var(--triangle); }
+
+.till {
+  display: flex; align-items: stretch;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
+}
+.till > div { padding: 7px 16px; display: grid; align-content: center; border-left: 1px solid var(--line); white-space: nowrap; }
+.till > div:first-child { border-left: 0; }
+.till .k { font-size: 11px; color: var(--muted); letter-spacing: .03em; }
+.till .v { font-family: var(--mono); font-size: 19px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.till .cash .v { font-size: 24px; }
+.till .meta .v { font-family: var(--body); font-size: 13px; font-weight: 500; }
+
+.clock { font-family: var(--display); font-size: 26px; font-weight: 800; letter-spacing: -.01em; white-space: nowrap; }
+.clock small { font-family: var(--body); font-size: 11px; color: var(--muted); margin-left: 6px; letter-spacing: 0; }
+
+/* ---------- layout ---------- */
+.layout { display: grid; grid-template-columns: minmax(0, 1fr); }
+.hall { padding: 18px 24px 40px; }
+.hall-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.hall-head h1 { font-family: var(--display); font-size: 26px; font-weight: 800; margin: 0 4px 0 0; letter-spacing: -.01em; }
+.pill {
+  display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px;
+  border-radius: 999px; border: 1px solid var(--line); background: var(--surface);
+  font-size: 13px; color: var(--muted); white-space: nowrap;
+}
+.pill b { color: var(--text); font-weight: 600; }
+.pill.alert { border-color: color-mix(in srgb, var(--circle) 50%, var(--line)); color: var(--text); background: color-mix(in srgb, var(--circle) 10%, var(--surface)); }
+.pill.alert b { color: var(--circle); }
+.hall-actions { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+
+.glyph {
+  display: inline-grid; place-items: center;
+  width: 16px; height: 16px; font-style: normal; font-size: 12px; line-height: 1;
+  font-family: system-ui, sans-serif; font-weight: 700;
+}
+.g-cross { color: var(--cross); }
+.g-triangle { color: var(--triangle); }
+.g-circle { color: var(--circle); }
+.g-square { color: var(--square); }
+.g-amber { color: var(--amber-text); }
+
+/* columns follow the console count (6 → 3×2), never the screen width alone,
+   so the hall has no holes; cards grow instead and the timer grows with them */
+.grid { --cols: 3; display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 1100px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* ---------- console card ---------- */
+.card {
+  --c: var(--idle);
+  position: relative;
+  display: flex; flex-direction: column;
+  min-height: 300px;
+  padding: 22px 20px 16px;
+  container-type: inline-size;
+  border-radius: var(--radius);
+  background:
+    radial-gradient(120% 70% at 50% -10%, color-mix(in srgb, var(--c) 14%, transparent), transparent 60%),
+    var(--surface);
+  border: 1px solid var(--line);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color .2s, background-color .3s;
+}
+.card:hover { border-color: var(--hover-line); }
+.card::before { /* the light bar */
+  content: ""; position: absolute; top: 0; left: 18%; right: 18%; height: 4px;
+  border-radius: 0 0 4px 4px;
+  background: var(--c);
+  box-shadow: var(--glow);
+}
+.card[data-state="free"]::before { box-shadow: none; }
+.card[data-state="package"] { --c: var(--cross); }
+.card[data-state="open"] { --c: var(--triangle); }
+.card[data-state="gift"] { --c: var(--square); }
+/* loud states flood the whole card */
+.card[data-state="warn"] {
+  --c: var(--amber);
+  --on-c: #1A1200; /* amber is bright in both themes, so its buttons keep dark text */
+  background: color-mix(in srgb, var(--amber) 9%, var(--surface));
+  border-color: color-mix(in srgb, var(--amber) 65%, var(--line));
+}
+.card[data-state="over"] {
+  --c: var(--circle);
+  background: color-mix(in srgb, var(--circle) 13%, var(--surface));
+  border: 1px solid var(--circle);
+  box-shadow: 0 0 0 1px var(--circle) inset, 0 0 40px -12px var(--circle);
+}
+.card[data-state="warn"]::before { left: 0; right: 0; border-radius: 0; animation: breathe 2.4s ease-in-out infinite; }
+.card[data-state="over"]::before { left: 0; right: 0; border-radius: 0; animation: breathe 1s ease-in-out infinite; }
+@keyframes breathe { 50% { opacity: .35; } }
+
+.card-head { display: flex; align-items: center; gap: 8px; }
+.card-name { font-family: var(--display); font-weight: 800; font-size: 20px; letter-spacing: -.01em; }
+.state {
+  display: inline-flex; align-items: center; gap: 4px; margin-left: auto;
+  font-size: 12.5px; font-weight: 500; color: var(--muted); white-space: nowrap;
+  padding: 3px 9px 3px 6px; border-radius: 999px;
+  background: color-mix(in srgb, var(--c) 14%, transparent);
+}
+.card:not([data-state="free"]) .state { color: color-mix(in srgb, var(--c) 70%, var(--tint-to)); }
+.card[data-state="over"] .state, .card[data-state="warn"] .state { background: var(--c); color: var(--on-c, var(--ink)); font-weight: 600; }
+
+.timer {
+  font-family: var(--mono); font-variant-numeric: tabular-nums;
+  font-size: clamp(48px, 17cqi, 104px); font-weight: 800; line-height: 1;
+  letter-spacing: -.03em;
+  margin: 20px 0 6px;
+}
+.card[data-state="over"] .timer { color: var(--circle); }
+.card[data-state="warn"] .timer { color: var(--amber-text); }
+.card[data-state="free"] .timer { color: var(--faint); font-family: var(--display); font-size: clamp(28px, 7cqi, 40px); font-weight: 600; letter-spacing: 0; margin-top: 28px; }
+.caption { color: var(--muted); font-size: 13px; min-height: 19px; }
+.caption b { color: var(--text); font-weight: 500; }
+
+/* 15-minute blocks: lit = still ahead */
+.blocks { display: flex; gap: 3px; height: 8px; margin: 16px 0 14px; }
+.blocks i {
+  flex: 1; border-radius: 2px;
+  background: linear-gradient(90deg, var(--c) calc(var(--f) * 100%), var(--line) 0);
+}
+.card[data-state="over"] .blocks i { animation: breathe 1s ease-in-out infinite; }
+.card[data-state="open"] .blocks { height: 4px; margin-top: 18px; margin-bottom: 18px; }
+.card[data-state="open"] .blocks i {
+  background: repeating-linear-gradient(90deg, var(--c) 0 10px, transparent 10px 16px);
+  background-size: 16px 4px; opacity: .6; animation: flow 1.2s linear infinite;
+}
+@keyframes flow { to { background-position: 16px 0; } }
+
+.bill { display: flex; gap: 18px; font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+.bill b { display: block; font-family: var(--mono); font-weight: 700; font-size: 16px; color: var(--text); font-variant-numeric: tabular-nums; }
+.bill .due { color: var(--text); font-weight: 600; }
+.bill .ok b { color: var(--triangle); }
+
+.strip { /* grace, debt, TV hint */
+  display: flex; align-items: center; gap: 8px;
+  margin: -2px 0 12px; padding: 8px 10px; border-radius: 10px;
+  background: var(--surface-2); font-size: 13px; color: var(--muted);
+}
+.strip > span { flex: 1; min-width: 0; }
+.strip b { color: var(--text); font-weight: 500; }
+.strip .num { color: var(--text); }
+.strip.debt { background: transparent; border: 1px solid var(--line); }
+.strip.debt .num { color: var(--text); font-weight: 700; }
+.strip.tv { background: var(--tv-strip); border: 1px dashed color-mix(in srgb, var(--circle) 60%, transparent); color: var(--text); }
+.linkish { background: none; border: 0; padding: 0; color: var(--text); text-decoration: underline; text-underline-offset: 3px; font-size: 13px; white-space: nowrap; }
+
+.actions { display: flex; gap: 8px; margin-top: auto; }
+.actions .btn { flex: 1; min-width: 0; }
+.actions .btn-state, .actions .btn-primary { flex: 1.7; }
+
+.help { position: relative; }
+.help summary { list-style: none; width: 40px; padding: 0; font-weight: 700; }
+.help summary::-webkit-details-marker { display: none; }
+.help[open] summary { border-color: var(--hover-line); background: var(--hover-bg); }
+.legend {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 6; width: 260px;
+  display: grid; gap: 8px; padding: 14px 16px; border-radius: 12px;
+  background: var(--surface-2); border: 1px solid var(--hover-line); box-shadow: var(--shadow);
+  font-size: 13px; color: var(--muted);
+}
+.legend span { display: flex; align-items: center; gap: 8px; }
+.legend hr { border: 0; border-top: 1px solid var(--line); margin: 2px 0; width: 100%; }
+.legend .swatch { display: inline-flex; gap: 2px; width: 16px; }
+.legend .swatch i { flex: 1; height: 8px; border-radius: 1px; background: var(--cross); }
+
+/* walk-in tickets */
+.tickets { margin-top: 28px; }
+.section-title { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; margin: 0 0 10px; }
+.ticket {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 14px; border-radius: 12px;
+  background: var(--surface); border: 1px solid var(--line);
+}
+.ticket .what { flex: 1; color: var(--muted); font-size: 14px; min-width: 0; }
+.ticket .what b { color: var(--text); font-weight: 500; }
+
+/* ---------- day feed (drawer; a column on very wide screens) ---------- */
+.rail { display: none; }
+.feed-till { display: grid; }
+.till-row { display: flex; align-items: baseline; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.till-row:last-child { border-bottom: 0; }
+.till-row .k { color: var(--muted); font-size: 13.5px; }
+.till-row .k small { display: block; font-size: 11.5px; color: var(--faint); }
+.till-row .v { font-family: var(--mono); font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.feed { list-style: none; margin: 0; padding: 0; display: grid; }
+.feed li { display: grid; grid-template-columns: 44px 16px 1fr auto; gap: 8px; align-items: baseline; padding: 8px 0; font-size: 13.5px; border-bottom: 1px dashed var(--line); }
+.feed time { color: var(--faint); font-family: var(--mono); font-size: 12.5px; }
+.feed .t { color: var(--muted); }
+.feed .t b { color: var(--text); font-weight: 500; }
+.feed .amt { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 13.5px; white-space: nowrap; }
+.feed .m { font-size: 11px; color: var(--faint); margin-left: 4px; font-family: var(--body); }
+
+@media (min-width: 1680px) {
+  .layout { grid-template-columns: minmax(0, 1fr) 340px; }
+  .rail { display: flex; flex-direction: column; gap: 24px; border-left: 1px solid var(--line); background: var(--rail-bg); padding: 20px 20px 40px; }
+  #feedBtn { display: none; }
+}
+
+/* ---------- side sheet ---------- */
+.scrim { position: fixed; inset: 0; background: var(--scrim); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 10; }
+.sheet {
+  --c: var(--idle);
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(460px, 100vw);
+  background: var(--surface); border-left: 1px solid var(--line);
+  transform: translateX(100%); transition: transform .25s cubic-bezier(.2,.8,.2,1);
+  z-index: 11; display: flex; flex-direction: column;
+}
+.sheet-open .scrim { opacity: 1; pointer-events: auto; }
+.sheet-open .sheet { transform: none; box-shadow: var(--shadow); }
+.sheet-head { display: flex; align-items: center; gap: 12px; padding: 18px 20px; border-bottom: 1px solid var(--line); position: relative; }
+.sheet-head::before { content: ""; position: absolute; left: 0; top: 16px; bottom: 16px; width: 3px; background: var(--c); box-shadow: 0 0 12px var(--c); border-radius: 0 3px 3px 0; }
+.sheet-head h2 { font-family: var(--display); margin: 0; font-size: 22px; font-weight: 600; }
+.sheet .state { margin-left: 0; color: color-mix(in srgb, var(--c) 70%, var(--tint-to)); }
+.sheet .state[hidden] { display: none; }
+.sheet-body { padding: 20px; overflow: auto; flex: 1; display: grid; gap: 24px; align-content: start; }
+.sheet-foot { padding: 16px 20px; border-top: 1px solid var(--line); display: flex; gap: 8px; }
+.sheet-foot .btn { flex: 1; }
+.sheet-foot:empty { display: none; }
+
+.seg-toggle { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 4px; border-radius: 12px; background: var(--bg); border: 1px solid var(--line); }
+.seg-toggle button { height: 38px; border: 0; background: transparent; border-radius: 9px; color: var(--muted); font-weight: 500; display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }
+.seg-toggle button[aria-pressed="true"] { background: var(--surface-2); color: var(--text); }
+
+.tariffs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tariff {
+  --tc: var(--cross);
+  text-align: left; padding: 14px; border-radius: 12px;
+  background: var(--bg); border: 1px solid var(--line);
+  display: grid; gap: 2px;
+}
+.tariff.open { --tc: var(--triangle); }
+.tariff .dur { font-family: var(--display); font-size: 22px; font-weight: 700; }
+.tariff .price { color: var(--muted); font-size: 13.5px; }
+.tariff .ends { color: var(--faint); font-size: 12px; margin-top: 6px; }
+.tariff .ends.late { color: var(--amber-text); }
+.tariff[aria-pressed="true"] { border-color: var(--tc); box-shadow: 0 0 0 1px var(--tc) inset, 0 0 24px -6px var(--tc); }
+
+.note { font-size: 13px; color: var(--muted); padding: 10px 12px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); }
+.note.warn { border-color: color-mix(in srgb, var(--amber) 45%, var(--line)); color: var(--text); }
+.field-label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; margin-bottom: 8px; display: block; }
+.input {
+  width: 100%; height: 48px; padding: 0 14px; border-radius: 12px;
+  background: var(--bg); border: 1px solid var(--line); color: var(--text);
+  font: 500 20px var(--mono);
+}
+.input:focus { outline: none; border-color: var(--cross); }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.chip { height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 13px; }
+.chip:hover { color: var(--text); border-color: var(--hover-line); }
+
+.timeline { display: grid; }
+.tl-row { display: grid; grid-template-columns: 52px 14px 1fr auto; gap: 10px; align-items: start; padding-bottom: 14px; position: relative; }
+.tl-row time { font-family: var(--mono); font-size: 13px; color: var(--muted); padding-top: 1px; }
+.tl-dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; background: var(--dc); box-shadow: 0 0 8px var(--dc); }
+.tl-row:not(:last-child)::after { content: ""; position: absolute; left: 66px; top: 18px; bottom: 2px; width: 2px; background: var(--line); }
+.tl-row .what b { display: block; font-weight: 500; }
+.tl-row .what span { color: var(--muted); font-size: 13px; }
+.tl-row .amt { font-family: var(--mono); }
+
+.billbox { border-radius: 12px; background: var(--bg); border: 1px solid var(--line); padding: 6px 14px; }
+.billbox .till-row .v { font-size: 16px; }
+.billbox .till-row.total .v { font-size: 26px; }
+
+/* ---------- close-day modal ---------- */
+.modal {
+  position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px;
+  background: var(--modal-bg); opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+.modal.show { opacity: 1; pointer-events: auto; }
+.modal-card { width: min(620px, 100%); max-height: calc(100vh - 32px); overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; }
+.modal-card header { padding: 20px 24px; border-bottom: 1px solid var(--line); display: flex; align-items: center; }
+.modal-card h2 { margin: 0; font-family: var(--display); font-size: 22px; font-weight: 600; }
+.steps { list-style: none; margin: 0; padding: 8px 24px 4px; counter-reset: s; }
+.steps > li { counter-increment: s; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--line); }
+.steps > li:last-child { border-bottom: 0; }
+.steps > li::before { content: counter(s); width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); font-family: var(--mono); font-size: 13px; color: var(--muted); }
+.steps h3 { margin: 3px 0 10px; font-size: 15px; font-weight: 600; }
+.row-line { display: flex; align-items: center; gap: 10px; padding: 8px 0; font-size: 14px; }
+.row-line .grow { flex: 1; min-width: 0; }
+.diff { font-family: var(--mono); font-size: 15px; }
+.diff.bad { color: var(--circle); }
+.diff.good { color: var(--triangle); }
+.check { display: flex; align-items: center; gap: 10px; font-size: 14px; padding: 6px 0; }
+.check input { width: 18px; height: 18px; accent-color: var(--triangle); }
+.modal-card footer { padding: 16px 24px 20px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--line); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1280px) {
+  .topbar { flex-wrap: wrap; row-gap: 10px; }
+  .till { order: 5; width: 100%; }
+  .till > div { flex: 1; }
+}
+/* short screens (a 1366×768 till monitor): both rows must fit without scrolling */
+@media (max-height: 820px) and (min-width: 1101px) {
+  .topbar { padding-top: 8px; padding-bottom: 8px; }
+  .hall { padding-top: 10px; }
+  .hall-head { margin-bottom: 10px; }
+  .card { min-height: 0; padding: 16px 16px 12px; }
+  .timer { font-size: clamp(44px, 13cqi, 80px); margin: 10px 0 2px; }
+  .blocks { margin: 10px 0 10px; }
+  .card[data-state="open"] .blocks { margin: 12px 0; }
+  .strip { margin-bottom: 8px; padding-top: 6px; padding-bottom: 6px; }
+  .bill { margin-bottom: 8px; }
+  .actions .btn { height: 36px; }
+}
+@media (max-width: 640px) {
+  .topbar { padding: 10px 16px; gap: 12px; }
+  .till { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .till > div { padding: 7px 10px; min-width: 0; }
+  .till .v { font-size: 17px; }
+  .till > div, .till .k { white-space: normal; }
+  .till .k { line-height: 1.2; margin-bottom: 2px; }
+  .till .cash .v { font-size: 19px; }
+  .till .meta, .hist-till > div:last-child { grid-column: 1 / -1; border-left: 0; border-top: 1px solid var(--line); }
+  .hist-till { width: auto; }
+  .top-close { margin-left: auto; }
+  .hall { padding: 16px; }
+  .hall-actions { margin-left: 0; width: 100%; }
+  .hall-actions .btn { flex: 1; }
+  .hide-sm { display: none !important; }
+  .grid { grid-template-columns: 1fr; }
+  .ticket { flex-wrap: wrap; }
+  .ticket .what { flex-basis: 60%; }
+  .ticket .btn-primary { flex: 1; }
+  kbd { display: none; }
+  .steps { padding: 4px 16px; }
+  .modal-card header, .modal-card footer { padding-left: 16px; padding-right: 16px; }
+  .modal-card footer { flex-direction: column-reverse; }
+  .sheet { top: auto; height: 88vh; width: 100vw; border-left: 0; border-top: 1px solid var(--line); border-radius: 18px 18px 0 0; transform: translateY(100%); }
+}
+/* ---------- bar ---------- */
+.cats { display: flex; gap: 8px; flex-wrap: wrap; }
+.cat { height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 13px; }
+.cat:hover { color: var(--text); }
+.cat[aria-pressed="true"] { background: var(--text); color: var(--ink); border-color: var(--text); font-weight: 600; }
+.products { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.product {
+  position: relative; text-align: left; min-height: 72px; padding: 10px 12px;
+  border-radius: 12px; background: var(--bg); border: 1px solid var(--line);
+  display: grid; align-content: space-between; gap: 6px;
+}
+.product:hover { border-color: var(--hover-line); }
+.product:active { transform: scale(.98); }
+.product .pn { font-size: 13.5px; font-weight: 500; line-height: 1.25; }
+.product .pp { font: 700 14px var(--mono); color: var(--muted); }
+.product .q {
+  position: absolute; top: -7px; right: -7px; min-width: 22px; height: 22px; padding: 0 6px;
+  border-radius: 999px; background: var(--text); color: var(--ink);
+  font: 700 12px var(--mono); display: grid; place-items: center;
+}
+.cart-row { display: grid; grid-template-columns: minmax(0, 1fr) auto 64px; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.cart-row:last-child { border-bottom: 0; }
+.cart-row .lt { font: 700 14px var(--mono); text-align: right; }
+.stepper { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.stepper button { width: 34px; height: 32px; border: 0; background: var(--surface-2); font-size: 16px; }
+.stepper button:hover { background: var(--hover-bg); }
+.stepper span { min-width: 30px; text-align: center; font: 700 14px var(--mono); }
+.cart-total { display: flex; justify-content: space-between; align-items: baseline; padding-top: 10px; border-top: 1px solid var(--line); margin-top: 4px; }
+.cart-total .v { font: 800 24px var(--mono); }
+.empty { color: var(--faint); font-size: 13.5px; padding: 8px 0; }
+#ticketList { display: grid; gap: 8px; }
+
+/* ---------- history ---------- */
+.history { padding: 18px 24px 72px; }
+.layout.is-history { grid-template-columns: minmax(0, 1fr); }
+.layout.is-history .rail, .layout.is-history .hall { display: none; }
+.hist-till { margin-bottom: 16px; width: fit-content; max-width: 100%; }
+.days { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--surface); }
+.day-row {
+  display: grid; width: 100%;
+  grid-template-columns: minmax(140px, 1.4fr) repeat(3, minmax(64px, 1fr)) minmax(96px, 1fr) repeat(3, minmax(56px, .8fr));
+  gap: 12px; align-items: center; padding: 12px 18px;
+  border: 0; border-top: 1px solid var(--line); background: transparent; text-align: left; font-size: 14px;
+}
+.day-row.head { border-top: 0; background: var(--bg); font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+.day-row.head span:not(:first-child) { text-align: right; }
+button.day-row:hover { background: var(--surface-2); }
+.day-row .d b { display: block; font-weight: 600; }
+.day-row .d span { color: var(--muted); font-size: 13px; }
+.day-row .m { font: 700 14px var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
+.day-row .m.dim { color: var(--muted); font-weight: 500; }
+.day-row .diff-bad { color: var(--circle); }
+.day-row .diff-ok { color: var(--faint); font: 400 13px var(--body); }
+.day-row.today { background: color-mix(in srgb, var(--triangle) 6%, var(--surface)); }
+.live { display: inline-flex; align-items: center; gap: 6px; color: var(--triangle) !important; }
+.more { margin-top: 12px; }
+@media (max-width: 900px) {
+  .day-row.head { display: none; }
+  .day-row { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 8px; }
+  .day-row .d { grid-column: 1 / -1; }
+  .day-row .m { text-align: left; }
+  .day-row [data-l]::before { content: attr(data-l); display: block; font: 500 11px var(--body); color: var(--faint); margin-bottom: 2px; }
+  .history { padding: 16px 16px 72px; }
+}
+
+/* ---------- gates: login, day not open ---------- */
+.gate {
+  position: fixed; inset: 0; z-index: 30; display: none; place-items: center; padding: 16px;
+  background: var(--gate-bg); backdrop-filter: blur(14px) saturate(.5);
+}
+.gate.show { display: grid; }
+.gate-card {
+  width: min(420px, 100%); padding: 28px; display: grid; gap: 18px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 18px;
+  box-shadow: var(--shadow);
+}
+.gate-card h2 { margin: 0; font: 800 24px var(--display); letter-spacing: -.01em; }
+.gate-card p { margin: 0; color: var(--muted); font-size: 14px; }
+.gate-card .small { font-size: 12.5px; color: var(--faint); }
+.sleepers { display: flex; gap: 8px; }
+.sleepers i { flex: 1; height: 4px; border-radius: 0 0 3px 3px; background: var(--idle); transition: background .25s, box-shadow .25s; }
+.sleepers.wake i { background: var(--cross); box-shadow: 0 0 12px var(--cross); }
+.sleepers.wake i:nth-child(2) { transition-delay: .08s; } .sleepers.wake i:nth-child(3) { transition-delay: .16s; }
+.sleepers.wake i:nth-child(4) { transition-delay: .24s; } .sleepers.wake i:nth-child(5) { transition-delay: .32s; }
+.sleepers.wake i:nth-child(6) { transition-delay: .4s; }
+.login-mark { font: 800 34px var(--display); letter-spacing: -.01em; }
+.login-mark span { color: var(--muted); font-weight: 500; }
+.pw { position: relative; }
+.pw .input { padding-right: 104px; font: 500 20px var(--mono); }
+.pw .btn { position: absolute; right: 6px; top: 6px; height: 36px; font-size: 13px; }
+.err { color: var(--circle); font-size: 13.5px; margin-top: 8px; }
+.hint { color: var(--amber-text); font-size: 13.5px; margin-top: 8px; }
+.status-line { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.dot.off { background: var(--idle); box-shadow: none; }
+
+.theme-pick .legend { width: 280px; gap: 4px; padding: 6px; }
+.theme-menu button {
+  display: grid; gap: 1px; text-align: left; padding: 8px 10px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--text);
+}
+.theme-menu button span { font-size: 12.5px; color: var(--muted); }
+.theme-menu button:hover { background: var(--hover-bg); }
+.theme-menu button[aria-pressed="true"] { background: var(--surface); box-shadow: inset 0 0 0 1px var(--hover-line); }
+.theme-menu button[aria-pressed="true"] b::after { content: " ✓"; color: var(--triangle); }
+
+/* concept-only screen switcher */
+.demo-nav {
+  position: fixed; left: 16px; bottom: 16px; z-index: 40;
+  display: flex; gap: 2px; align-items: center; padding: 4px;
+  border-radius: 12px; border: 1px dashed var(--hover-line); background: var(--topbar-bg);
+}
+.demo-nav span { color: var(--faint); padding: 0 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+.demo-nav button { height: 28px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+.demo-nav button:hover { color: var(--text); }
+.demo-nav button[aria-pressed="true"] { background: var(--surface-2); color: var(--text); }
+@media (max-width: 640px) {
+  .demo-nav { left: 8px; right: 8px; bottom: 8px; overflow-x: auto; }
+  .gate-card { padding: 22px; }
+}
+
+.theme-flip *, .theme-flip *::before { transition: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="wordmark">PS<span>·клуб</span></div>
+    <div class="day"><span class="dot"></span>День открыт с 10:02 · <span id="dayLen">—</span></div>
+  </div>
+  <div class="till" aria-label="Касса дня">
+    <div class="cash"><span class="k">Наличные в кассе</span><span class="v">5 830<span class="cur">сом</span></span></div>
+    <div><span class="k">QR</span><span class="v">2 150<span class="cur">сом</span></span></div>
+    <div><span class="k">Перевод</span><span class="v">600<span class="cur">сом</span></span></div>
+    <div class="meta"><span class="k">За день</span><span class="v">23 сессии · 31 ч 40 мин · бар 690</span></div>
+  </div>
+  <div class="spacer hide-sm"></div>
+  <div class="clock" id="clock">--:--<small>Бишкек</small></div>
+  <details class="help theme-pick">
+    <summary class="btn" aria-label="Тема оформления"><span id="themeIcon" aria-hidden="true" style="display:inline-flex"></span></summary>
+    <div class="legend theme-menu" role="group" aria-label="Тема оформления">
+      <button data-mode="auto"><b>По времени суток</b><span>днём светлая, с 19:00 до 09:00 тёмная</span></button>
+      <button data-mode="light"><b>Светлая</b><span>для работы днём у окна</span></button>
+      <button data-mode="dark"><b>Тёмная</b><span>для вечера и ночи</span></button>
+    </div>
+  </details>
+  <button class="btn top-close" id="closeDayBtn">Закрыть день</button>
+</header>
+
+<div class="layout">
+  <main class="hall">
+    <div class="hall-head">
+      <h1>Зал</h1>
+      <span class="pill" id="busyPill"></span>
+      <span class="pill alert" id="alertPill" hidden></span>
+      <div class="hall-actions">
+        <button class="btn" id="walkIn">+ Продажа без игры</button>
+        <button class="btn" id="feedBtn">Лента дня</button>
+        <button class="btn btn-ghost hide-sm" id="historyBtn">История дней</button>
+        <details class="help hide-sm">
+          <summary class="btn" aria-label="Обозначения и горячие клавиши">?</summary>
+          <div class="legend">
+            <span><i class="glyph g-cross">✕</i>Пакет</span>
+            <span><i class="glyph g-triangle">△</i>Открытое время</span>
+            <span><i class="glyph g-amber">!</i>Скоро конец — последние 5 минут</span>
+            <span><i class="glyph g-circle">○</i>Переигрыш — время пакета вышло</span>
+            <span><i class="glyph g-square">□</i>Бесплатная</span>
+            <span><span class="swatch"><i></i><i></i></span>Блок — 15 минут, горят оставшиеся</span>
+            <hr>
+            <span><kbd>1</kbd>–<kbd>6</kbd> открыть консоль</span>
+            <span><kbd>Esc</kbd> закрыть панель</span>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <section class="grid" id="grid" aria-label="Консоли"></section>
+
+    <section class="tickets" id="ticketsSection">
+      <h2 class="section-title">Чеки без игры</h2>
+      <div id="ticketList"></div>
+    </section>
+  </main>
+
+  <main class="history" id="historyView" hidden>
+    <div class="hall-head">
+      <button class="btn" id="backToHall">← Зал</button>
+      <h1>История дней</h1>
+      <span class="pill">последние 7 закрытых</span>
+    </div>
+    <div class="till hist-till" aria-label="Итого за 7 дней">
+      <div class="cash"><span class="k">Наличные за 7 дней</span><span class="v">32 320<span class="cur">сом</span></span></div>
+      <div><span class="k">QR</span><span class="v">19 510<span class="cur">сом</span></span></div>
+      <div><span class="k">Перевод</span><span class="v">3 900<span class="cur">сом</span></span></div>
+      <div><span class="k">Расхождения</span><span class="v" style="color:var(--circle)">−130<span class="cur">сом · 3 дня</span></span></div>
+    </div>
+    <div class="days" id="dayList"></div>
+    <button class="btn btn-ghost more">Показать ещё 7 дней</button>
+  </main>
+
+  <aside class="rail" id="rail" aria-label="Лента дня">
+    <section id="feedContent">
+      <h2 class="section-title">Касса дня</h2>
+      <div class="feed-till">
+        <div class="till-row"><span class="k">Наличные в кассе<small>2 000 на начало + 3 830 за день</small></span><span class="v">5 830</span></div>
+        <div class="till-row"><span class="k">QR<small>сверить в MBank / O!Dengi</small></span><span class="v">2 150</span></div>
+        <div class="till-row"><span class="k">Перевод по номеру</span><span class="v">600</span></div>
+      </div>
+      <h2 class="section-title" style="margin-top:24px">Лента дня</h2>
+      <ul class="feed">
+        <li><time>00:38</time><i class="glyph g-cross">✕</i><span class="t"><b>PS 1</b> · пакет 3 ч</span><span class="amt">400<span class="m">нал</span></span></li>
+        <li><time>00:31</time><i class="glyph g-amber">·</i><span class="t"><b>Бар</b> · чек №214</span><span class="amt">150</span></li>
+        <li><time>00:13</time><i class="glyph g-square">□</i><span class="t"><b>PS 6</b> · бесплатно: «друзья владельца»</span><span class="amt">—</span></li>
+        <li><time>23:57</time><i class="glyph" style="color:var(--muted)">■</i><span class="t"><b>PS 5</b> · завершена, 2 ч 10 мин</span><span class="amt">350<span class="m">QR</span></span></li>
+        <li><time>23:46</time><i class="glyph g-triangle">△</i><span class="t"><b>PS 4</b> · открытое время</span><span class="amt">—</span></li>
+        <li><time>23:24</time><i class="glyph g-cross">✕</i><span class="t"><b>PS 3</b> · +1 ч к пакету</span><span class="amt">150<span class="m">перевод</span></span></li>
+        <li><time>23:06</time><i class="glyph g-amber">·</i><span class="t"><b>PS 2</b> · кола × 2, сэндвич</span><span class="amt">240</span></li>
+      </ul>
+    </section>
+  </aside>
+</div>
+
+<!-- side sheet -->
+<div class="scrim" id="scrim"></div>
+<aside class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="sheet-head"><h2 id="sheetTitle">PS</h2><span class="state" id="sheetState"></span><div class="spacer"></div><button class="btn btn-ghost" id="sheetClose" aria-label="Закрыть">✕</button></div>
+  <div class="sheet-body" id="sheetBody"></div>
+  <div class="sheet-foot" id="sheetFoot"></div>
+</aside>
+
+<!-- close day -->
+<div class="modal" id="closeDay" role="dialog" aria-modal="true" aria-labelledby="cdTitle">
+  <div class="modal-card">
+    <header><h2 id="cdTitle">Закрытие дня</h2><div class="spacer"></div><button class="btn btn-ghost" data-close aria-label="Закрыть">✕</button></header>
+    <ol class="steps">
+      <li><div>
+        <h3>Завершить активные сессии</h3>
+        <div id="cdActive"></div>
+      </div></li>
+      <li><div>
+        <h3>Пересчитать наличные</h3>
+        <div class="row-line"><span class="grow" style="color:var(--muted)">Должно быть в кассе</span><span class="num" style="font-size:20px">5 830<span class="cur">сом</span></span></div>
+        <input class="input" id="counted" inputmode="numeric" placeholder="Сколько насчитали">
+        <div class="row-line"><span class="grow" style="color:var(--muted)">Расхождение</span><span class="diff" id="diff">—</span></div>
+      </div></li>
+      <li><div>
+        <h3>Сверить безнал с банком</h3>
+        <label class="check"><input type="checkbox"> QR — <b class="num">2 150</b> сом</label>
+        <label class="check"><input type="checkbox"> Перевод по номеру — <b class="num">600</b> сом</label>
+      </div></li>
+    </ol>
+    <footer><button class="btn" data-close>Отмена</button><button class="btn btn-primary">Закрыть день и отправить сводку</button></footer>
+  </div>
+</div>
+
+<!-- login -->
+<div class="gate" id="loginGate" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+  <form class="gate-card" id="loginForm" novalidate>
+    <div class="sleepers" id="sleepers" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div>
+      <div class="login-mark" id="loginTitle">PS<span>·клуб</span></div>
+      <p>Касса клуба. Один пароль на весь клуб.</p>
+    </div>
+    <div>
+      <label class="field-label" for="pw">Пароль</label>
+      <div class="pw">
+        <input class="input" id="pw" type="password" autocomplete="current-password">
+        <button type="button" class="btn btn-ghost" id="pwToggle" aria-pressed="false">Показать</button>
+      </div>
+      <div class="hint" id="capsHint" hidden>Включён Caps Lock</div>
+      <div class="err" id="pwErr" role="alert" hidden>Неверный пароль. Проверьте раскладку клавиатуры.</div>
+    </div>
+    <button class="btn btn-primary btn-lg" type="submit" id="loginBtn" disabled>Войти</button>
+  </form>
+</div>
+
+<!-- day not open -->
+<div class="gate" id="dayGate" role="dialog" aria-modal="true" aria-labelledby="dayTitle">
+  <form class="gate-card" id="dayForm" novalidate>
+    <div class="status-line"><span class="dot off"></span>День не открыт · прошлый закрыт 29.09 в 04:51</div>
+    <div>
+      <h2 id="dayTitle">Открыть день</h2>
+      <p style="margin-top:6px">Пересчитайте наличные в кассе и введите сумму. С неё начнётся касса дня.</p>
+    </div>
+    <div>
+      <label class="field-label" for="openCash">Наличные на начало</label>
+      <input class="input" id="openCash" inputmode="numeric" placeholder="0">
+      <div class="chips"><button type="button" class="chip" data-fill="2000">Как вчера на начало: 2 000</button></div>
+    </div>
+    <button class="btn btn-primary btn-lg" type="submit" id="openBtn" disabled>Открыть день</button>
+    <p class="small">Плановые часы — 10:00–05:00. День закрывается только вручную.</p>
+  </form>
+</div>
+
+<nav class="demo-nav" aria-label="Переключатель экранов концепта">
+  <span>Демо</span>
+  <button data-screen="login">Вход</button>
+  <button data-screen="day">Открытие дня</button>
+  <button data-screen="hall" aria-pressed="true">Зал</button>
+  <button data-screen="history">История</button>
+</nav>
+
+<script>
+const MIN = 60_000, H = 60 * MIN, BLOCK = 15 * MIN;
+// Demo runs on a fixed club clock (00:40, late night) so the plan-close warning is visible.
+const DEMO = new Date(); DEMO.setHours(0, 40, 0, 0);
+const OFFSET = DEMO.getTime() - Date.now();
+const now = () => Date.now() + OFFSET;
+const T0 = now();
+const RATE = 160; // open time, som per hour
+const TARIFFS = [
+  { id: "p1", label: "1 ч", min: 60, price: 150 },
+  { id: "p3", label: "3 ч", min: 180, price: 400 },
+  { id: "p5", label: "5 ч", min: 300, price: 600 },
+  { id: "open", label: "Открытое", rate: RATE },
+];
+const PLANNED_CLOSE_H = 5; // 05:00
+
+const PRODUCTS = [
+  { id: "cola", cat: "drinks", name: "Кола 0,5", price: 60 },
+  { id: "fanta", cat: "drinks", name: "Фанта 0,5", price: 60 },
+  { id: "water", cat: "drinks", name: "Вода 0,5", price: 40 },
+  { id: "energy", cat: "drinks", name: "Энергетик", price: 90 },
+  { id: "tea", cat: "drinks", name: "Чай", price: 40 },
+  { id: "coffee", cat: "drinks", name: "Кофе 3 в 1", price: 50 },
+  { id: "sandwich", cat: "food", name: "Сэндвич", price: 120 },
+  { id: "hotdog", cat: "food", name: "Хот-дог", price: 100 },
+  { id: "samsa", cat: "food", name: "Самса", price: 60 },
+  { id: "noodles", cat: "food", name: "Лапша", price: 90 },
+  { id: "chips", cat: "snacks", name: "Чипсы", price: 60 },
+  { id: "snickers", cat: "snacks", name: "Сникерс", price: 70 },
+  { id: "seeds", cat: "snacks", name: "Семечки", price: 40 },
+  { id: "croutons", cat: "snacks", name: "Сухарики", price: 40 },
+];
+const CATS = [["all", "Всё"], ["drinks", "Напитки"], ["food", "Еда"], ["snacks", "Снеки"]];
+const product = id => PRODUCTS.find(p => p.id === id);
+// the bar is the source of truth for every bill: cards, sheets and tickets derive from orders
+const barTotal = s => Object.entries(s.orders || {}).reduce((sum, [id, q]) => sum + product(id).price * q, 0);
+const barItems = s => Object.entries(s.orders || {}).filter(([, q]) => q > 0)
+  .map(([id, q]) => product(id).name.replace(/ 0,5$/, "").toLowerCase() + (q > 1 ? ` × ${q}` : "")).join(", ");
+const capital = t => t.charAt(0).toUpperCase() + t.slice(1);
+
+// segStart: start of the running package segment; the blocks show that segment only.
+const consoles = [
+  { id: 1, name: "PS 1", kind: "package", tariff: "Пакет 3 ч", startedAt: T0 - 1.2 * MIN, graceUntil: T0 + 1.8 * MIN, segStart: T0 + 1.8 * MIN, endAt: T0 + 3 * H + 1.8 * MIN, time: 400, paid: 400, orders: {} },
+  { id: 2, name: "PS 2", kind: "package", tariff: "Пакет 1 ч", startedAt: T0 - 56 * MIN - 12e3, segStart: T0 - 56 * MIN - 12e3, endAt: T0 + 3 * MIN + 48e3, time: 150, paid: 150, orders: { cola: 2, sandwich: 1 } },
+  { id: 3, name: "PS 3", kind: "package", tariff: "3 ч + 1 ч", startedAt: T0 - 4 * H - 9 * MIN, segStart: T0 - H - 6 * MIN - 12e3, endAt: T0 - 6 * MIN - 12e3, time: 550, paid: 550, orders: {} },
+  { id: 4, name: "PS 4", kind: "open", tariff: "160 сом/ч", startedAt: T0 - 52 * MIN - 30e3, paid: 0, orders: { chips: 1, cola: 1 } },
+  { id: 5, name: "PS 5", kind: "free", freeSince: T0 - 43 * MIN },
+  { id: 6, name: "PS 6", kind: "gift", reason: "друзья владельца", startedAt: T0 - 27 * MIN - 28e3, paid: 0, orders: {} },
+];
+const tickets = [{ id: 214, orders: { water: 2, snickers: 1 }, paid: 0 }];
+let nextTicket = 215;
+
+const DAYS = [
+  { wd: "вт", date: "29.09", open: "10:04", close: "04:51", opening: 2000, cash: 4120, qr: 2900, transfer: 450, counted: 6070, sessions: 27, play: "38:10", free: "1 ч 20 мин", bar: 860 },
+  { wd: "пн", date: "28.09", open: "10:01", close: "03:58", opening: 2000, cash: 3310, qr: 2050, transfer: 300, counted: 5310, sessions: 22, play: "29:50", free: "—", bar: 540 },
+  { wd: "вс", date: "27.09", open: "10:07", close: "05:12", opening: 2000, cash: 6480, qr: 3650, transfer: 900, counted: 8480, sessions: 41, play: "57:30", free: "40 мин", bar: 1340 },
+  { wd: "сб", date: "26.09", open: "10:00", close: "05:34", opening: 2000, cash: 7150, qr: 4100, transfer: 1200, counted: 9170, sessions: 46, play: "63:45", free: "2 ч 10 мин", bar: 1520 },
+  { wd: "пт", date: "25.09", open: "10:03", close: "05:05", opening: 2000, cash: 5230, qr: 3300, transfer: 600, counted: 7230, sessions: 35, play: "49:20", free: "45 мин", bar: 1080 },
+  { wd: "чт", date: "24.09", open: "10:05", close: "03:40", opening: 2000, cash: 2980, qr: 1870, transfer: 450, counted: 4880, sessions: 20, play: "27:15", free: "3 ч", bar: 610 },
+  { wd: "ср", date: "23.09", open: "10:02", close: "04:10", opening: 2000, cash: 3050, qr: 1640, transfer: 0, counted: 5050, sessions: 21, play: "28:40", free: "—", bar: 480 },
+];
+
+const pad = n => String(n).padStart(2, "0");
+function dur(ms) {
+  ms = Math.max(0, ms);
+  const s = Math.floor(ms / 1000), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
+  return h ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
+}
+function mins(ms) { const m = Math.floor(ms / MIN); return m >= 60 ? `${Math.floor(m / 60)} ч ${m % 60} мин` : `${m} мин`; }
+const hm = t => { const d = new Date(t); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const som = n => Math.round(n).toLocaleString("ru-RU").replace(/\s/g, " ");
+const isLate = t => { const h = new Date(t).getHours(); return h >= PLANNED_CLOSE_H && h < 10; };
+
+function view(c) {
+  const t = now();
+  if (c.kind === "free") return { state: "free", glyph: "", label: "Свободна", idle: t - c.freeSince };
+  const bar = barTotal(c);
+  if (c.kind === "gift") return { state: "gift", glyph: "□", label: "Бесплатная", elapsed: t - c.startedAt, bar, due: bar - c.paid };
+  if (c.kind === "open") {
+    const billable = Math.max(0, t - c.startedAt - 3 * MIN);
+    const time = Math.round(billable / MIN * RATE / 60);
+    return { state: "open", glyph: "△", label: "Открытое время", elapsed: t - c.startedAt, time, bar, charge: time + bar, due: time + bar - c.paid };
+  }
+  const left = c.endAt - t, charge = c.time + bar, due = charge - c.paid;
+  const base = { time: c.time, bar, charge, due };
+  if (left <= 0) return { ...base, state: "over", glyph: "○", label: "Переигрыш", over: -left };
+  if (left <= 5 * MIN) return { ...base, state: "warn", glyph: "!", label: "Скоро конец", left };
+  return { ...base, state: "package", glyph: "✕", label: c.tariff, left };
+}
+
+const grid = document.getElementById("grid");
+// 1–3 consoles → one row; 4–6 → 3 columns; 7–8 → 4; more → 5 (VIP zone later)
+const n = consoles.length;
+grid.style.setProperty("--cols", n <= 3 ? n : n <= 6 ? 3 : n <= 8 ? 4 : 5);
+grid.innerHTML = consoles.map(c => `
+  <article class="card" data-id="${c.id}" tabindex="0" aria-label="${c.name}">
+    <div class="card-head"><span class="card-name">${c.name}</span><kbd>${c.id}</kbd><span class="state" data-state-label></span></div>
+    <div class="timer" data-timer></div>
+    <div class="caption" data-caption></div>
+    <div class="blocks" data-blocks></div>
+    <div data-extra></div>
+    <div class="bill" data-bill></div>
+    <div class="actions" data-actions></div>
+  </article>`).join("");
+
+function blocksHTML(c, v) {
+  if (v.state === "free" || v.state === "gift") return "";
+  if (v.state === "open") return "<i></i>";
+  const n = Math.max(1, Math.round((c.endAt - c.segStart) / BLOCK));
+  const left = v.state === "over" ? 0 : v.left;
+  return Array.from({ length: n }, (_, i) => {
+    const f = v.state === "over" ? 1 : Math.min(1, Math.max(0, (left - i * BLOCK) / BLOCK));
+    return `<i style="--f:${f.toFixed(3)}"></i>`;
+  }).join("");
+}
+
+function actionsFor(c, v) {
+  switch (v.state) {
+    case "free": return `<button class="btn btn-state btn-lg" data-act="start">Начать сессию</button>`;
+    case "gift": return `<button class="btn" data-act="bar">Бар</button><button class="btn btn-state" data-act="stop">Завершить</button>`;
+    case "open": return `<button class="btn" data-act="bar">Бар</button><button class="btn btn-state" data-act="stop">Рассчитать · ${som(v.due)}</button>`;
+    case "over": return `<button class="btn btn-primary" data-act="extend">Продлить</button><button class="btn" data-act="stop">Завершить</button>`;
+    case "warn": return `<button class="btn btn-state" data-act="extend">Продлить</button><button class="btn" data-act="bar">Бар</button>${v.due > 0 ? `<button class="btn" data-act="pay">Оплата</button>` : ""}`;
+    default: return `<button class="btn" data-act="extend">Продлить</button><button class="btn" data-act="bar">Бар</button>${v.due > 0 ? `<button class="btn btn-state" data-act="pay">Принять ${som(v.due)}</button>` : `<button class="btn" data-act="stop">Стоп</button>`}`;
+  }
+}
+
+function paint() {
+  const t = now();
+  document.getElementById("clock").firstChild.nodeValue = hm(t);
+  const open = new Date(t); open.setHours(10, 2, 0, 0); if (open > t) open.setDate(open.getDate() - 1);
+  document.getElementById("dayLen").textContent = "идёт " + mins(t - open);
+  let busy = 0, alerts = 0;
+  for (const c of consoles) {
+    const el = grid.querySelector(`[data-id="${c.id}"]`);
+    const v = view(c);
+    if (v.state !== "free") busy++;
+    if (v.state === "warn" || v.state === "over") alerts++;
+    const changed = el.dataset.state !== v.state;
+    el.dataset.state = v.state;
+    el.querySelector("[data-state-label]").innerHTML = (v.glyph ? `<i class="glyph">${v.glyph}</i>` : "") + v.label;
+    const timer = el.querySelector("[data-timer]"), cap = el.querySelector("[data-caption]");
+    const bill = el.querySelector("[data-bill]"), extra = el.querySelector("[data-extra]");
+    el.querySelector("[data-blocks]").innerHTML = blocksHTML(c, v);
+    let extraHTML = "";
+    if (v.state === "free") {
+      timer.textContent = "Свободна";
+      cap.innerHTML = `с ${hm(c.freeSince)} · простой <b>${mins(v.idle)}</b>`;
+      bill.innerHTML = "";
+    } else if (v.state === "open") {
+      timer.textContent = dur(v.elapsed);
+      cap.innerHTML = `идёт с ${hm(c.startedAt)} · <b>${c.tariff}</b>, поминутно`;
+      bill.innerHTML = `<span>Время<b>${som(v.time)}</b></span><span>Бар<b>${som(v.bar)}</b></span><span class="due">К оплате<b>${som(v.due)}</b></span>`;
+    } else if (v.state === "gift") {
+      timer.textContent = dur(v.elapsed);
+      cap.innerHTML = `идёт с ${hm(c.startedAt)} · причина: <b>${c.reason}</b>`;
+      bill.innerHTML = v.bar ? `<span>Время бесплатно</span><span class="due">Бар к оплате<b>${som(v.due)}</b></span>` : `<span>Без оплаты · в отчётах отдельной строкой</span>`;
+    } else if (v.state === "over") {
+      timer.textContent = "+" + dur(v.over);
+      cap.innerHTML = `время вышло в <b>${hm(c.endAt)}</b> · пакет ${c.tariff}`;
+      extraHTML = `<div class="strip tv"><span>Выключите ТВ на <b>${c.name}</b>, если гости ушли</span><button class="linkish">Выключил</button></div>`;
+      bill.innerHTML = `<span>Счёт<b>${som(v.charge)}</b></span><span class="${v.due > 0 ? "due" : "ok"}">${v.due > 0 ? "К оплате" : "Оплачено"}<b>${som(v.due > 0 ? v.due : c.paid)}</b></span>`;
+    } else {
+      timer.textContent = dur(v.left);
+      cap.innerHTML = `осталось · до <b>${hm(c.endAt)}</b>`;
+      const graceLeft = c.graceUntil ? c.graceUntil - t : 0;
+      if (graceLeft > 0) extraHTML = `<div class="strip"><span>Выбор игры · <span class="num">${dur(graceLeft)}</span></span><button class="linkish" data-act="cancel">Отменить без оплаты</button></div>`;
+      bill.innerHTML = `<span>Счёт<b>${som(v.charge)}</b></span><span class="${v.due > 0 ? "due" : "ok"}">${v.due > 0 ? "К оплате" : "Оплачено"}<b>${som(v.due > 0 ? v.due : c.paid)}</b></span>`;
+    }
+    // what the debt is made of, so nobody has to open the session to ask
+    if (!extraHTML && v.due > 0 && v.bar > 0) {
+      extraHTML = `<div class="strip debt"><span>Не оплачен бар: ${barItems(c)}</span><span class="num" style="flex:none">${som(Math.min(v.bar, v.due))}</span></div>`;
+    }
+    if (extra.dataset.html !== extraHTML) { extra.innerHTML = extraHTML; extra.dataset.html = extraHTML; }
+    const acts = el.querySelector("[data-actions]");
+    const html = actionsFor(c, v);
+    if (changed || acts.dataset.html !== html) { acts.innerHTML = html; acts.dataset.html = html; }
+  }
+  document.getElementById("busyPill").innerHTML = `<b>${busy} из ${consoles.length}</b> заняты`;
+  const ap = document.getElementById("alertPill");
+  ap.hidden = alerts === 0;
+  ap.innerHTML = `<b>${alerts}</b> ждут решения`;
+}
+paint();
+setInterval(paint, 1000);
+
+/* ---------- sheet ---------- */
+const body = document.body, sheet = document.getElementById("sheet");
+const sb = document.getElementById("sheetBody"), sf = document.getElementById("sheetFoot");
+let lastFocus = null;
+
+function showSheet(title, stateHTML, color) {
+  sheet.style.setProperty("--c", color);
+  document.getElementById("sheetTitle").textContent = title;
+  document.getElementById("sheetState").innerHTML = stateHTML;
+  document.getElementById("sheetState").hidden = !stateHTML;
+  body.classList.add("sheet-open");
+  setTimeout(() => (sheet.querySelector("[autofocus]") || document.getElementById("sheetClose")).focus(), 50);
+}
+function openConsole(c, focus) {
+  lastFocus = document.activeElement;
+  const v = view(c);
+  const color = getComputedStyle(grid.querySelector(`[data-id="${c.id}"]`)).getPropertyValue("--c");
+  if (v.state === "free") renderStart(c); else renderSession(c, v, focus);
+  showSheet(c.name, (v.glyph ? `<i class="glyph">${v.glyph}</i>` : "") + v.label, color);
+}
+let onSheetClose = null;
+function closeSheet() {
+  if (!body.classList.contains("sheet-open")) return;
+  body.classList.remove("sheet-open");
+  if (onSheetClose) { onSheetClose(); onSheetClose = null; }
+  lastFocus && lastFocus.isConnected && lastFocus.focus();
+}
+document.getElementById("scrim").onclick = closeSheet;
+document.getElementById("sheetClose").onclick = closeSheet;
+
+document.getElementById("feedBtn").onclick = () => {
+  lastFocus = document.activeElement;
+  sb.innerHTML = document.getElementById("feedContent").innerHTML;
+  sf.innerHTML = "";
+  showSheet("Лента дня", "", "var(--triangle)");
+};
+
+function renderStart(c) {
+  let kind = "paid", tariff = "p3";
+  const draw = () => {
+    const start = now() + 3 * MIN;
+    const sel = TARIFFS.find(t => t.id === tariff);
+    const selEnd = sel.min ? start + sel.min * MIN : null;
+    const tiles = TARIFFS.map(tr => {
+      const end = tr.min ? start + tr.min * MIN : null;
+      const late = end && isLate(end);
+      return `<button class="tariff ${tr.id === "open" ? "open" : ""}" aria-pressed="${tariff === tr.id}" data-t="${tr.id}">
+        <span class="dur">${tr.label}</span>
+        <span class="price">${tr.price ? som(tr.price) + " сом" : som(tr.rate) + " сом/ч, поминутно"}</span>
+        <span class="ends ${late ? "late" : ""}">${end ? "до " + hm(end) + (late ? " · после закрытия" : "") : "оплата при уходе"}</span></button>`;
+    }).join("");
+    sb.innerHTML = `
+      <div><span class="field-label">Тип сессии</span>
+        <div class="seg-toggle" role="group">
+          <button aria-pressed="${kind === "paid"}" data-k="paid">Платная</button>
+          <button aria-pressed="${kind === "gift"}" data-k="gift"><i class="glyph g-square">□</i>Бесплатная</button>
+          <button aria-pressed="${kind === "service"}" data-k="service">Служебная</button>
+        </div></div>
+      ${kind === "paid" ? `<div><span class="field-label">Тариф</span><div class="tariffs">${tiles}</div></div>
+        ${selEnd && isLate(selEnd) ? `<div class="note warn"><i class="glyph g-amber">!</i> Пакет закончится в ${hm(selEnd)} — после планового закрытия в 05:00. Продавать или нет — решаете вы.</div>` : ""}
+        <div class="note">Первые 3 минуты — на выбор игры. Если гости уйдут за это время, сессию можно отменить без оплаты.</div>`
+      : kind === "gift" ? `<div><span class="field-label">Причина</span><input class="input" style="font:500 16px var(--body)" placeholder="Например: друзья владельца" autofocus>
+        <div class="chips"><button class="chip">Друзья владельца</button><button class="chip">Компенсация</button><button class="chip">Турнир</button></div></div>`
+      : `<div class="note">Обновления, проверка геймпадов, ТВ для себя. Денег нет, в загрузку зала не попадает.</div>`}`;
+    // the start button takes the colour of the session it will create
+    const color = kind === "gift" ? "var(--square)" : kind === "service" ? "var(--muted)" : tariff === "open" ? "var(--triangle)" : "var(--cross)";
+    sf.innerHTML = `<button class="btn btn-state btn-lg" style="--c:${color}">Начать на ${c.name}${kind === "paid" && sel.price ? " · " + som(sel.price) + " сом" : ""}</button>`;
+    sb.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { kind = b.dataset.k; draw(); });
+    sb.querySelectorAll("[data-t]").forEach(b => b.onclick = () => { tariff = b.dataset.t; draw(); });
+  };
+  draw();
+}
+
+const payBlock = (due, autofocus) => `<div><span class="field-label">Принять оплату</span>
+  <div class="seg-toggle" role="group" id="methods">
+    <button aria-pressed="true">Наличные</button><button aria-pressed="false">QR</button><button aria-pressed="false">Перевод</button>
+  </div>
+  <input class="input" style="margin-top:10px" value="${due}" inputmode="numeric" ${autofocus ? "autofocus" : ""} aria-label="Сумма">
+  <div class="chips"><button class="chip">Всё: ${som(due)}</button><button class="chip">Половина</button></div>
+</div>`;
+function wireMethods() {
+  sb.querySelectorAll("#methods button").forEach(b => b.onclick = () => sb.querySelectorAll("#methods button").forEach(x => x.setAttribute("aria-pressed", x === b)));
+}
+
+function renderSession(c, v, focus) {
+  const segs = c.kind === "open"
+    ? [["--triangle", hm(c.startedAt), "Выбор игры", "3 мин, бесплатно", "0"], ["--triangle", hm(c.startedAt + 3 * MIN), "Открытое время", "160 сом/ч · идёт", som(v.time)]]
+    : c.kind === "gift" ? [["--square", hm(c.startedAt), "Бесплатная", `«${c.reason}»`, "—"]]
+    : c.id === 3 ? [["--cross", hm(c.startedAt), "Пакет 3 ч", "с выбором игры 3 мин", "400"], ["--cross", hm(c.segStart), "Продление 1 ч", "", "150"], ["--circle", hm(c.endAt), "Переигрыш", "идёт, не продлён", "—"]]
+    : [["--cross", hm(c.startedAt), c.tariff, `до ${hm(c.endAt)}`, som(c.time)]];
+  const due = Math.max(0, v.due);
+  const timeCharge = v.time ?? 0;
+  sb.innerHTML = `
+    <div><span class="field-label">Отрезки</span><div class="timeline">
+      ${segs.map(s => `<div class="tl-row" style="--dc:var(${s[0]})"><time>${s[1]}</time><span class="tl-dot"></span><span class="what"><b>${s[2]}</b><span>${s[3]}</span></span><span class="amt">${s[4]}</span></div>`).join("")}
+    </div></div>
+    ${c.kind !== "gift" ? `
+    <div><span class="field-label">Счёт</span><div class="billbox">
+      <div class="till-row"><span class="k">Время</span><span class="v">${som(timeCharge)}</span></div>
+      <div class="till-row"><span class="k">Бар${v.bar ? `<small>${barItems(c)}</small>` : ""}</span><span class="v">${som(v.bar)}</span></div>
+      <div class="till-row"><span class="k">Оплачено</span><span class="v">${som(c.paid || 0)}</span></div>
+      <div class="till-row total"><span class="k">К оплате</span><span class="v">${som(due)}<span class="cur">сом</span></span></div>
+    </div>
+    <button class="btn" data-open-bar style="width:100%;margin-top:8px">Добавить из бара</button></div>
+    ${due > 0 ? payBlock(due, focus === "pay") : ""}` : ""}
+    ${c.kind === "package" ? `<div><span class="field-label">Продлить</span><div class="tariffs">
+      ${TARIFFS.map(tr => `<button class="tariff ${tr.id === "open" ? "open" : ""}" aria-pressed="false" ${focus === "extend" && tr.id === "p1" ? "autofocus" : ""}><span class="dur">+${tr.label}</span><span class="price">${tr.price ? som(tr.price) + " сом" : "с " + hm(Math.max(c.endAt, now())) + ", поминутно"}</span></button>`).join("")}
+    </div></div>` : ""}`;
+  sf.innerHTML = c.kind === "gift"
+    ? `<button class="btn">Перевести в платную</button><button class="btn btn-state" style="--c:var(--square)">Завершить</button>`
+    : due > 0 ? `<button class="btn">Завершить сессию</button><button class="btn btn-primary">Внести ${som(due)} сом</button>`
+    : `<button class="btn btn-primary">Завершить сессию</button>`;
+  wireMethods();
+  sb.querySelector("[data-open-bar]")?.addEventListener("click", () => openBar(c, false));
+}
+
+grid.addEventListener("click", e => {
+  const card = e.target.closest(".card"); if (!card) return;
+  const act = e.target.closest("[data-act]")?.dataset.act;
+  if (act === "cancel") return;
+  const c = consoles.find(x => x.id == card.dataset.id);
+  if (act === "bar") { lastFocus = document.activeElement; openBar(c, false); return; }
+  openConsole(c, act);
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") { closeSheet(); closeModal(); return; }
+  const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName);
+  if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === "Enter" && e.target.classList?.contains("card")) { openConsole(consoles.find(x => x.id == e.target.dataset.id)); return; }
+  const c = consoles.find(x => String(x.id) === e.key);
+  if (c && screen === "hall" && !body.classList.contains("sheet-open") && !modal.classList.contains("show")) openConsole(c);
+});
+
+/* ---------- close day ---------- */
+const modal = document.getElementById("closeDay");
+function closeModal() { modal.classList.remove("show"); }
+document.getElementById("closeDayBtn").onclick = () => {
+  const colors = { package: "--cross", warn: "--amber", over: "--circle", open: "--triangle", gift: "--square" };
+  document.getElementById("cdActive").innerHTML = consoles.filter(c => c.kind !== "free").map(c => {
+    const v = view(c), due = Math.max(0, v.due);
+    return `<div class="row-line"><i class="glyph" style="color:var(${colors[v.state]})">${v.glyph}</i><span class="grow">${c.name} · ${v.label}</span><span class="num" style="color:${due ? "var(--text)" : "var(--muted)"}">${due ? som(due) + " сом" : c.kind === "gift" ? "без оплаты" : "оплачено"}</span><button class="btn">Завершить</button></div>`;
+  }).join("");
+  modal.classList.add("show");
+  setTimeout(() => document.getElementById("counted").focus(), 50);
+};
+modal.addEventListener("click", e => { if (e.target === modal || e.target.closest("[data-close]")) closeModal(); });
+document.getElementById("counted").addEventListener("input", e => {
+  const d = Number(e.target.value.replace(/\s/g, "")) - 5830, el = document.getElementById("diff");
+  if (!e.target.value) { el.textContent = "—"; el.className = "diff"; return; }
+  el.textContent = d === 0 ? "сходится" : (d > 0 ? "+" : "−") + som(Math.abs(d)) + " сом";
+  el.className = "diff " + (d === 0 ? "good" : "bad");
+});
+
+/* ---------- bar ---------- */
+function openBar(target, isTicket, focusPay) {
+  let cat = "all";
+  const draw = (refocus) => {
+    const o = target.orders;
+    const lines = Object.entries(o).filter(([, q]) => q > 0);
+    const total = barTotal(target);
+    const due = isTicket ? total - target.paid : 0;
+    sb.innerHTML = `
+      <div class="cats" role="group" aria-label="Категории">${CATS.map(([id, l]) => `<button class="cat" aria-pressed="${cat === id}" data-cat="${id}">${l}</button>`).join("")}</div>
+      <div class="products">${PRODUCTS.filter(p => cat === "all" || p.cat === cat).map(p => `
+        <button class="product" data-p="${p.id}" aria-label="${p.name}, ${p.price} сом${o[p.id] ? ", на счёте " + o[p.id] : ""}">
+          <span class="pn">${p.name}</span><span class="pp">${som(p.price)}</span>${o[p.id] ? `<span class="q">${o[p.id]}</span>` : ""}
+        </button>`).join("")}</div>
+      <div><span class="field-label">${isTicket ? "В чеке" : "На счёте " + target.name}</span>
+        <div>${lines.length ? lines.map(([id, q]) => `
+          <div class="cart-row"><span>${product(id).name}</span>
+            <span class="stepper"><button data-dec="${id}" aria-label="Убрать одну: ${product(id).name}">−</button><span>${q}</span><button data-inc="${id}" aria-label="Добавить ещё: ${product(id).name}">+</button></span>
+            <span class="lt">${som(product(id).price * q)}</span></div>`).join("")
+          : `<div class="empty">Нажмите на товар — он сразу попадёт ${isTicket ? "в чек" : "на счёт"}.</div>`}</div>
+        <div class="cart-total"><span style="color:var(--muted)">Бар, итого</span><span class="v">${som(total)}<span class="cur">сом</span></span></div>
+      </div>
+      ${isTicket && due > 0 ? payBlock(due, focusPay) : ""}
+      ${isTicket ? "" : `<div class="note">Товары сразу попадают на счёт ${target.name}. Оплатить можно сейчас или вместе со временем.</div>`}`;
+    sf.innerHTML = isTicket && due > 0
+      ? `<button class="btn" data-done>Готово</button><button class="btn btn-primary">Внести ${som(due)} сом</button>`
+      : `<button class="btn btn-primary" data-done>Готово</button>`;
+    const change = (id, d) => { o[id] = Math.max(0, (o[id] || 0) + d); if (!o[id]) delete o[id]; paint(); renderTickets(); };
+    sb.querySelectorAll("[data-cat]").forEach(b => b.onclick = () => { cat = b.dataset.cat; draw(`[data-cat="${cat}"]`); });
+    sb.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { change(b.dataset.p, 1); draw(`[data-p="${b.dataset.p}"]`); });
+    sb.querySelectorAll("[data-inc]").forEach(b => b.onclick = () => { change(b.dataset.inc, 1); draw(`[data-inc="${b.dataset.inc}"]`); });
+    sb.querySelectorAll("[data-dec]").forEach(b => b.onclick = () => {
+      const id = b.dataset.dec; change(id, -1);
+      draw(o[id] ? `[data-dec="${id}"]` : `[data-p="${id}"]`);
+    });
+    sf.querySelector("[data-done]").onclick = closeSheet;
+    wireMethods();
+    if (refocus) sb.querySelector(refocus)?.focus(); // re-render must not drop keyboard focus
+  };
+  draw();
+  if (isTicket) {
+    showSheet(`Чек №${target.id}`, "без игры", "var(--muted)");
+    // an empty walk-in ticket is not a sale: it disappears when the sheet closes
+    onSheetClose = () => { if (!barTotal(target)) { tickets.splice(tickets.indexOf(target), 1); renderTickets(); } };
+  } else {
+    const color = getComputedStyle(grid.querySelector(`[data-id="${target.id}"]`)).getPropertyValue("--c");
+    showSheet(target.name, "Бар", color);
+  }
+}
+
+function renderTickets() {
+  document.getElementById("ticketsSection").hidden = tickets.length === 0;
+  document.getElementById("ticketList").innerHTML = tickets.map(t => {
+    const total = barTotal(t), due = total - t.paid;
+    return `<div class="ticket" data-ticket="${t.id}">
+      <span class="num" style="color:var(--muted)">№${t.id}</span>
+      <span class="what">${total ? `<b>${capital(barItems(t))}</b>` : "пока пусто"}</span>
+      <span class="num">${som(total)}<span class="cur">сом</span></span>
+      <button class="btn" data-tbar>Бар</button>
+      ${due > 0 ? `<button class="btn btn-primary" data-tpay>Принять ${som(due)}</button>` : ""}
+    </div>`;
+  }).join("");
+}
+document.getElementById("ticketList").addEventListener("click", e => {
+  const row = e.target.closest("[data-ticket]"); if (!row) return;
+  const t = tickets.find(x => x.id == row.dataset.ticket);
+  lastFocus = document.activeElement;
+  if (e.target.closest("[data-tbar]")) openBar(t, true);
+  if (e.target.closest("[data-tpay]")) openBar(t, true, true);
+});
+document.getElementById("walkIn").onclick = () => {
+  const t = { id: nextTicket++, orders: {}, paid: 0 };
+  tickets.push(t); renderTickets();
+  lastFocus = document.activeElement;
+  openBar(t, true);
+};
+renderTickets();
+
+/* ---------- history ---------- */
+const diffOf = d => d.counted - d.opening - d.cash;
+function renderHistory() {
+  const head = `<div class="day-row head" aria-hidden="true"><span>День</span><span>Наличные</span><span>QR</span><span>Перевод</span><span>Расхождение</span><span>Сессии</span><span>Игра, ч</span><span>Бар</span></div>`;
+  const today = `<button class="day-row today" data-today>
+    <span class="d"><b>ср, 30.09</b><span class="live"><span class="dot"></span>идёт с 10:02</span></span>
+    <span class="m" data-l="Наличные">3 830</span><span class="m" data-l="QR">2 150</span><span class="m" data-l="Перевод">600</span>
+    <span class="m diff-ok" data-l="Расхождение" title="Считается при закрытии дня">—</span>
+    <span class="m dim" data-l="Сессии">23</span><span class="m dim" data-l="Игра, ч">31:40</span><span class="m dim" data-l="Бар">690</span></button>`;
+  document.getElementById("dayList").innerHTML = head + today + DAYS.map((d, i) => {
+    const diff = diffOf(d);
+    return `<button class="day-row" data-day="${i}">
+      <span class="d"><b>${d.wd}, ${d.date}</b><span>${d.open} → ${d.close}</span></span>
+      <span class="m" data-l="Наличные">${som(d.cash)}</span>
+      <span class="m" data-l="QR">${som(d.qr)}</span>
+      <span class="m" data-l="Перевод">${som(d.transfer)}</span>
+      <span class="m ${diff < 0 ? "diff-bad" : diff ? "" : "diff-ok"}" data-l="Расхождение">${diff ? (diff > 0 ? "+" : "−") + som(Math.abs(diff)) : "сошлось"}</span>
+      <span class="m dim" data-l="Сессии">${d.sessions}</span>
+      <span class="m dim" data-l="Игра, ч">${d.play}</span>
+      <span class="m dim" data-l="Бар">${som(d.bar)}</span>
+    </button>`;
+  }).join("");
+}
+function openDay(d) {
+  lastFocus = document.activeElement;
+  const expected = d.opening + d.cash, diff = diffOf(d);
+  const diffText = diff ? (diff > 0 ? "+" : "−") + som(Math.abs(diff)) : "сошлось";
+  sb.innerHTML = `
+    <div><span class="field-label">Наличные</span><div class="billbox">
+      <div class="till-row"><span class="k">На начало</span><span class="v">${som(d.opening)}</span></div>
+      <div class="till-row"><span class="k">Пришло за день</span><span class="v">+${som(d.cash)}</span></div>
+      <div class="till-row"><span class="k">Должно было быть</span><span class="v">${som(expected)}</span></div>
+      <div class="till-row"><span class="k">Насчитали</span><span class="v">${som(d.counted)}</span></div>
+      <div class="till-row total"><span class="k">Расхождение</span><span class="v" style="color:${diff < 0 ? "var(--circle)" : diff ? "var(--text)" : "var(--triangle)"}">${diffText}${diff ? '<span class="cur">сом</span>' : ""}</span></div>
+    </div></div>
+    <div><span class="field-label">Безнал · сверяется по банку</span><div class="billbox">
+      <div class="till-row"><span class="k">QR<small>MBank, O!Dengi</small></span><span class="v">${som(d.qr)}</span></div>
+      <div class="till-row"><span class="k">Перевод по номеру</span><span class="v">${som(d.transfer)}</span></div>
+    </div></div>
+    <div><span class="field-label">Зал</span><div class="billbox">
+      <div class="till-row"><span class="k">Сессий</span><span class="v">${d.sessions}</span></div>
+      <div class="till-row"><span class="k">Часы игры</span><span class="v">${d.play}</span></div>
+      <div class="till-row"><span class="k">Бесплатно<small>друзья, компенсации — отдельно от выручки</small></span><span class="v">${d.free}</span></div>
+      <div class="till-row"><span class="k">Бар</span><span class="v">${som(d.bar)}</span></div>
+    </div></div>
+    <div class="note">Сводка за этот день ушла владельцу в Телеграм в ${d.close}.</div>`;
+  sf.innerHTML = "";
+  showSheet(`${d.wd}, ${d.date}`, `${d.open} → ${d.close}`, diff < 0 ? "var(--circle)" : "var(--triangle)");
+}
+document.getElementById("dayList").addEventListener("click", e => {
+  if (e.target.closest("[data-today]")) { setScreen("hall"); return; }
+  const row = e.target.closest("[data-day]"); if (row) openDay(DAYS[row.dataset.day]);
+});
+renderHistory();
+
+/* ---------- screens ---------- */
+let screen = "hall";
+const layout = document.querySelector(".layout");
+function setScreen(name) {
+  closeSheet(); closeModal();
+  screen = name;
+  document.getElementById("loginGate").classList.toggle("show", name === "login");
+  document.getElementById("dayGate").classList.toggle("show", name === "day");
+  const history = name === "history";
+  layout.classList.toggle("is-history", history);
+  document.getElementById("historyView").hidden = !history;
+  document.querySelectorAll(".demo-nav [data-screen]").forEach(b => b.setAttribute("aria-pressed", b.dataset.screen === name));
+  const focus = { login: "#pw", day: "#openCash", history: "#backToHall" }[name];
+  if (focus) setTimeout(() => document.querySelector(focus).focus(), 30);
+  window.scrollTo(0, 0);
+}
+document.querySelector(".demo-nav").addEventListener("click", e => { const b = e.target.closest("[data-screen]"); if (b) setScreen(b.dataset.screen); });
+document.getElementById("historyBtn").onclick = () => setScreen("history");
+document.getElementById("backToHall").onclick = () => setScreen("hall");
+
+/* ---------- login ---------- */
+const pw = document.getElementById("pw"), pwErr = document.getElementById("pwErr");
+pw.addEventListener("input", () => { document.getElementById("loginBtn").disabled = !pw.value; pwErr.hidden = true; });
+pw.addEventListener("keyup", e => { document.getElementById("capsHint").hidden = !e.getModifierState?.("CapsLock"); });
+document.getElementById("pwToggle").onclick = e => {
+  const show = pw.type === "password";
+  pw.type = show ? "text" : "password";
+  e.currentTarget.textContent = show ? "Скрыть" : "Показать";
+  e.currentTarget.setAttribute("aria-pressed", show);
+  pw.focus();
+};
+document.getElementById("loginForm").addEventListener("submit", e => {
+  e.preventDefault();
+  if (pw.value === "0000") { pwErr.hidden = false; pw.select(); return; } // demo: 0000 shows the error state
+  const bars = document.getElementById("sleepers");
+  bars.classList.add("wake"); // the six consoles wake up, then the day gate
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  setTimeout(() => { bars.classList.remove("wake"); pw.value = ""; document.getElementById("loginBtn").disabled = true; setScreen("day"); }, reduce ? 0 : 800);
+});
+
+/* ---------- open day ---------- */
+const openCash = document.getElementById("openCash"), openBtn = document.getElementById("openBtn");
+function syncOpen() {
+  const v = Number(openCash.value.replace(/\s/g, ""));
+  const ok = openCash.value.trim() !== "" && Number.isFinite(v) && v >= 0;
+  openBtn.disabled = !ok;
+  openBtn.textContent = ok ? `Открыть день · ${som(v)} сом` : "Открыть день";
+}
+openCash.addEventListener("input", syncOpen);
+document.querySelector("[data-fill]").onclick = e => { openCash.value = e.currentTarget.dataset.fill; syncOpen(); openCash.focus(); };
+document.getElementById("dayForm").addEventListener("submit", e => { e.preventDefault(); if (!openBtn.disabled) setScreen("hall"); });
+
+/* ---------- theme ----------
+   "По времени суток" follows the club clock, not the OS: the till PC runs from
+   morning to 05:00, and the room is dark long before the system would switch. */
+const svg = d => `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const THEME_ICONS = {
+  auto: svg('<circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/>'),
+  light: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
+  dark: svg('<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>'),
+};
+let themeMode = "auto";
+try { themeMode = new URLSearchParams(location.search).get("theme") || localStorage.getItem("ps-theme") || "auto"; } catch (_) {}
+function applyTheme() {
+  const h = new Date(now()).getHours();
+  const theme = themeMode === "auto" ? (h >= 9 && h < 19 ? "light" : "dark") : themeMode;
+  const root = document.documentElement;
+  if (root.dataset.theme !== theme) {
+    root.classList.add("theme-flip"); // flip instantly: fading every button through grey looks broken
+    root.dataset.theme = theme;
+    requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove("theme-flip")));
+  }
+  document.getElementById("themeIcon").innerHTML = THEME_ICONS[themeMode];
+  document.querySelectorAll("[data-mode]").forEach(b => b.setAttribute("aria-pressed", b.dataset.mode === themeMode));
+}
+document.querySelector(".theme-menu").addEventListener("click", e => {
+  const b = e.target.closest("[data-mode]"); if (!b) return;
+  themeMode = b.dataset.mode;
+  try { localStorage.setItem("ps-theme", themeMode); } catch (_) {}
+  applyTheme();
+  b.closest("details").open = false;
+});
+applyTheme();
+setInterval(applyTheme, 60_000);
+
+/* deep links for the concept: #login, #day, #history, #history-0, #bar-2, #ticket */
+const [hashScreen, hashArg] = location.hash.slice(1).split("-");
+if (["login", "day", "history"].includes(hashScreen)) setScreen(hashScreen);
+if (hashScreen === "history" && hashArg) openDay(DAYS[hashArg]);
+if (hashScreen === "bar") openBar(consoles.find(c => c.id == hashArg) || consoles[1], false);
+if (hashScreen === "ticket") openBar(tickets[0], true);
+</script>
+</body>
+</html>

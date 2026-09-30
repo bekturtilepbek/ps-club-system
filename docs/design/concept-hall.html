@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Зал — концепт</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Tektur:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/*
+  Concept: "Световая полоса".
+  Each console card carries a DualSense-style light bar. State colour and shape
+  come from the gamepad face buttons, so the status is readable by shape as well
+  as by colour:  ✕ package · △ open time · ○ overtime · □ free session.
+*/
+:root {
+  --bg: #0B0E15;
+  --surface: #121723;
+  --surface-2: #192031;
+  --line: #242C3E;
+  --text: #E9EDF5;
+  --muted: #8B94A8;
+  --faint: #5A6378;
+
+  --cross: #5B8CFF;     /* ✕ package running */
+  --triangle: #3DD6B5;  /* △ open time */
+  --circle: #FF5468;    /* ○ overtime */
+  --square: #E77AD4;    /* □ free session */
+  --amber: #FFB547;     /* last minutes */
+  --idle: #394258;      /* console asleep */
+
+  --cash: #E9EDF5;
+  --radius: 14px;
+  --display: "Tektur", "Golos Text", system-ui, sans-serif;
+  --body: "Golos Text", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.45 var(--body);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--cross); outline-offset: 2px; }
+.num { font-family: var(--display); font-variant-numeric: tabular-nums; }
+
+/* ---------- top bar ---------- */
+.topbar {
+  display: flex; align-items: center; gap: 16px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; z-index: 5;
+  background: rgba(11, 14, 21, .88);
+  backdrop-filter: blur(10px);
+}
+.wordmark { font-family: var(--display); font-weight: 700; letter-spacing: .04em; font-size: 17px; }
+.wordmark span { color: var(--muted); font-weight: 400; }
+.day-chip {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 12px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--line);
+  color: var(--muted); font-size: 13px;
+}
+.day-chip b { color: var(--text); font-weight: 600; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--triangle); box-shadow: 0 0 8px var(--triangle); }
+.spacer { flex: 1; }
+.clock { font-family: var(--display); font-size: 22px; font-weight: 500; letter-spacing: .02em; }
+.clock small { font-family: var(--body); font-size: 11px; color: var(--muted); margin-left: 6px; letter-spacing: 0; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 36px; padding: 0 14px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--surface-2);
+  font-weight: 500; font-size: 14px; white-space: nowrap;
+  transition: background .15s, border-color .15s;
+}
+.btn:hover { background: #20283B; border-color: #313B52; }
+.btn-ghost { background: transparent; border-color: transparent; color: var(--muted); }
+.btn-ghost:hover { background: var(--surface); color: var(--text); }
+.btn-primary { background: var(--text); color: #0B0E15; border-color: var(--text); font-weight: 600; }
+.btn-primary:hover { background: #fff; border-color: #fff; }
+.btn-lg { height: 48px; font-size: 15px; border-radius: 12px; padding: 0 20px; }
+
+/* ---------- layout ---------- */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 0;
+  min-height: calc(100vh - 61px);
+}
+.hall { padding: 20px 24px 40px; }
+.hall-head { display: flex; align-items: baseline; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+.hall-head h1 { font-family: var(--display); font-size: 28px; font-weight: 600; margin: 0; letter-spacing: .01em; }
+.hall-head .count { color: var(--muted); font-size: 14px; }
+.legend { display: flex; gap: 14px; margin-left: auto; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+
+.glyph {
+  display: inline-grid; place-items: center;
+  width: 16px; height: 16px; font-style: normal; font-size: 12px; line-height: 1;
+  font-family: system-ui, sans-serif; font-weight: 700;
+}
+.g-cross { color: var(--cross); }
+.g-triangle { color: var(--triangle); }
+.g-circle { color: var(--circle); }
+.g-square { color: var(--square); }
+.g-amber { color: var(--amber); }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+/* ---------- console card ---------- */
+.card {
+  --c: var(--idle);
+  position: relative;
+  display: flex; flex-direction: column;
+  min-height: 268px;
+  padding: 22px 20px 16px;
+  border-radius: var(--radius);
+  background:
+    radial-gradient(120% 70% at 50% -10%, color-mix(in srgb, var(--c) 16%, transparent), transparent 60%),
+    var(--surface);
+  border: 1px solid var(--line);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color .2s, transform .2s;
+}
+.card:hover { border-color: #33405A; }
+.card::before { /* the light bar */
+  content: ""; position: absolute; top: 0; left: 18%; right: 18%; height: 4px;
+  border-radius: 0 0 4px 4px;
+  background: var(--c);
+  box-shadow: 0 0 14px 1px var(--c), 0 0 42px 4px color-mix(in srgb, var(--c) 45%, transparent);
+}
+.card[data-state="free"]::before { box-shadow: none; }
+.card[data-state="package"] { --c: var(--cross); }
+.card[data-state="warn"] { --c: var(--amber); }
+.card[data-state="over"] { --c: var(--circle); border-color: color-mix(in srgb, var(--circle) 55%, var(--line)); }
+.card[data-state="open"] { --c: var(--triangle); }
+.card[data-state="gift"] { --c: var(--square); }
+.card[data-state="warn"]::before { animation: breathe 2.4s ease-in-out infinite; }
+.card[data-state="over"]::before { animation: breathe 1s ease-in-out infinite; }
+@keyframes breathe { 50% { opacity: .35; } }
+
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.card-name { font-family: var(--display); font-weight: 700; font-size: 20px; letter-spacing: .03em; }
+.state {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12.5px; font-weight: 500; color: var(--muted);
+  padding: 3px 9px 3px 6px; border-radius: 999px;
+  background: color-mix(in srgb, var(--c) 12%, transparent);
+}
+.card:not([data-state="free"]) .state { color: color-mix(in srgb, var(--c) 70%, white); }
+
+.timer {
+  font-family: var(--display); font-variant-numeric: tabular-nums;
+  font-size: 56px; font-weight: 500; line-height: 1;
+  letter-spacing: .01em;
+  margin: 22px 0 6px;
+}
+.card[data-state="over"] .timer { color: var(--circle); }
+.card[data-state="warn"] .timer { color: var(--amber); }
+.card[data-state="free"] .timer { color: var(--faint); font-size: 30px; font-weight: 400; margin-top: 30px; }
+.caption { color: var(--muted); font-size: 13px; min-height: 19px; }
+.caption b { color: var(--text); font-weight: 500; }
+
+.track { position: relative; height: 4px; border-radius: 4px; background: var(--line); margin: 16px 0 14px; overflow: hidden; }
+.track i { position: absolute; top: 0; bottom: 0; left: 0; background: var(--c); border-radius: 4px; transition: width 1s linear; }
+.card[data-state="open"] .track i { width: 100% !important;
+  background: repeating-linear-gradient(90deg, var(--c) 0 10px, transparent 10px 16px);
+  opacity: .6; animation: flow 1.2s linear infinite; background-size: 16px 4px; }
+@keyframes flow { to { background-position: 16px 0; } }
+
+.bill { display: flex; gap: 18px; font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+.bill b { display: block; font-family: var(--display); font-weight: 500; font-size: 16px; color: var(--text); font-variant-numeric: tabular-nums; }
+.bill .due b { color: var(--amber); }
+.bill .ok b { color: var(--triangle); }
+
+.grace {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin: -4px 0 12px; padding: 8px 10px; border-radius: 10px;
+  background: var(--surface-2); font-size: 13px; color: var(--muted);
+}
+.grace b { color: var(--text); font-family: var(--display); font-weight: 500; }
+.linkish { background: none; border: 0; padding: 0; color: var(--text); text-decoration: underline; text-underline-offset: 3px; font-size: 13px; }
+
+.tv-hint {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin: -4px 0 12px; padding: 8px 10px; border-radius: 10px;
+  background: color-mix(in srgb, var(--circle) 14%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--circle) 50%, transparent);
+  font-size: 13px;
+}
+
+.actions { display: flex; gap: 8px; margin-top: auto; flex-wrap: wrap; }
+.actions .btn { flex: 1; min-width: 0; }
+.actions .btn-primary { flex: 1.6; }
+
+/* walk-in tickets */
+.tickets { margin-top: 28px; }
+.section-title { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; margin: 0 0 10px; }
+.ticket {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 14px; border-radius: 12px;
+  background: var(--surface); border: 1px solid var(--line);
+}
+.ticket .what { flex: 1; color: var(--muted); font-size: 14px; }
+.ticket .what b { color: var(--text); font-weight: 500; }
+
+/* ---------- day rail (the notebook) ---------- */
+.rail {
+  border-left: 1px solid var(--line);
+  background: #0E121B;
+  padding: 20px 20px 40px;
+  display: flex; flex-direction: column; gap: 24px;
+}
+.till { display: grid; gap: 2px; }
+.till-row { display: flex; align-items: baseline; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.till-row:last-child { border-bottom: 0; }
+.till-row .k { color: var(--muted); font-size: 13.5px; }
+.till-row .k small { display: block; font-size: 11.5px; color: var(--faint); }
+.till-row .v { font-family: var(--display); font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.till-row.cash .v { font-size: 30px; }
+.cur { font-family: var(--body); font-size: .55em; color: var(--muted); margin-left: 3px; font-weight: 400; }
+.stats { display: flex; gap: 8px; }
+.stat { flex: 1; padding: 10px 12px; border-radius: 10px; background: var(--surface); }
+.stat .v { font-family: var(--display); font-size: 17px; font-weight: 500; }
+.stat .k { color: var(--muted); font-size: 12px; }
+
+.feed { list-style: none; margin: 0; padding: 0; display: grid; }
+.feed li { display: grid; grid-template-columns: 44px 16px 1fr auto; gap: 8px; align-items: baseline; padding: 8px 0; font-size: 13.5px; border-bottom: 1px dashed var(--line); }
+.feed time { color: var(--faint); font-family: var(--display); font-size: 12.5px; }
+.feed .t { color: var(--muted); }
+.feed .t b { color: var(--text); font-weight: 500; }
+.feed .amt { font-family: var(--display); font-variant-numeric: tabular-nums; font-size: 13.5px; }
+.feed .m { font-size: 11px; color: var(--faint); margin-left: 4px; font-family: var(--body); }
+.feed li.new { animation: fresh 1.6s ease-out; }
+@keyframes fresh { from { background: color-mix(in srgb, var(--triangle) 18%, transparent); } }
+
+/* ---------- side sheet ---------- */
+.scrim { position: fixed; inset: 0; background: rgba(4, 6, 10, .55); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 10; }
+.sheet {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(460px, 100vw);
+  background: var(--surface); border-left: 1px solid var(--line);
+  transform: translateX(100%); transition: transform .25s cubic-bezier(.2,.8,.2,1);
+  z-index: 11; display: flex; flex-direction: column;
+}
+.sheet-open .scrim { opacity: 1; pointer-events: auto; }
+.sheet-open .sheet { transform: none; }
+.sheet-head { display: flex; align-items: center; gap: 12px; padding: 18px 20px; border-bottom: 1px solid var(--line); position: relative; }
+.sheet-head::before { content: ""; position: absolute; left: 0; top: 16px; bottom: 16px; width: 3px; background: var(--c, var(--idle)); box-shadow: 0 0 12px var(--c, transparent); border-radius: 0 3px 3px 0; }
+.sheet-head h2 { font-family: var(--display); margin: 0; font-size: 22px; font-weight: 600; }
+.sheet-body { padding: 20px; overflow: auto; flex: 1; display: grid; gap: 24px; align-content: start; }
+.sheet-foot { padding: 16px 20px; border-top: 1px solid var(--line); display: flex; gap: 8px; }
+.sheet-foot .btn { flex: 1; }
+
+.seg-toggle { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; padding: 4px; border-radius: 12px; background: var(--bg); border: 1px solid var(--line); }
+.seg-toggle button { height: 38px; border: 0; background: transparent; border-radius: 9px; color: var(--muted); font-weight: 500; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.seg-toggle button[aria-pressed="true"] { background: var(--surface-2); color: var(--text); box-shadow: 0 1px 0 rgba(255,255,255,.04) inset; }
+
+.tariffs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tariff {
+  text-align: left; padding: 14px; border-radius: 12px;
+  background: var(--bg); border: 1px solid var(--line);
+  display: grid; gap: 2px;
+}
+.tariff .dur { font-family: var(--display); font-size: 26px; font-weight: 600; }
+.tariff .price { color: var(--muted); font-size: 13.5px; }
+.tariff .ends { color: var(--faint); font-size: 12px; margin-top: 6px; }
+.tariff[aria-pressed="true"] { border-color: var(--cross); box-shadow: 0 0 0 1px var(--cross) inset, 0 0 24px -6px var(--cross); }
+.tariff.open[aria-pressed="true"] { border-color: var(--triangle); box-shadow: 0 0 0 1px var(--triangle) inset, 0 0 24px -6px var(--triangle); }
+
+.note { font-size: 13px; color: var(--muted); padding: 10px 12px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); }
+.note.warn { border-color: color-mix(in srgb, var(--amber) 45%, var(--line)); color: var(--text); }
+.field-label { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; margin-bottom: 8px; display: block; }
+.input {
+  width: 100%; height: 48px; padding: 0 14px; border-radius: 12px;
+  background: var(--bg); border: 1px solid var(--line); color: var(--text);
+  font: 500 20px var(--display);
+}
+.input:focus { outline: none; border-color: var(--cross); }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.chip { height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 13px; }
+.chip:hover { color: var(--text); border-color: #33405A; }
+
+/* segments timeline in the sheet */
+.timeline { display: grid; gap: 0; }
+.tl-row { display: grid; grid-template-columns: 52px 14px 1fr auto; gap: 10px; align-items: start; padding-bottom: 14px; position: relative; }
+.tl-row time { font-family: var(--display); font-size: 13px; color: var(--muted); padding-top: 1px; }
+.tl-dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; background: var(--dc); box-shadow: 0 0 8px var(--dc); }
+.tl-row:not(:last-child)::after { content: ""; position: absolute; left: 66px; top: 18px; bottom: 2px; width: 2px; background: var(--line); }
+.tl-row .what b { display: block; font-weight: 500; }
+.tl-row .what span { color: var(--muted); font-size: 13px; }
+.tl-row .amt { font-family: var(--display); }
+
+.billbox { border-radius: 12px; background: var(--bg); border: 1px solid var(--line); padding: 6px 14px; }
+.billbox .till-row .v { font-size: 16px; }
+.billbox .till-row.total .v { font-size: 26px; color: var(--amber); }
+
+/* ---------- close-day modal ---------- */
+.modal {
+  position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px;
+  background: rgba(4, 6, 10, .7); opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+.modal.show { opacity: 1; pointer-events: auto; }
+.modal-card { width: min(620px, 100%); max-height: calc(100vh - 32px); overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; }
+.modal-card header { padding: 20px 24px; border-bottom: 1px solid var(--line); display: flex; align-items: center; }
+.modal-card h2 { margin: 0; font-family: var(--display); font-size: 22px; font-weight: 600; }
+.steps { list-style: none; margin: 0; padding: 8px 24px 4px; counter-reset: s; }
+.steps > li { counter-increment: s; display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--line); }
+.steps > li:last-child { border-bottom: 0; }
+.steps > li::before { content: counter(s); width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); font-family: var(--display); font-size: 13px; color: var(--muted); }
+.steps h3 { margin: 3px 0 10px; font-size: 15px; font-weight: 600; }
+.row-line { display: flex; align-items: center; gap: 10px; padding: 8px 0; font-size: 14px; }
+.row-line .grow { flex: 1; min-width: 0; }
+.diff { font-family: var(--display); font-size: 15px; }
+.diff.bad { color: var(--circle); }
+.diff.good { color: var(--triangle); }
+.check { display: flex; align-items: center; gap: 10px; font-size: 14px; padding: 6px 0; }
+.check input { width: 18px; height: 18px; accent-color: var(--triangle); }
+.modal-card footer { padding: 16px 24px 20px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--line); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1100px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .rail { border-left: 0; border-top: 1px solid var(--line); }
+}
+@media (max-width: 640px) {
+  .topbar { padding: 10px 16px; gap: 10px; flex-wrap: wrap; }
+  .day-chip .hide-sm, .top-actions .hide-sm { display: none; }
+  .hall { padding: 16px; }
+  .rail { padding: 16px; }
+  .grid { grid-template-columns: 1fr; }
+  .legend { margin-left: 0; }
+  .timer { font-size: 48px; }
+  .ticket { flex-wrap: wrap; }
+  .ticket .what { flex-basis: 60%; }
+  .ticket .btn-primary { flex: 1; }
+  .steps { padding: 4px 16px; }
+  .modal-card header, .modal-card footer { padding-left: 16px; padding-right: 16px; }
+  .modal-card footer { flex-direction: column-reverse; }
+  .sheet { top: auto; height: 88vh; width: 100vw; border-left: 0; border-top: 1px solid var(--line); border-radius: 18px 18px 0 0; transform: translateY(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wordmark">PS<span>·клуб</span></div>
+  <div class="day-chip"><span class="dot"></span><b>День открыт</b><span class="hide-sm">с 10:02 · идёт <span id="dayLen">—</span></span></div>
+  <div class="spacer"></div>
+  <div class="clock" id="clock">--:--<small>Бишкек</small></div>
+  <div class="top-actions" style="display:flex;gap:8px">
+    <button class="btn" id="walkIn">+ Продажа без игры</button>
+    <button class="btn btn-ghost hide-sm">История дней</button>
+    <button class="btn" id="closeDayBtn">Закрыть день</button>
+  </div>
+</header>
+
+<div class="layout">
+  <main class="hall">
+    <div class="hall-head">
+      <h1>Зал</h1>
+      <span class="count" id="hallCount"></span>
+      <div class="legend" aria-label="Обозначения">
+        <span><i class="glyph g-cross">✕</i>Пакет</span>
+        <span><i class="glyph g-triangle">△</i>Открытое время</span>
+        <span><i class="glyph g-amber">!</i>Скоро конец</span>
+        <span><i class="glyph g-circle">○</i>Переигрыш</span>
+        <span><i class="glyph g-square">□</i>Бесплатная</span>
+      </div>
+    </div>
+
+    <section class="grid" id="grid" aria-label="Консоли"></section>
+
+    <section class="tickets">
+      <h2 class="section-title">Чеки без игры</h2>
+      <div class="ticket">
+        <span class="num" style="color:var(--muted)">№214</span>
+        <span class="what"><b>Вода 0,5 л × 2</b> · Сникерс</span>
+        <span class="num">150<span class="cur">сом</span></span>
+        <button class="btn">Бар</button>
+        <button class="btn btn-primary">Принять оплату</button>
+      </div>
+    </section>
+  </main>
+
+  <aside class="rail" aria-label="Касса и лента дня">
+    <section>
+      <h2 class="section-title">Касса дня</h2>
+      <div class="till">
+        <div class="till-row cash"><span class="k">Наличные в кассе<small>2 000 на начало + 3 830 за день</small></span><span class="v">5 830<span class="cur">сом</span></span></div>
+        <div class="till-row"><span class="k">QR<small>сверить в MBank / O!Dengi</small></span><span class="v">2 150<span class="cur">сом</span></span></div>
+        <div class="till-row"><span class="k">Перевод по номеру</span><span class="v">600<span class="cur">сом</span></span></div>
+      </div>
+    </section>
+    <div class="stats">
+      <div class="stat"><div class="v">23</div><div class="k">сессии</div></div>
+      <div class="stat"><div class="v">31:40</div><div class="k">часов игры</div></div>
+      <div class="stat"><div class="v">690</div><div class="k">бар, сом</div></div>
+    </div>
+    <section>
+      <h2 class="section-title">Лента дня</h2>
+      <ul class="feed" id="feed">
+        <li><time>00:38</time><i class="glyph g-cross">✕</i><span class="t"><b>PS 1</b> · пакет 3 ч</span><span class="amt">400<span class="m">нал</span></span></li>
+        <li><time>00:31</time><i class="glyph g-amber">·</i><span class="t"><b>Бар</b> · чек №214</span><span class="amt">150</span></li>
+        <li><time>00:13</time><i class="glyph g-square">□</i><span class="t"><b>PS 6</b> · бесплатно: «друзья владельца»</span><span class="amt">—</span></li>
+        <li><time>23:57</time><i class="glyph" style="color:var(--muted)">■</i><span class="t"><b>PS 5</b> · завершена, 2 ч 10 мин</span><span class="amt">350<span class="m">QR</span></span></li>
+        <li><time>23:46</time><i class="glyph g-triangle">△</i><span class="t"><b>PS 4</b> · открытое время</span><span class="amt">—</span></li>
+        <li><time>23:24</time><i class="glyph g-cross">✕</i><span class="t"><b>PS 3</b> · +1 ч к пакету</span><span class="amt">150<span class="m">перевод</span></span></li>
+        <li><time>23:06</time><i class="glyph g-amber">·</i><span class="t"><b>PS 2</b> · кола × 2, сэндвич</span><span class="amt">240</span></li>
+      </ul>
+    </section>
+  </aside>
+</div>
+
+<!-- side sheet -->
+<div class="scrim" id="scrim"></div>
+<aside class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="sheet-head"><h2 id="sheetTitle">PS</h2><span class="state" id="sheetState"></span><div class="spacer"></div><button class="btn btn-ghost" id="sheetClose" aria-label="Закрыть">✕</button></div>
+  <div class="sheet-body" id="sheetBody"></div>
+  <div class="sheet-foot" id="sheetFoot"></div>
+</aside>
+
+<!-- close day -->
+<div class="modal" id="closeDay" role="dialog" aria-modal="true" aria-labelledby="cdTitle">
+  <div class="modal-card">
+    <header><h2 id="cdTitle">Закрытие дня</h2><div class="spacer"></div><button class="btn btn-ghost" data-close>✕</button></header>
+    <ol class="steps">
+      <li><div>
+        <h3>Завершить активные сессии</h3>
+        <div id="cdActive"></div>
+      </div></li>
+      <li><div>
+        <h3>Пересчитать наличные</h3>
+        <div class="row-line"><span class="grow" style="color:var(--muted)">Должно быть в кассе</span><span class="num" style="font-size:20px">5 830<span class="cur">сом</span></span></div>
+        <input class="input" id="counted" inputmode="numeric" placeholder="Сколько насчитали">
+        <div class="row-line"><span class="grow" style="color:var(--muted)">Расхождение</span><span class="diff" id="diff">—</span></div>
+      </div></li>
+      <li><div>
+        <h3>Сверить безнал с банком</h3>
+        <label class="check"><input type="checkbox"> QR — <b class="num">2 150</b> сом</label>
+        <label class="check"><input type="checkbox"> Перевод по номеру — <b class="num">600</b> сом</label>
+      </div></li>
+    </ol>
+    <footer><button class="btn" data-close>Отмена</button><button class="btn btn-primary">Закрыть день и отправить сводку</button></footer>
+  </div>
+</div>
+
+<script>
+const MIN = 60_000, H = 60 * MIN;
+// Demo runs on a fixed club clock (00:40, late night) so the plan-close warning is visible.
+const DEMO = new Date(); DEMO.setHours(0, 40, 0, 0);
+const OFFSET = DEMO.getTime() - Date.now();
+const now = () => Date.now() + OFFSET;
+const T0 = now();
+const RATE = 160; // open time, som per hour
+const TARIFFS = [
+  { id: "p1", label: "1 ч", min: 60, price: 150 },
+  { id: "p3", label: "3 ч", min: 180, price: 400 },
+  { id: "p5", label: "5 ч", min: 300, price: 600 },
+  { id: "open", label: "Открытое", rate: RATE },
+];
+const PLANNED_CLOSE_H = 5; // 05:00
+
+const consoles = [
+  { id: 1, name: "PS 1", kind: "package", tariff: "Пакет 3 ч", startedAt: T0 - 1.2 * MIN, graceUntil: T0 + 1.8 * MIN, endAt: T0 + 3 * H + 1.8 * MIN, total: 400, charge: 400, paid: 400, bar: 0 },
+  { id: 2, name: "PS 2", kind: "package", tariff: "Пакет 1 ч", startedAt: T0 - 56 * MIN, endAt: T0 + 3 * MIN + 48e3, total: 60 * MIN, charge: 390, paid: 150, bar: 240 },
+  { id: 3, name: "PS 3", kind: "package", tariff: "Пакет 3 ч + 1 ч", startedAt: T0 - 4 * H - 6 * MIN, endAt: T0 - 6 * MIN - 12e3, total: 4 * H, charge: 550, paid: 550, bar: 0 },
+  { id: 4, name: "PS 4", kind: "open", tariff: "Открытое · 160 сом/ч", startedAt: T0 - 52 * MIN - 30e3, bar: 120, paid: 0 },
+  { id: 5, name: "PS 5", kind: "free", lastEnded: "23:57" },
+  { id: 6, name: "PS 6", kind: "gift", tariff: "Друзья владельца", startedAt: T0 - 27 * MIN },
+];
+
+const pad = n => String(n).padStart(2, "0");
+function dur(ms) {
+  ms = Math.max(0, ms);
+  const s = Math.floor(ms / 1000), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
+  return h ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
+}
+const hm = t => { const d = new Date(t); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const som = n => Math.round(n).toLocaleString("ru-RU").replace(/ /g, " ");
+
+function view(c) {
+  const t = now();
+  if (c.kind === "free") return { state: "free", glyph: "", label: "Свободна" };
+  if (c.kind === "gift") return { state: "gift", glyph: "□", label: "Бесплатная", elapsed: t - c.startedAt };
+  if (c.kind === "open") {
+    const billable = Math.max(0, t - c.startedAt - 3 * MIN);
+    const time = Math.round(billable / MIN * RATE / 60);
+    return { state: "open", glyph: "△", label: "Открытое время", elapsed: t - c.startedAt, charge: time + c.bar };
+  }
+  const left = c.endAt - t;
+  if (left <= 0) return { state: "over", glyph: "○", label: "Переигрыш", over: -left };
+  if (left <= 5 * MIN) return { state: "warn", glyph: "!", label: "Скоро конец", left };
+  return { state: "package", glyph: "✕", label: c.tariff, left };
+}
+
+const grid = document.getElementById("grid");
+function cardHTML(c) {
+  return `
+  <article class="card" data-id="${c.id}" tabindex="0" aria-label="${c.name}">
+    <div class="card-head"><span class="card-name">${c.name}</span><span class="state" data-state-label></span></div>
+    <div class="timer" data-timer></div>
+    <div class="caption" data-caption></div>
+    <div class="track"><i data-track></i></div>
+    <div data-extra></div>
+    <div class="bill" data-bill></div>
+    <div class="actions" data-actions></div>
+  </article>`;
+}
+grid.innerHTML = consoles.map(cardHTML).join("");
+
+function actionsFor(c, v) {
+  const due = (v.charge ?? c.charge ?? 0) - (c.paid ?? 0);
+  switch (v.state) {
+    case "free": return `<button class="btn btn-primary btn-lg" data-act="start">Начать сессию</button>`;
+    case "gift": return `<button class="btn" data-act="bar">Бар</button><button class="btn" data-act="stop">Завершить</button>`;
+    case "open": return `<button class="btn" data-act="bar">Бар</button><button class="btn btn-primary" data-act="stop">Рассчитать · ${som(due)}</button>`;
+    case "over": return `<button class="btn btn-primary" data-act="extend">Продлить</button><button class="btn" data-act="stop">Завершить</button>`;
+    case "warn": return `<button class="btn btn-primary" data-act="extend">Продлить</button><button class="btn" data-act="bar">Бар</button>${due > 0 ? `<button class="btn" data-act="pay">Оплата</button>` : ""}`;
+    default: return `<button class="btn" data-act="extend">Продлить</button><button class="btn" data-act="bar">Бар</button>${due > 0 ? `<button class="btn btn-primary" data-act="pay">Принять ${som(due)}</button>` : `<button class="btn" data-act="stop">Стоп</button>`}`;
+  }
+}
+
+function paint() {
+  const t = now();
+  document.getElementById("clock").firstChild.nodeValue = hm(t);
+  document.getElementById("dayLen").textContent = (() => { const d = new Date(t); const open = new Date(d); open.setHours(10, 2, 0, 0); if (open > d) open.setDate(open.getDate() - 1); const m = Math.floor((d - open) / MIN); return `${Math.floor(m / 60)} ч ${m % 60} мин`; })();
+  let playing = 0, free = 0;
+  for (const c of consoles) {
+    const el = grid.querySelector(`[data-id="${c.id}"]`);
+    const v = view(c);
+    v.state === "free" ? free++ : playing++;
+    const changed = el.dataset.state !== v.state;
+    el.dataset.state = v.state;
+    el.querySelector("[data-state-label]").innerHTML = (v.glyph ? `<i class="glyph">${v.glyph}</i>` : "") + v.label;
+    const timer = el.querySelector("[data-timer]"), cap = el.querySelector("[data-caption]"), track = el.querySelector("[data-track]");
+    const bill = el.querySelector("[data-bill]"), extra = el.querySelector("[data-extra]");
+    if (v.state === "free") {
+      timer.textContent = "Свободна";
+      cap.innerHTML = `Последняя сессия закончилась в ${c.lastEnded}`;
+      track.style.width = "0";
+      bill.innerHTML = ""; extra.innerHTML = "";
+    } else if (v.state === "open" || v.state === "gift") {
+      timer.textContent = dur(v.elapsed);
+      cap.innerHTML = v.state === "open" ? `идёт с ${hm(c.startedAt)} · <b>${c.tariff}</b>` : `идёт с ${hm(c.startedAt)} · причина: <b>${c.tariff}</b>`;
+      bill.innerHTML = v.state === "open"
+        ? `<span>Время<b>${som(v.charge - c.bar)}</b></span><span>Бар<b>${som(c.bar)}</b></span><span class="due">К оплате<b>${som(v.charge - c.paid)}</b></span>`
+        : `<span>Без оплаты · в аналитике отдельной строкой</span>`;
+      extra.innerHTML = "";
+    } else if (v.state === "over") {
+      timer.textContent = "+" + dur(v.over);
+      cap.innerHTML = `время вышло в ${hm(c.endAt)} · ${c.tariff}`;
+      track.style.width = "100%";
+      extra.innerHTML = `<div class="tv-hint"><span>Выключите ТВ на <b>${c.name}</b>, если гости ушли</span><button class="linkish">Выключил</button></div>`;
+      bill.innerHTML = `<span>Счёт<b>${som(c.charge)}</b></span><span class="ok">Оплачено<b>${som(c.paid)}</b></span>`;
+    } else {
+      timer.textContent = dur(v.left);
+      cap.innerHTML = `осталось · до <b>${hm(c.endAt)}</b>`;
+      track.style.width = `${Math.min(100, (1 - v.left / (c.endAt - c.startedAt)) * 100)}%`;
+      const graceLeft = c.graceUntil ? c.graceUntil - t : 0;
+      extra.innerHTML = graceLeft > 0 ? `<div class="grace"><span>Выбор игры · <b>${dur(graceLeft)}</b></span><button class="linkish" data-act="cancel">Отменить без оплаты</button></div>` : "";
+      const due = c.charge - c.paid;
+      bill.innerHTML = `<span>Счёт<b>${som(c.charge)}</b></span>${c.bar ? `<span>в т. ч. бар<b>${som(c.bar)}</b></span>` : ""}<span class="${due > 0 ? "due" : "ok"}">${due > 0 ? "К оплате" : "Оплачено"}<b>${som(due > 0 ? due : c.paid)}</b></span>`;
+    }
+    const acts = el.querySelector("[data-actions]");
+    const html = actionsFor(c, v);
+    if (changed || acts.dataset.html !== html) { acts.innerHTML = html; acts.dataset.html = html; }
+  }
+  document.getElementById("hallCount").textContent = `${consoles.length} консолей · ${playing} заняты · ${free} свободна`;
+}
+paint();
+setInterval(paint, 1000);
+
+/* ---------- sheet ---------- */
+const body = document.body, sheet = document.getElementById("sheet");
+const sb = document.getElementById("sheetBody"), sf = document.getElementById("sheetFoot");
+let lastFocus = null;
+
+function openSheet(c, focus) {
+  lastFocus = document.activeElement;
+  const v = view(c);
+  sheet.style.setProperty("--c", getComputedStyle(grid.querySelector(`[data-id="${c.id}"]`)).getPropertyValue("--c"));
+  document.getElementById("sheetTitle").textContent = c.name;
+  document.getElementById("sheetState").innerHTML = (v.glyph ? `<i class="glyph">${v.glyph}</i>` : "") + v.label;
+  if (v.state === "free") renderStart(c); else renderSession(c, v, focus);
+  body.classList.add("sheet-open");
+  setTimeout(() => (sheet.querySelector("[autofocus]") || document.getElementById("sheetClose")).focus(), 50);
+}
+function closeSheet() { body.classList.remove("sheet-open"); lastFocus && lastFocus.focus(); }
+document.getElementById("scrim").onclick = closeSheet;
+document.getElementById("sheetClose").onclick = closeSheet;
+
+function renderStart(c) {
+  let kind = "paid", tariff = "p3";
+  const draw = () => {
+    const start = now() + 3 * MIN;
+    const tiles = TARIFFS.map(tr => {
+      const end = tr.min ? start + tr.min * MIN : null;
+      const late = end && new Date(end).getHours() >= PLANNED_CLOSE_H && new Date(end).getHours() < 10;
+      return `<button class="tariff ${tr.id === "open" ? "open" : ""}" aria-pressed="${tariff === tr.id}" data-t="${tr.id}">
+        <span class="dur">${tr.label}</span>
+        <span class="price">${tr.price ? som(tr.price) + " сом" : som(tr.rate) + " сом/ч, поминутно"}</span>
+        <span class="ends">${end ? "до " + hm(end) + (late ? " · после закрытия" : "") : "оплата при уходе"}</span></button>`;
+    }).join("");
+    const sel = TARIFFS.find(t => t.id === tariff);
+    const selEnd = sel.min ? start + sel.min * MIN : null;
+    const lateEnd = selEnd && new Date(selEnd).getHours() >= PLANNED_CLOSE_H && new Date(selEnd).getHours() < 10 ? selEnd : null;
+    sb.innerHTML = `
+      <div><span class="field-label">Тип сессии</span>
+        <div class="seg-toggle" role="group">
+          <button aria-pressed="${kind === "paid"}" data-k="paid">Платная</button>
+          <button aria-pressed="${kind === "gift"}" data-k="gift"><i class="glyph g-square">□</i>Бесплатная</button>
+          <button aria-pressed="${kind === "service"}" data-k="service">Служебная</button>
+        </div></div>
+      ${kind === "paid" ? `<div><span class="field-label">Тариф</span><div class="tariffs">${tiles}</div></div>
+        ${lateEnd ? `<div class="note warn"><i class="glyph g-amber">!</i> Пакет закончится в ${hm(lateEnd)} — после планового закрытия в 05:00. Продавать или нет — решаете вы.</div>` : ""}
+        <div class="note">Первые 3 минуты — на выбор игры. Если гости уйдут за это время, сессию можно отменить без оплаты.</div>`
+      : kind === "gift" ? `<div><span class="field-label">Причина</span><input class="input" style="font:500 16px var(--body)" placeholder="Например: друзья владельца" autofocus>
+        <div class="chips"><button class="chip">Друзья владельца</button><button class="chip">Компенсация</button><button class="chip">Турнир</button></div></div>`
+      : `<div class="note">Обновления, проверка геймпадов, ТВ для себя. Денег нет, в загрузку зала не попадает.</div>`}`;
+    sf.innerHTML = `<button class="btn btn-primary btn-lg" style="flex:1">Начать на ${c.name}${kind === "paid" && sel.price ? " · " + som(sel.price) + " сом" : ""}</button>`;
+    sb.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { kind = b.dataset.k; draw(); });
+    sb.querySelectorAll("[data-t]").forEach(b => b.onclick = () => { tariff = b.dataset.t; draw(); });
+  };
+  draw();
+}
+
+function renderSession(c, v, focus) {
+  const segs = c.kind === "open"
+    ? [["--triangle", hm(c.startedAt), "Выбор игры", "3 мин, бесплатно", "0"], ["--triangle", hm(c.startedAt + 3 * MIN), "Открытое время", "160 сом/ч · идёт", som(v.charge - c.bar)]]
+    : c.kind === "gift" ? [["--square", hm(c.startedAt), "Бесплатная", "«Друзья владельца»", "—"]]
+    : c.id === 3 ? [["--cross", hm(c.startedAt), "Пакет 3 ч", "с выбором игры 3 мин", "400"], ["--cross", hm(c.startedAt + 3 * H + 3 * MIN), "Продление 1 ч", "", "150"], ["--circle", hm(c.endAt), "Переигрыш", "не оплачен", "—"]]
+    : [["--cross", hm(c.startedAt), c.tariff, `до ${hm(c.endAt)}`, som(c.charge - c.bar)]];
+  const due = (v.charge ?? c.charge ?? 0) - (c.paid ?? 0);
+  sb.innerHTML = `
+    <div><span class="field-label">Отрезки</span><div class="timeline">
+      ${segs.map(s => `<div class="tl-row" style="--dc:var(${s[0]})"><time>${s[1]}</time><span class="tl-dot"></span><span class="what"><b>${s[2]}</b><span>${s[3]}</span></span><span class="amt">${s[4]}</span></div>`).join("")}
+    </div></div>
+    ${c.kind !== "gift" ? `
+    <div><span class="field-label">Счёт</span><div class="billbox">
+      <div class="till-row"><span class="k">Время</span><span class="v">${som((v.charge ?? c.charge) - (c.bar || 0))}</span></div>
+      <div class="till-row"><span class="k">Бар</span><span class="v">${som(c.bar || 0)}</span></div>
+      <div class="till-row"><span class="k">Оплачено</span><span class="v">${som(c.paid || 0)}</span></div>
+      <div class="till-row total"><span class="k">К оплате</span><span class="v">${som(Math.max(0, due))}<span class="cur">сом</span></span></div>
+    </div></div>
+    ${due > 0 ? `<div><span class="field-label">Принять оплату</span>
+      <div class="seg-toggle" role="group" id="methods">
+        <button aria-pressed="true">Наличные</button><button aria-pressed="false">QR</button><button aria-pressed="false">Перевод</button>
+      </div>
+      <input class="input" style="margin-top:10px" value="${Math.max(0, due)}" inputmode="numeric" ${focus === "pay" ? "autofocus" : ""} aria-label="Сумма">
+      <div class="chips"><button class="chip">Всё: ${som(Math.max(0, due))}</button><button class="chip">Половина</button></div>
+    </div>` : ""}` : ""}
+    ${c.kind === "package" ? `<div><span class="field-label">Продлить</span><div class="tariffs">
+      ${TARIFFS.map(tr => `<button class="tariff ${tr.id === "open" ? "open" : ""}" aria-pressed="false" ${focus === "extend" && tr.id === "p1" ? "autofocus" : ""}><span class="dur">+${tr.label}</span><span class="price">${tr.price ? som(tr.price) + " сом" : "с " + hm(Math.max(c.endAt, now())) + ", поминутно"}</span></button>`).join("")}
+    </div></div>` : ""}`;
+  sf.innerHTML = c.kind === "gift"
+    ? `<button class="btn">Перевести в платную</button><button class="btn btn-primary">Завершить</button>`
+    : due > 0 ? `<button class="btn">Завершить сессию</button><button class="btn btn-primary">Внести ${som(due)} сом</button>`
+    : `<button class="btn btn-primary">Завершить сессию</button>`;
+  sb.querySelectorAll("#methods button").forEach(b => b.onclick = () => sb.querySelectorAll("#methods button").forEach(x => x.setAttribute("aria-pressed", x === b)));
+}
+
+grid.addEventListener("click", e => {
+  const card = e.target.closest(".card"); if (!card) return;
+  const c = consoles.find(x => x.id == card.dataset.id);
+  const act = e.target.closest("[data-act]")?.dataset.act;
+  if (act === "cancel") return;
+  openSheet(c, act);
+});
+grid.addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.target.classList.contains("card")) openSheet(consoles.find(x => x.id == e.target.dataset.id));
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") { closeSheet(); closeModal(); } });
+
+/* ---------- close day ---------- */
+const modal = document.getElementById("closeDay");
+function closeModal() { modal.classList.remove("show"); }
+document.getElementById("closeDayBtn").onclick = () => {
+  document.getElementById("cdActive").innerHTML = consoles.filter(c => c.kind !== "free").map(c => {
+    const v = view(c); const due = Math.max(0, (v.charge ?? c.charge ?? 0) - (c.paid ?? 0));
+    return `<div class="row-line"><i class="glyph" style="color:var(${({package:"--cross",warn:"--amber",over:"--circle",open:"--triangle",gift:"--square"})[v.state]})">${v.glyph}</i><span class="grow">${c.name} · ${v.label}</span><span class="num" style="color:${due ? "var(--amber)" : "var(--muted)"}">${due ? som(due) + " сом" : c.kind === "gift" ? "без оплаты" : "оплачено"}</span><button class="btn">Завершить</button></div>`;
+  }).join("");
+  modal.classList.add("show");
+  setTimeout(() => document.getElementById("counted").focus(), 50);
+};
+modal.addEventListener("click", e => { if (e.target === modal || e.target.closest("[data-close]")) closeModal(); });
+document.getElementById("counted").addEventListener("input", e => {
+  const d = Number(e.target.value.replace(/\s/g, "")) - 5830, el = document.getElementById("diff");
+  if (!e.target.value) { el.textContent = "—"; el.className = "diff"; return; }
+  el.textContent = d === 0 ? "сходится" : (d > 0 ? "+" : "−") + som(Math.abs(d)) + " сом";
+  el.className = "diff " + (d === 0 ? "good" : "bad");
+});
+</script>
+</body>
+</html>
