@@ -1,21 +1,31 @@
-import { useEffect, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetBody, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { api } from "@/lib/api";
 import { serverNow } from "@/lib/clock";
-import { formatSom } from "@/lib/format";
+import { capitalize, formatAmount } from "@/lib/format";
+import { useMediaQuery } from "@/lib/useMediaQuery";
 import { useAuth } from "@/features/auth/useAuth";
 import { BarDialog } from "./BarDialog";
 import { BusinessDayGuard } from "./BusinessDayGuard";
-import { BusinessDayHistoryDialog } from "./BusinessDayHistoryDialog";
 import { CloseBusinessDayDialog } from "./CloseBusinessDayDialog";
 import { ConsoleCard } from "./ConsoleCard";
+import { DayFeed } from "./DayFeed";
 import { ExtendSessionDialog } from "./ExtendSessionDialog";
+import { HallHelp } from "./HallHelp";
+import { HistoryPage } from "./HistoryPage";
 import { PaymentDialog } from "./PaymentDialog";
+import { SessionSheet } from "./SessionSheet";
 import { StartSessionDialog } from "./StartSessionDialog";
+import { TopBar } from "./TopBar";
+import { summarizeOrders } from "./barLines";
+import { hallColumns } from "./cardModel";
+import { computeCardTiming } from "./remainingTime";
 import { HALL_QUERY_KEY, useHallSnapshot } from "./useHallSnapshot";
+import { useHallHotkeys } from "./useHallHotkeys";
 import { useSessionActions } from "./useSessionActions";
-import type { SessionResponse } from "@/lib/api";
+import type { HallConsoleResponse, SessionResponse } from "@/lib/api";
 
 const DEFAULT_WARN_MINUTES = 5;
 const ACTION_ERROR = "Не удалось выполнить действие. Попробуйте ещё раз.";
@@ -26,13 +36,14 @@ type DialogState =
   | { kind: "extend"; sessionId: number }
   | { kind: "pay"; sessionId: number }
   | { kind: "bar"; sessionId: number }
+  | { kind: "details"; consoleId: number }
   // Paying off a session this tab just stopped. A finished session is no longer
   // in the hall snapshot, so its balance comes from the stop response and is
   // tracked here; the charge is frozen once stopped, so only payments made
   // through this dialog change it.
   | { kind: "settle"; sessionId: number; balance: number; returnTo?: "close-day" }
   | { kind: "close-day" }
-  | { kind: "history" };
+  | { kind: "feed" };
 
 export function HallPage() {
   const { logout } = useAuth();
@@ -42,7 +53,12 @@ export function HallPage() {
   const queryClient = useQueryClient();
   const [dialog, setDialog] = useState<DialogState>({ kind: "none" });
   const [actionError, setActionError] = useState<string | null>(null);
+  const [view, setView] = useState<"hall" | "history">("hall");
   const [nowMs, setNowMs] = useState(serverNow);
+  const wide = useMediaQuery("(min-width: 1680px)");
+  const dayId = hall?.business_day_open ? hall.business_day_id : null;
+  // On a wide screen the feed is a permanent column beside the hall (never on the history view).
+  const showRail = wide && view === "hall" && dayId !== null;
 
   useEffect(() => {
     const interval = setInterval(() => setNowMs(serverNow()), 1000);
@@ -52,6 +68,12 @@ export function HallPage() {
   const warnMinutes = settingsQuery.data?.warn_minutes ?? DEFAULT_WARN_MINUTES;
   const consoles = hall?.consoles ?? [];
   const tickets = hall?.tickets ?? [];
+  const productsQuery = useQuery({ queryKey: ["products"], queryFn: api.products });
+  const productName = (productId: number) =>
+    productsQuery.data?.find((product) => product.id === productId)?.name ?? `Товар ${productId}`;
+  const statuses = consoles.map((c) => computeCardTiming(c, nowMs, warnMinutes).status);
+  const busyCount = consoles.filter((c) => c.session !== null).length;
+  const alertCount = statuses.filter((st) => st === "package_warn" || st === "package_overtime").length;
   const closeDialog = () => setDialog({ kind: "none" });
 
   // A session lives either on a console or, for a walk-in bar sale, in `tickets`;
@@ -59,6 +81,22 @@ export function HallPage() {
   const findSession = (sessionId: number): SessionResponse | undefined =>
     consoles.find((c) => c.session?.id === sessionId)?.session ??
     tickets.find((t) => t.id === sessionId);
+
+  const openConsole = useCallback(
+    (consoleView: HallConsoleResponse) => {
+      // A console under maintenance has nothing to open: it cannot take a session.
+      if (!consoleView.is_active) return;
+      setDialog(
+        consoleView.session
+          ? { kind: "details", consoleId: consoleView.id }
+          : { kind: "start", consoleId: consoleView.id },
+      );
+    },
+    [],
+  );
+  useHallHotkeys(consoles, openConsole, hall?.business_day_open === true && view === "hall");
+  const detailsConsole =
+    dialog.kind === "details" ? consoles.find((c) => c.id === dialog.consoleId && c.session !== null) : undefined;
 
   const extendTarget = dialog.kind === "extend" ? findSession(dialog.sessionId) : undefined;
   const payTarget = dialog.kind === "pay" ? findSession(dialog.sessionId) : undefined;
@@ -74,8 +112,8 @@ export function HallPage() {
       const stopped = await stop(sessionId);
       if (stopped.balance > 0) {
         setDialog({ kind: "settle", sessionId: stopped.id, balance: stopped.balance, returnTo });
-      } else if (returnTo === "close-day") {
-        setDialog({ kind: "close-day" });
+      } else {
+        setDialog(returnTo === "close-day" ? { kind: "close-day" } : { kind: "none" });
       }
     });
   }
@@ -89,105 +127,179 @@ export function HallPage() {
   });
 
   return (
-    <div data-testid="hall-page" className="min-h-screen p-4">
-      <header className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Зал</h1>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setDialog({ kind: "history" })}>
-            История дней
-          </Button>
-          {hall?.business_day_open && (
-            <Button variant="outline" size="sm" onClick={() => setDialog({ kind: "close-day" })}>
-              Закрыть день
-            </Button>
-          )}
-          <Button variant="ghost" size="sm" onClick={() => logout().catch(() => {})}>
-            Выйти
-          </Button>
-        </div>
-      </header>
+    <div data-testid="hall-page" className="min-h-screen">
+      <TopBar
+        businessDayOpen={hall?.business_day_open ?? false}
+        businessDayId={hall?.business_day_id ?? null}
+        snapshotAt={hall?.generated_at}
+        nowMs={nowMs}
+        onCloseDay={() => setDialog({ kind: "close-day" })}
+        onLogout={() => logout().catch(() => {})}
+      />
 
-      {actionError && <p className="mb-4 text-sm text-red-600">{actionError}</p>}
-
-      {hall === undefined ? (
-        <div>Загрузка…</div>
-      ) : (
-        <BusinessDayGuard businessDayOpen={hall.business_day_open}>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {consoles.map((consoleView) => {
-              const session = consoleView.session;
-              return (
-                <ConsoleCard
-                  key={consoleView.id}
-                  console={consoleView}
-                  nowMs={nowMs}
-                  warnMinutes={warnMinutes}
-                  onStart={() => setDialog({ kind: "start", consoleId: consoleView.id })}
-                  onExtend={() => session && setDialog({ kind: "extend", sessionId: session.id })}
-                  onStop={() => session && finishSession(session.id)}
-                  onCancel={() =>
-                    session &&
-                    runSessionAction(async () => {
-                      const cancelled = await cancel(session.id);
-                      if (cancelled.balance > 0) {
-                        setDialog({ kind: "settle", sessionId: cancelled.id, balance: cancelled.balance });
-                      }
-                    })
-                  }
-                  onPay={() => session && setDialog({ kind: "pay", sessionId: session.id })}
-                  onBar={() => session && setDialog({ kind: "bar", sessionId: session.id })}
-                />
-              );
-            })}
-          </div>
-
-          <section className="mt-6">
-            <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Продажа без игры</h2>
-              <Button size="sm" variant="outline" onClick={() => runSessionAction(() => openTicketMutation.mutateAsync())}>
-                + Продажа
-              </Button>
-            </div>
-            <div className="flex flex-col gap-2">
-              {tickets.map((t) => (
-                <div key={t.id} className="flex items-center justify-between rounded border p-2">
-                  <span>
-                    Чек №{t.id} — {formatSom(t.balance)}
+      <div className={showRail ? "grid grid-cols-[minmax(0,1fr)_340px]" : undefined}>
+        <main className="px-4 pb-10 pt-[18px] short:pt-2.5 sm:px-6">
+          {view === "hall" && (
+            <div className="mb-4 flex flex-wrap items-center gap-3 short:mb-2.5">
+              <h1 className="mr-1 font-display text-[26px] font-extrabold tracking-tight">Зал</h1>
+              {hall?.business_day_open && (
+                <>
+                  <span className="inline-flex h-[30px] items-center gap-1.5 whitespace-nowrap rounded-full border border-line bg-surface px-3 text-[13px] text-fg-muted">
+                    <b className="font-semibold text-fg">
+                      {busyCount} из {consoles.length}
+                    </b>{" "}
+                    <span>заняты</span>
                   </span>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => setDialog({ kind: "bar", sessionId: t.id })}>
-                      Бар
-                    </Button>
-                    {t.balance > 0 && (
-                      <Button size="sm" variant="outline" onClick={() => setDialog({ kind: "pay", sessionId: t.id })}>
-                        Оплатить
-                      </Button>
-                    )}
-                    {t.balance <= 0 && (
-                      <Button size="sm" onClick={() => runSessionAction(() => stop(t.id))}>
-                        Завершить
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
+                  {alertCount > 0 && (
+                    <span className="inline-flex h-[30px] items-center gap-1.5 whitespace-nowrap rounded-full border border-status-circle/50 bg-status-circle/10 px-3 text-[13px] text-fg">
+                      <b className="font-semibold text-status-circle">{alertCount}</b>{" "}
+                      <span>ждут решения</span>
+                    </span>
+                  )}
+                </>
+              )}
+              <div className="ml-auto flex flex-wrap gap-2 max-sm:ml-0 max-sm:w-full max-sm:[&>button]:flex-1">
+                {hall?.business_day_open && (
+                  <Button variant="outline" onClick={() => runSessionAction(() => openTicketMutation.mutateAsync())}>
+                    + Продажа без игры
+                  </Button>
+                )}
+                {hall?.business_day_open && !wide && (
+                  <Button variant="outline" onClick={() => setDialog({ kind: "feed" })}>
+                    Лента дня
+                  </Button>
+                )}
+                <Button variant="ghost" onClick={() => setView("history")}>
+                  История дней
+                </Button>
+                <HallHelp hotkeys />
+              </div>
             </div>
-          </section>
-        </BusinessDayGuard>
-      )}
+          )}
+
+          {actionError && (
+            <p role="alert" className="mb-4 text-sm text-status-circle">
+              {actionError}
+            </p>
+          )}
+
+          {view === "history" ? (
+            <HistoryPage onBack={() => setView("hall")} />
+          ) : hall === undefined ? (
+            <div>Загрузка…</div>
+          ) : (
+            <BusinessDayGuard businessDayOpen={hall.business_day_open}>
+              <section
+                aria-label="Консоли"
+                className="grid grid-cols-1 gap-4 md:grid-cols-2 min-[1101px]:grid-cols-[repeat(var(--cols),minmax(0,1fr))]"
+                style={{ "--cols": hallColumns(consoles.length) } as CSSProperties}
+              >
+                {consoles.map((consoleView, index) => {
+                  const session = consoleView.session;
+                  return (
+                    <ConsoleCard
+                      key={consoleView.id}
+                      console={consoleView}
+                      nowMs={nowMs}
+                      warnMinutes={warnMinutes}
+                      hotkey={index < 9 ? index + 1 : undefined}
+                      productName={productName}
+                      onOpen={() => openConsole(consoleView)}
+                      onStart={() => setDialog({ kind: "start", consoleId: consoleView.id })}
+                      onExtend={() => session && setDialog({ kind: "extend", sessionId: session.id })}
+                      onStop={() => session && finishSession(session.id)}
+                      onCancel={() =>
+                        session &&
+                        runSessionAction(async () => {
+                          const cancelled = await cancel(session.id);
+                          if (cancelled.balance > 0) {
+                            setDialog({ kind: "settle", sessionId: cancelled.id, balance: cancelled.balance });
+                          }
+                        })
+                      }
+                      onPay={() => session && setDialog({ kind: "pay", sessionId: session.id })}
+                      onBar={() => session && setDialog({ kind: "bar", sessionId: session.id })}
+                    />
+                  );
+                })}
+              </section>
+
+              {tickets.length > 0 && (
+                <section className="mt-7">
+                  <h2 className="field-label">Чеки без игры</h2>
+                  <div className="grid gap-2">
+                    {tickets.map((t) => (
+                      <div
+                        key={t.id}
+                        className="flex flex-wrap items-center gap-3.5 rounded-xl border border-line bg-surface px-3.5 py-3"
+                      >
+                        <span className="num text-fg-muted">№{t.id}</span>
+                        <span className="min-w-0 flex-1 text-sm text-fg-muted max-sm:basis-3/5">
+                          {t.orders.length > 0 ? (
+                            <b className="font-medium text-fg">{capitalize(summarizeOrders(t.orders, productName))}</b>
+                          ) : (
+                            "пока пусто"
+                          )}
+                        </span>
+                        <span className="num">
+                          {formatAmount(t.charge_total)}
+                          <span className="ml-1 font-sans text-[11px] text-fg-muted">сом</span>
+                        </span>
+                        <Button variant="outline" onClick={() => setDialog({ kind: "bar", sessionId: t.id })}>
+                          Бар
+                        </Button>
+                        {t.balance > 0 ? (
+                          <Button onClick={() => setDialog({ kind: "pay", sessionId: t.id })}>
+                            Принять {formatAmount(t.balance)}
+                          </Button>
+                        ) : (
+                          <Button onClick={() => runSessionAction(() => stop(t.id))}>Завершить</Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+            </BusinessDayGuard>
+          )}
+        </main>
+        {showRail && (
+          <aside aria-label="Лента дня" className="border-l border-line bg-rail px-5 pb-10 pt-5">
+            <h2 className="field-label">Лента дня</h2>
+            <DayFeed businessDayId={dayId} snapshotAt={hall?.generated_at} />
+          </aside>
+        )}
+      </div>
 
       {dialog.kind === "start" && (
         <StartSessionDialog
           open
           consoleId={dialog.consoleId}
+          consoleName={consoles.find((c) => c.id === dialog.consoleId)?.name ?? ""}
           onOpenChange={(open) => !open && closeDialog()}
           onStarted={closeDialog}
+        />
+      )}
+      {detailsConsole && (
+        <SessionSheet
+          open
+          onOpenChange={(open) => !open && closeDialog()}
+          consoleView={detailsConsole}
+          nowMs={nowMs}
+          warnMinutes={warnMinutes}
+          productName={productName}
+          stopping={stopping}
+          onPay={() => setDialog({ kind: "pay", sessionId: detailsConsole.session!.id })}
+          onExtend={() => setDialog({ kind: "extend", sessionId: detailsConsole.session!.id })}
+          onBar={() => setDialog({ kind: "bar", sessionId: detailsConsole.session!.id })}
+          onStop={() => finishSession(detailsConsole.session!.id)}
         />
       )}
       {extendTarget && (
         <ExtendSessionDialog
           open
           sessionId={extendTarget.id}
+          consoleName={consoles.find((c) => c.session?.id === extendTarget.id)?.name ?? ""}
           segments={extendTarget.segments}
           onOpenChange={(open) => !open && closeDialog()}
           onExtended={closeDialog}
@@ -198,6 +310,7 @@ export function HallPage() {
           open
           sessionId={payTarget.id}
           balance={payTarget.balance}
+          targetName={consoles.find((c) => c.session?.id === payTarget.id)?.name ?? `Чек №${payTarget.id}`}
           onOpenChange={(open) => !open && closeDialog()}
           onPaid={() => {}}
         />
@@ -206,6 +319,7 @@ export function HallPage() {
         <BarDialog
           open
           sessionId={barTarget.id}
+          targetName={consoles.find((c) => c.session?.id === barTarget.id)?.name ?? `Чек №${barTarget.id}`}
           orders={barTarget.orders}
           onOpenChange={(open) => !open && closeDialog()}
         />
@@ -215,6 +329,7 @@ export function HallPage() {
           open
           sessionId={dialog.sessionId}
           balance={dialog.balance}
+          targetName={consoles.find((c) => c.session?.id === dialog.sessionId)?.name}
           onOpenChange={(open) => {
             if (open) return;
             setDialog(dialog.returnTo === "close-day" ? { kind: "close-day" } : { kind: "none" });
@@ -229,6 +344,18 @@ export function HallPage() {
           }}
         />
       )}
+      {dialog.kind === "feed" && dayId !== null && (
+        <Sheet open onOpenChange={(open) => !open && closeDialog()}>
+          <SheetContent tone="triangle">
+            <SheetHeader>
+              <SheetTitle>Лента дня</SheetTitle>
+            </SheetHeader>
+            <SheetBody>
+              <DayFeed businessDayId={dayId} snapshotAt={hall?.generated_at} />
+            </SheetBody>
+          </SheetContent>
+        </Sheet>
+      )}
       {dialog.kind === "close-day" && hall && hall.business_day_id != null && (
         <CloseBusinessDayDialog
           open
@@ -240,9 +367,6 @@ export function HallPage() {
           onFinishSession={(sessionId) => finishSession(sessionId, "close-day")}
           onClosed={closeDialog}
         />
-      )}
-      {dialog.kind === "history" && (
-        <BusinessDayHistoryDialog open onOpenChange={(open) => !open && closeDialog()} />
       )}
     </div>
   );

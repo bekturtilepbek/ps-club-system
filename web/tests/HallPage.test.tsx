@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HallPage } from "@/features/hall/HallPage";
+import { ThemeModeProvider } from "@/features/theme/ThemeModeProvider";
 import { HALL_QUERY_KEY } from "@/features/hall/useHallSnapshot";
 import type { HallConsoleResponse, HallSnapshotResponse } from "@/lib/api";
 
@@ -100,6 +101,7 @@ function stubApi(hall: HallSnapshotResponse | "pending") {
     if (url === "/api/settings") return { ok: true, json: async () => ({ grace_minutes: 3, warn_minutes: 5 }) };
     if (url === "/api/tariffs") return { ok: true, json: async () => [] };
     if (url === "/api/products") return { ok: true, json: async () => [] };
+    if (url === "/api/business-days?limit=30") return { ok: true, json: async () => [] };
     if (url === "/api/auth/logout") return { ok: true, json: async () => ({ authenticated: false }) };
     if (url.endsWith("/summary")) {
       return {
@@ -108,6 +110,17 @@ function stubApi(hall: HallSnapshotResponse | "pending") {
           opening_cash: 5000, cash_total: 0, qr_total: 0, transfer_total: 0, expected_cash: 5000,
           sessions_count: 0, minutes_total: 0, bar_sales_total: 0, has_active_sessions: false,
         }),
+      };
+    }
+    if (url.endsWith("/feed")) {
+      return {
+        ok: true,
+        json: async () => [
+          {
+            at: new Date().toISOString(), kind: "payment", session_id: 7, console_name: "PS5-1", session_kind: "paid",
+            segment_kind: null, tariff_name: null, reason: null, product_name: null, qty: null, amount: 300, method: "cash", minutes: null,
+          },
+        ],
       };
     }
     return { ok: true, json: async () => ({}) };
@@ -120,7 +133,9 @@ function renderHall() {
   const queryClient = new QueryClient();
   render(
     <QueryClientProvider client={queryClient}>
-      <HallPage />
+      <ThemeModeProvider>
+        <HallPage />
+      </ThemeModeProvider>
     </QueryClientProvider>,
   );
   return queryClient;
@@ -138,14 +153,14 @@ describe("HallPage", () => {
 
     expect(screen.getByTestId("hall-page")).toBeInTheDocument();
     expect(screen.getByText("Загрузка…")).toBeInTheDocument();
-    expect(screen.queryByText("День не открыт. Открыть?")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Открыть день" })).not.toBeInTheDocument();
   });
 
   it("keeps the header and logout button above the open-day prompt", async () => {
     const fetchMock = stubApi({ ...snapshot([freeConsole(1)]), business_day_open: false });
     renderHall();
 
-    await waitFor(() => expect(screen.getByText("День не открыт. Открыть?")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Открыть день" })).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Выйти" }));
     await waitFor(() =>
       expect(fetchMock.mock.calls.some(([url]) => url === "/api/auth/logout")).toBe(true),
@@ -157,10 +172,10 @@ describe("HallPage", () => {
     renderHall();
 
     await waitFor(() => expect(screen.getByText("PS5-2")).toBeInTheDocument());
-    fireEvent.click(screen.getAllByRole("button", { name: "Старт" })[1]);
-    await waitFor(() => expect(screen.getByText("Начать сессию")).toBeInTheDocument());
+    fireEvent.click(screen.getAllByRole("button", { name: "Начать сессию" })[1]);
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Служебная" }));
-    fireEvent.click(screen.getByRole("button", { name: "Начать" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Начать на/ }));
 
     await waitFor(() => {
       const calls = fetchMock.mock.calls as unknown as [string, RequestInit | undefined][];
@@ -174,14 +189,14 @@ describe("HallPage", () => {
     const queryClient = renderHall();
 
     await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: "Оплата" }));
-    await waitFor(() => expect(screen.getByText("Оплата — остаток 300 сом")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Принять 300" }));
+    await waitFor(() => expect(screen.getByText("Оплата · остаток 300 сом")).toBeInTheDocument());
 
     // A split payment lands; the next snapshot carries the reduced balance.
     act(() => {
       queryClient.setQueryData(HALL_QUERY_KEY, snapshot([paidConsole(1, 7, 100)]));
     });
-    await waitFor(() => expect(screen.getByText("Оплата — остаток 100 сом")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Оплата · остаток 100 сом")).toBeInTheDocument());
   });
 
   it("stops the clicked session and reports a failed stop to the operator", async () => {
@@ -202,6 +217,51 @@ describe("HallPage", () => {
       expect(screen.getByText("Не удалось выполнить действие. Попробуйте ещё раз.")).toBeInTheDocument(),
     );
     expect(fetchMock.mock.calls.some(([url]) => url === "/api/sessions/7/stop")).toBe(true);
+  });
+
+  it("shows the day's till with cash and non-cash apart", async () => {
+    const fetchMock = stubApi(snapshot([freeConsole(1)]));
+    const baseImpl = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.endsWith("/summary")) {
+        return {
+          ok: true,
+          json: async () => ({
+            opening_cash: 2000, cash_total: 3830, qr_total: 2150, transfer_total: 600, expected_cash: 5830,
+            sessions_count: 23, minutes_total: 1900, bar_sales_total: 690, has_active_sessions: true,
+          }),
+        };
+      }
+      return baseImpl(url);
+    });
+    renderHall();
+
+    const till = await screen.findByRole("region", { name: "Касса дня" });
+    await waitFor(() => expect(within(till).getByText("5 830")).toBeInTheDocument());
+    expect(within(till).getByText("2 150")).toBeInTheDocument();
+    expect(within(till).getByText("600")).toBeInTheDocument();
+    expect(within(till).getByText("23 сессии · 31 ч 40 мин · бар 690")).toBeInTheDocument();
+  });
+
+  it("opens the day feed from the hall", async () => {
+    stubApi(snapshot([freeConsole(1)]));
+    renderHall();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Лента дня" }));
+    const feed = await screen.findByRole("list", { name: "Лента дня" });
+    expect(await within(feed).findByText("PS5-1")).toBeInTheDocument();
+    expect(within(feed).getByText("нал")).toBeInTheDocument();
+  });
+
+  it("counts consoles that need a decision", async () => {
+    const overtime = paidConsole(1, 7, 0);
+    overtime.session!.segments[0].ends_at = new Date(Date.now() - 60_000).toISOString();
+    stubApi(snapshot([overtime, freeConsole(2)]));
+    renderHall();
+
+    await waitFor(() => expect(screen.getByText("ждут решения")).toBeInTheDocument());
+    expect(screen.getByText("ждут решения").parentElement).toHaveTextContent("1 ждут решения");
+    expect(screen.getByText("заняты").parentElement).toHaveTextContent("1 из 2 заняты");
   });
 
   describe("settling a stopped session", () => {
@@ -228,14 +288,15 @@ describe("HallPage", () => {
       const queryClient = renderHall();
 
       await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
-      fireEvent.click(screen.getByRole("button", { name: "Стоп" }));
+      fireEvent.click(screen.getByRole("article", { name: "PS5-1" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Завершить сессию" }));
 
-      await waitFor(() => expect(screen.getByText("Оплата — остаток 150 сом")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText("Оплата · остаток 150 сом")).toBeInTheDocument());
       await waitFor(() => expect(screen.getByText("Свободна")).toBeInTheDocument());
       act(() => {
         queryClient.setQueryData(HALL_QUERY_KEY, snapshot([freeConsole(1)]));
       });
-      expect(screen.getByText("Оплата — остаток 150 сом")).toBeInTheDocument();
+      expect(screen.getByText("Оплата · остаток 150 сом")).toBeInTheDocument();
     });
 
     it("tracks the remaining balance across a split settlement and closes once it is paid off", async () => {
@@ -243,17 +304,18 @@ describe("HallPage", () => {
       renderHall();
 
       await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
-      fireEvent.click(screen.getByRole("button", { name: "Стоп" }));
-      await waitFor(() => expect(screen.getByText("Оплата — остаток 150 сом")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("article", { name: "PS5-1" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Завершить сессию" }));
+      await waitFor(() => expect(screen.getByText("Оплата · остаток 150 сом")).toBeInTheDocument());
 
       fireEvent.change(screen.getByLabelText("Сумма"), { target: { value: "100" } });
-      fireEvent.click(screen.getByRole("button", { name: "Внести" }));
-      await waitFor(() => expect(screen.getByText("Оплата — остаток 50 сом")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: /^Внести/ }));
+      await waitFor(() => expect(screen.getByText("Оплата · остаток 50 сом")).toBeInTheDocument());
 
       fireEvent.change(screen.getByLabelText("Сумма"), { target: { value: "50" } });
       fireEvent.click(screen.getByRole("button", { name: "QR" }));
-      fireEvent.click(screen.getByRole("button", { name: "Внести" }));
-      await waitFor(() => expect(screen.queryByText(/Оплата — остаток/)).not.toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: /^Внести/ }));
+      await waitFor(() => expect(screen.queryByText(/Оплата · остаток/)).not.toBeInTheDocument());
 
       const calls = fetchMock.mock.calls as unknown as [string, RequestInit | undefined][];
       const payments = calls
@@ -265,16 +327,34 @@ describe("HallPage", () => {
       ]);
     });
 
+    it("leaves no panel open after a fully paid stop, even when a new session starts on the console", async () => {
+      stubStop(0);
+      const queryClient = renderHall();
+
+      await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("article", { name: "PS5-1" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Завершить сессию" }));
+      await waitFor(() => expect(screen.getByText("Свободна")).toBeInTheDocument());
+      expect(screen.queryByRole("dialog")).toBeNull();
+
+      act(() => {
+        queryClient.setQueryData(HALL_QUERY_KEY, snapshot([paidConsole(1, 8, 0)]));
+      });
+      await waitFor(() => expect(screen.queryByText("Свободна")).not.toBeInTheDocument());
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
     it("does not open the payment dialog when the stopped session is already paid", async () => {
       const fetchMock = stubStop(0);
       renderHall();
 
       await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
-      fireEvent.click(screen.getByRole("button", { name: "Стоп" }));
+      fireEvent.click(screen.getByRole("article", { name: "PS5-1" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Завершить сессию" }));
 
       await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => url === "/api/sessions/7/stop")).toBe(true));
       await waitFor(() => expect(screen.getByText("Свободна")).toBeInTheDocument());
-      expect(screen.queryByText(/Оплата — остаток/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Оплата · остаток/)).not.toBeInTheDocument();
     });
   });
 
@@ -283,13 +363,13 @@ describe("HallPage", () => {
     const queryClient = renderHall();
 
     await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: "Оплата" }));
-    await waitFor(() => expect(screen.getByText("Оплата — остаток 300 сом")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Принять 300" }));
+    await waitFor(() => expect(screen.getByText("Оплата · остаток 300 сом")).toBeInTheDocument());
 
     act(() => {
       queryClient.setQueryData(HALL_QUERY_KEY, snapshot([freeConsole(1)]));
     });
-    await waitFor(() => expect(screen.queryByText(/Оплата — остаток/)).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText(/Оплата · остаток/)).not.toBeInTheDocument());
   });
 
   it("opens the settle dialog when cancelling a session with an unpaid bar tab", async () => {
@@ -309,9 +389,31 @@ describe("HallPage", () => {
     renderHall();
 
     await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: "Отменить" }));
+    fireEvent.click(screen.getByRole("button", { name: "Отменить без оплаты" }));
 
-    await waitFor(() => expect(screen.getByText("Оплата — остаток 80 сом")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Оплата · остаток 80 сом")).toBeInTheDocument());
+  });
+
+  it("opens the session details when a busy card is clicked", async () => {
+    stubApi(snapshot([paidConsole(1, 7, 300)]));
+    renderHall();
+
+    await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("article", { name: "PS5-1" }));
+    const sheet = await screen.findByRole("dialog", { name: "PS5-1" });
+    expect(within(sheet).getByText("Отрезки")).toBeInTheDocument();
+    fireEvent.click(within(sheet).getByRole("button", { name: "Принять 300" }));
+    await waitFor(() => expect(screen.getByText("Оплата · остаток 300 сом")).toBeInTheDocument());
+  });
+
+  it("does not open anything for a console under maintenance", async () => {
+    stubApi(snapshot([{ ...freeConsole(1), is_active: false }]));
+    renderHall();
+
+    await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("article", { name: "PS5-1" }));
+    fireEvent.keyDown(window, { key: "1" });
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("opens the bar dialog for a console session", async () => {
@@ -320,7 +422,7 @@ describe("HallPage", () => {
 
     await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Бар" }));
-    await waitFor(() => expect(screen.getByText("Бар — на счету 0 сом")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("dialog", { name: "Бар · PS5-1" })).toBeInTheDocument());
   });
 
   describe("продажа без игры", () => {
@@ -340,10 +442,10 @@ describe("HallPage", () => {
       vi.stubGlobal("fetch", fetchMock);
       renderHall();
 
-      await waitFor(() => expect(screen.getByText("Продажа без игры")).toBeInTheDocument());
-      fireEvent.click(screen.getByRole("button", { name: "+ Продажа" }));
+      await waitFor(() => expect(screen.getByRole("button", { name: "+ Продажа без игры" })).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "+ Продажа без игры" }));
 
-      await waitFor(() => expect(screen.getByText("Бар — на счету 0 сом")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByRole("dialog", { name: /^Бар · Чек №/ })).toBeInTheDocument());
     });
 
     it("shows an error when creating a new ticket fails", async () => {
@@ -357,8 +459,8 @@ describe("HallPage", () => {
       vi.stubGlobal("fetch", fetchMock);
       renderHall();
 
-      await waitFor(() => expect(screen.getByText("Продажа без игры")).toBeInTheDocument());
-      fireEvent.click(screen.getByRole("button", { name: "+ Продажа" }));
+      await waitFor(() => expect(screen.getByRole("button", { name: "+ Продажа без игры" })).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "+ Продажа без игры" }));
 
       await waitFor(() =>
         expect(screen.getByText("Не удалось выполнить действие. Попробуйте ещё раз.")).toBeInTheDocument(),
@@ -369,17 +471,17 @@ describe("HallPage", () => {
       stubApi(snapshot([], [ticket(9, 150)]));
       renderHall();
 
-      await waitFor(() => expect(screen.getByText(/Чек №9/)).toBeInTheDocument());
-      fireEvent.click(screen.getByRole("button", { name: "Оплатить" }));
+      await waitFor(() => expect(screen.getByText("№9")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "Принять 150" }));
 
-      await waitFor(() => expect(screen.getByText("Оплата — остаток 150 сом")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText("Оплата · остаток 150 сом")).toBeInTheDocument());
     });
 
     it("finishes a fully paid ticket", async () => {
       const fetchMock = stubApi(snapshot([], [ticket(9, 0)]));
       renderHall();
 
-      await waitFor(() => expect(screen.getByText(/Чек №9/)).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText("№9")).toBeInTheDocument());
       fireEvent.click(screen.getByRole("button", { name: "Завершить" }));
 
       await waitFor(() =>
@@ -391,7 +493,7 @@ describe("HallPage", () => {
       const fetchMock = stubApi(snapshot([], [ticket(9, -20)]));
       renderHall();
 
-      await waitFor(() => expect(screen.getByText(/Чек №9/)).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText("№9")).toBeInTheDocument());
       fireEvent.click(screen.getByRole("button", { name: "Завершить" }));
 
       await waitFor(() =>
@@ -413,8 +515,16 @@ describe("HallPage", () => {
       stubApi({ ...snapshot([freeConsole(1)]), business_day_open: false });
       renderHall();
 
-      await waitFor(() => expect(screen.getByText("День не открыт. Открыть?")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByRole("heading", { name: "Открыть день" })).toBeInTheDocument());
       expect(screen.queryByRole("button", { name: "Закрыть день" })).not.toBeInTheDocument();
+    });
+
+    it("keeps the day history reachable while the day is closed", async () => {
+      stubApi({ ...snapshot([freeConsole(1)]), business_day_open: false });
+      renderHall();
+
+      await waitFor(() => expect(screen.getByRole("heading", { name: "Открыть день" })).toBeInTheDocument());
+      expect(screen.getByRole("button", { name: "История дней" })).toBeInTheDocument();
     });
 
     it("opens the close-day dialog listing an active session, and finishing it reaches the reconciliation screen", async () => {
@@ -448,10 +558,10 @@ describe("HallPage", () => {
       );
       fireEvent.click(screen.getByRole("button", { name: "Завершить" }));
 
-      await waitFor(() => expect(screen.getByText("Наличные ожидается: 5000 сом")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByTestId("expected-cash")).toHaveTextContent("5 000 сом"));
     });
 
-    it("opens the history dialog and shows a closed day", async () => {
+    it("opens the history page and shows a closed day", async () => {
       const fetchMock = vi.fn(async (url: string) => {
         if (url === "/api/hall") return { ok: true, json: async () => snapshot([freeConsole(1)]) };
         if (url === "/api/settings") return { ok: true, json: async () => ({ grace_minutes: 3, warn_minutes: 5 }) };
@@ -459,7 +569,8 @@ describe("HallPage", () => {
           return {
             ok: true,
             json: async () => [
-              { id: 2, opened_at: "2026-09-23T04:00:00Z", closed_at: "2026-09-23T20:00:00Z", opening_cash: 1000, expected_cash: 1200, counted_cash: 1200 },
+              { id: 2, opened_at: "2026-09-23T04:00:00Z", closed_at: "2026-09-23T20:00:00Z", opening_cash: 1000, expected_cash: 1200, counted_cash: 1200,
+                cash_total: 0, qr_total: 0, transfer_total: 0, sessions_count: 0, minutes_total: 0, free_minutes_total: 0, bar_sales_total: 0 },
             ],
           };
         }
@@ -471,7 +582,10 @@ describe("HallPage", () => {
       await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
       fireEvent.click(screen.getByRole("button", { name: "История дней" }));
 
-      await waitFor(() => expect(screen.getByText(/Начало: 1000 сом/)).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByRole("heading", { name: "История дней" })).toBeInTheDocument());
+      expect(await screen.findByRole("button", { name: /ср, 23\.09/ })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "← Зал" }));
+      await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
     });
 
     it("returns to the close-day dialog after settling a debt incurred while finishing a session from it", async () => {
@@ -503,11 +617,11 @@ describe("HallPage", () => {
       await waitFor(() => expect(screen.getByRole("button", { name: "Завершить" })).toBeInTheDocument());
       fireEvent.click(screen.getByRole("button", { name: "Завершить" }));
 
-      await waitFor(() => expect(screen.getByText("Оплата — остаток 150 сом")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText("Оплата · остаток 150 сом")).toBeInTheDocument());
       fireEvent.change(screen.getByLabelText("Сумма"), { target: { value: "150" } });
-      fireEvent.click(screen.getByRole("button", { name: "Внести" }));
+      fireEvent.click(screen.getByRole("button", { name: /^Внести/ }));
 
-      await waitFor(() => expect(screen.getByText("Наличные ожидается: 5000 сом")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByTestId("expected-cash")).toHaveTextContent("5 000 сом"));
     });
   });
 });

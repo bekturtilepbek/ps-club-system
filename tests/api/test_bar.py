@@ -93,3 +93,27 @@ async def test_removing_an_order_lowers_the_session_charge_total(client):
 async def test_products_requires_auth(anonymous_client):
     response = await anonymous_client.get("/api/products")
     assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_products_carry_their_category(client):
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from core.db.models import Product
+
+    engine = create_async_engine(TEST_DATABASE_URL)
+    async with async_sessionmaker(engine, expire_on_commit=False)() as db:
+        db.add_all(
+            [
+                Product(name="Кола", price=60, is_active=True, category="Напитки"),
+                Product(name="Сникерс", price=70, is_active=True),
+            ]
+        )
+        await db.commit()
+    await engine.dispose()
+
+    products = (await client.get("/api/products")).json()
+    assert {p["name"]: p["category"] for p in products} == {
+        "Кола": "Напитки",
+        "Сникерс": None,
+    }

@@ -10,6 +10,7 @@ class ProductResponse(BaseModel):
     name: str
     price: int
     is_active: bool
+    category: str | None = None
 
 
 class OrderRequest(BaseModel):

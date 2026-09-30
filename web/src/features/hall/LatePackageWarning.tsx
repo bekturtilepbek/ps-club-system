@@ -1,12 +1,16 @@
+import { formatClock } from "@/lib/bishkek";
+
 interface LatePackageWarningProps {
-  plannedClose: string | undefined;
+  endsAtMs: number;
+  plannedClose: string;
 }
 
-export function LatePackageWarning({ plannedClose }: LatePackageWarningProps) {
-  if (!plannedClose) return null;
+/** Advisory only (SPEC §3.6): selling a package past closing is the operator's call. */
+export function LatePackageWarning({ endsAtMs, plannedClose }: LatePackageWarningProps) {
   return (
-    <p className="text-sm text-amber-600">
-      Пакет закончится после планового закрытия ({plannedClose}). Решение — за администратором.
+    <p className="note note-warn">
+      <span aria-hidden className="mr-1 font-bold text-status-amber-text">!</span>
+      Пакет закончится в {formatClock(endsAtMs)} — после планового закрытия ({plannedClose}). Продавать или нет — решаете вы.
     </p>
   );
 }

@@ -4,6 +4,9 @@ export type SessionResponse = components["schemas"]["SessionResponse"];
 export type HallSnapshotResponse = components["schemas"]["HallSnapshotResponse"];
 export type HallConsoleResponse = components["schemas"]["HallConsoleResponse"];
 export type BusinessDayResponse = components["schemas"]["BusinessDayResponse"];
+export type BusinessDayHistoryItem = components["schemas"]["BusinessDayHistoryItem"];
+export type FeedEventResponse = components["schemas"]["FeedEventResponse"];
+export type FeedKind = components["schemas"]["FeedKind"];
 export type BusinessDaySummaryResponse = components["schemas"]["BusinessDaySummaryResponse"];
 export type PublicSettingsResponse = components["schemas"]["PublicSettingsResponse"];
 export type AuthStatusResponse = components["schemas"]["AuthStatusResponse"];
@@ -60,7 +63,9 @@ export const api = {
     }),
   businessDaySummary: (businessDayId: number) =>
     request<BusinessDaySummaryResponse>(`/api/business-days/${businessDayId}/summary`),
-  businessDayHistory: () => request<BusinessDayResponse[]>("/api/business-days?limit=30"),
+  businessDayHistory: () => request<BusinessDayHistoryItem[]>("/api/business-days?limit=30"),
+  businessDayFeed: (businessDayId: number) =>
+    request<FeedEventResponse[]>(`/api/business-days/${businessDayId}/feed`),
   startSession: (body: {
     console_id: number;
     kind: SessionKind;

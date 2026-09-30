@@ -27,7 +27,7 @@ describe("ExtendSessionDialog", () => {
     const onExtended = vi.fn();
     render(
       <QueryClientProvider client={queryClient}>
-        <ExtendSessionDialog open sessionId={5} segments={[]} onOpenChange={() => {}} onExtended={onExtended} />
+        <ExtendSessionDialog open sessionId={5} consoleName="PS5-1" segments={[]} onOpenChange={() => {}} onExtended={onExtended} />
       </QueryClientProvider>,
     );
 
@@ -59,7 +59,7 @@ describe("ExtendSessionDialog", () => {
     const onExtended = vi.fn();
     render(
       <QueryClientProvider client={queryClient}>
-        <ExtendSessionDialog open sessionId={5} segments={[]} onOpenChange={() => {}} onExtended={onExtended} />
+        <ExtendSessionDialog open sessionId={5} consoleName="PS5-1" segments={[]} onOpenChange={() => {}} onExtended={onExtended} />
       </QueryClientProvider>,
     );
 
@@ -91,15 +91,15 @@ describe("ExtendSessionDialog", () => {
     const queryClient = new QueryClient();
     render(
       <QueryClientProvider client={queryClient}>
-        <ExtendSessionDialog open sessionId={5} segments={[]} onOpenChange={() => {}} onExtended={() => {}} />
+        <ExtendSessionDialog open sessionId={5} consoleName="PS5-1" segments={[]} onOpenChange={() => {}} onExtended={() => {}} />
       </QueryClientProvider>,
     );
 
-    await waitFor(() => expect(screen.getByText("5 часов — 700 сом")).toBeInTheDocument());
-    fireEvent.click(screen.getByText("5 часов — 700 сом"));
+    await waitFor(() => expect(screen.getByRole("button", { name: /^\+5 часов/ })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /^\+5 часов/ }));
 
     await waitFor(() =>
-      expect(screen.getByText(/Пакет закончится после планового закрытия \(05:00\)/)).toBeInTheDocument(),
+      expect(screen.getByText(/после планового закрытия \(05:00\)/)).toBeInTheDocument(),
     );
   });
 
@@ -130,15 +130,46 @@ describe("ExtendSessionDialog", () => {
     const queryClient = new QueryClient();
     render(
       <QueryClientProvider client={queryClient}>
-        <ExtendSessionDialog open sessionId={5} segments={runningPackage} onOpenChange={() => {}} onExtended={() => {}} />
+        <ExtendSessionDialog open sessionId={5} consoleName="PS5-1" segments={runningPackage} onOpenChange={() => {}} onExtended={() => {}} />
       </QueryClientProvider>,
     );
 
-    await waitFor(() => expect(screen.getByText("2 часа — 300 сом")).toBeInTheDocument());
-    fireEvent.click(screen.getByText("2 часа — 300 сом"));
+    await waitFor(() => expect(screen.getByRole("button", { name: /^\+2 часа/ })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /^\+2 часа/ }));
 
     await waitFor(() =>
-      expect(screen.getByText(/Пакет закончится после планового закрытия \(05:00\)/)).toBeInTheDocument(),
+      expect(screen.getByText(/после планового закрытия \(05:00\)/)).toBeInTheDocument(),
     );
+  });
+
+  it("starts open time at the running package's end, not now", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/tariffs") {
+        return {
+          ok: true,
+          json: async () => [
+            { id: 2, zone_id: 1, kind: "open", name: "Открытое время", duration_min: null, price: null, hourly_rate: 120, is_active: true },
+          ],
+        };
+      }
+      return { ok: true, json: async () => ({ id: 5 }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const runningPackage: SegmentResponse[] = [
+      {
+        id: 1, tariff_id: 1, kind: "package",
+        starts_at: "2026-09-25T01:00:00+06:00", ends_at: "2026-09-25T04:00:00+06:00",
+        price_snapshot: 300, amount: 300,
+      },
+    ];
+    const queryClient = new QueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ExtendSessionDialog open sessionId={5} consoleName="PS5-1" segments={runningPackage} onOpenChange={() => {}} onExtended={() => {}} />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText("с 04:00, поминутно")).toBeInTheDocument());
   });
 });

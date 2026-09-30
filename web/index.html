@@ -3,7 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
     <title>PS Club</title>
+    <script>
+      // Set the theme before the first paint so the page never flashes the wrong one.
+      // Keep in sync with src/lib/theme.ts (key, 09–19 light) and src/lib/bishkek.ts (UTC+6).
+      (function () {
+        var mode = "auto";
+        try { mode = localStorage.getItem("ps-theme") || "auto"; } catch (e) {}
+        var hour = new Date(Date.now() + 6 * 3600000).getUTCHours();
+        document.documentElement.dataset.theme =
+          mode === "light" || mode === "dark" ? mode : hour >= 9 && hour < 19 ? "light" : "dark";
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

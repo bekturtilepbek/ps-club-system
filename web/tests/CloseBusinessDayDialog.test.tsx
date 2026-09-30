@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CloseBusinessDayDialog } from "@/features/hall/CloseBusinessDayDialog";
 import type { HallConsoleResponse, HallSnapshotResponse } from "@/lib/api";
@@ -107,8 +107,8 @@ describe("CloseBusinessDayDialog", () => {
     const { onFinishSession } = renderDialog(hall);
 
     expect(screen.getByText("Нельзя закрыть день, пока есть незавершённые сессии.")).toBeInTheDocument();
-    expect(screen.getByText(/PS5-2 — 150 сом/)).toBeInTheDocument();
-    expect(screen.getByText(/Чек №20 — 80 сом/)).toBeInTheDocument();
+    expect(within(screen.getByRole("listitem", { name: "PS5-2" })).getByText("150 сом")).toBeInTheDocument();
+    expect(within(screen.getByRole("listitem", { name: "Чек №20" })).getByText("80 сом")).toBeInTheDocument();
 
     fireEvent.click(screen.getAllByRole("button", { name: "Завершить" })[0]);
     expect(onFinishSession).toHaveBeenCalledWith(10);
@@ -118,12 +118,13 @@ describe("CloseBusinessDayDialog", () => {
     stubSummaryFetch();
     renderDialog(emptySnapshot());
 
-    await waitFor(() => expect(screen.getByText("Наличные ожидается: 5300 сом")).toBeInTheDocument());
-    expect(screen.getByText("QR: 200 сом")).toBeInTheDocument();
-    expect(screen.getByText("Перевод: 100 сом")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Должно быть в кассе")).toBeInTheDocument());
+    expect(screen.getByTestId("expected-cash")).toHaveTextContent("5 300 сом");
+    expect(screen.getByText("QR").closest("label")).toHaveTextContent("200 сом");
+    expect(screen.getByText("Перевод по номеру").closest("label")).toHaveTextContent("100 сом");
     expect(screen.getByText("Сессий: 2")).toBeInTheDocument();
-    expect(screen.getByText("Часов: 1 ч 30 мин")).toBeInTheDocument();
-    expect(screen.getByText("Продажи бара: 160 сом")).toBeInTheDocument();
+    expect(screen.getByText("Часы игры: 1 ч 30 мин")).toBeInTheDocument();
+    expect(screen.getByText("Бар: 160 сом")).toBeInTheDocument();
   });
 
   it("highlights a discrepancy between expected and counted cash", async () => {
@@ -133,7 +134,7 @@ describe("CloseBusinessDayDialog", () => {
     await waitFor(() => expect(screen.getByLabelText("Посчитано наличных")).toBeInTheDocument());
     fireEvent.change(screen.getByLabelText("Посчитано наличных"), { target: { value: "5200" } });
 
-    await waitFor(() => expect(screen.getByText(/Расхождение: -100 сом/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("discrepancy")).toHaveTextContent("−100 сом"));
   });
 
   it("closes the day with the entered counted cash and calls onClosed", async () => {
@@ -142,7 +143,7 @@ describe("CloseBusinessDayDialog", () => {
 
     await waitFor(() => expect(screen.getByLabelText("Посчитано наличных")).toBeInTheDocument());
     fireEvent.change(screen.getByLabelText("Посчитано наличных"), { target: { value: "5300" } });
-    fireEvent.click(screen.getByRole("button", { name: "Закрыть день" }));
+    fireEvent.click(screen.getByRole("button", { name: "Закрыть день и отправить сводку" }));
 
     await waitFor(() => expect(onClosed).toHaveBeenCalled());
     const calls = fetchMock.mock.calls as unknown as [string, RequestInit][];
