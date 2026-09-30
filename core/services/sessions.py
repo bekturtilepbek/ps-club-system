@@ -22,7 +22,9 @@ from core.services import settings as settings_service
 from core.services.errors import ConflictError, NotFoundError, ValidationError
 
 
-def _new_segment_from_tariff(tariff: Tariff, *, starts_at: datetime) -> SessionSegment:
+def _new_segment_from_tariff(
+    tariff: Tariff, *, starts_at: datetime, created_at: datetime
+) -> SessionSegment:
     if tariff.kind == TariffKind.package:
         ends_at = domain_segments.package_segment_end(starts_at, tariff.duration_min)
         return SessionSegment(
@@ -32,6 +34,7 @@ def _new_segment_from_tariff(tariff: Tariff, *, starts_at: datetime) -> SessionS
             ends_at=ends_at,
             price_snapshot=tariff.price,
             amount=tariff.price,
+            created_at=created_at,
         )
     return SessionSegment(
         tariff_id=tariff.id,
@@ -40,6 +43,7 @@ def _new_segment_from_tariff(tariff: Tariff, *, starts_at: datetime) -> SessionS
         ends_at=None,
         price_snapshot=tariff.hourly_rate,
         amount=None,
+        created_at=created_at,
     )
 
 
@@ -91,7 +95,7 @@ async def start_session(
         tariff = await db.get(Tariff, tariff_id) if tariff_id else None
         if tariff is None or not tariff.is_active:
             raise NotFoundError(f"tariff {tariff_id} not found or inactive")
-        segment = _new_segment_from_tariff(tariff, starts_at=grace_until)
+        segment = _new_segment_from_tariff(tariff, starts_at=grace_until, created_at=now)
     else:
         segment = SessionSegment(
             tariff_id=None,
@@ -100,6 +104,7 @@ async def start_session(
             ends_at=None,
             price_snapshot=0,
             amount=None,
+            created_at=now,
         )
 
     session.segments.append(segment)
@@ -171,7 +176,7 @@ async def extend_session(
             (start - last.starts_at).total_seconds(), last.price_snapshot
         )
 
-    session.segments.append(_new_segment_from_tariff(tariff, starts_at=start))
+    session.segments.append(_new_segment_from_tariff(tariff, starts_at=start, created_at=now))
     await db.execute(text("NOTIFY hall_changed"))
     await db.commit()
     await db.refresh(session)

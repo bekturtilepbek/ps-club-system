@@ -13,9 +13,11 @@ from core.api.schemas.business_days import (
     BusinessDayResponse,
     BusinessDaySummaryResponse,
 )
+from core.api.schemas.feed import FeedEventResponse
 from core.db.models import BusinessDay
 from core.db.session import get_session
 from core.services import business_days
+from core.services import feed as feed_service
 from core.services import settings as settings_service
 from core.services.errors import NotFoundError
 from core.telegram_messages import format_day_summary
@@ -77,6 +79,15 @@ async def business_day_summary(
     business_day_id: int, db: AsyncSession = Depends(get_session)  # noqa: B008
 ):
     return await business_days.day_summary(db, business_day_id=business_day_id, now=_now())
+
+
+@router.get("/{business_day_id}/feed", response_model=list[FeedEventResponse])
+async def business_day_feed(
+    business_day_id: int,
+    limit: int = Query(200, ge=1, le=500),
+    db: AsyncSession = Depends(get_session),  # noqa: B008
+):
+    return await feed_service.day_feed(db, business_day_id=business_day_id, limit=limit)
 
 
 @router.get("", response_model=list[BusinessDayHistoryItem])

@@ -70,3 +70,7 @@ class SessionSegment(Base):
     ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     price_snapshot: Mapped[int] = mapped_column()
     amount: Mapped[int | None] = mapped_column(default=None)
+    # When the operator sold this segment. An open segment queued behind a package
+    # *starts* in the future, so starts_at cannot tell when an extension happened.
+    # NULL on rows created before this column existed.
+    created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)

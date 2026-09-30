@@ -180,3 +180,11 @@ async def test_summary_exposes_free_minutes(client):
     day = (await client.post("/api/business-days/open", json={"opening_cash": 0})).json()
     summary = (await client.get(f"/api/business-days/{day['id']}/summary")).json()
     assert summary["free_minutes_total"] == 0
+
+
+async def test_day_feed_endpoint(client):
+    day = (await client.post("/api/business-days/open", json={"opening_cash": 0})).json()
+    response = await client.get(f"/api/business-days/{day['id']}/feed")
+    assert response.status_code == 200
+    assert response.json() == []
+    assert (await client.get("/api/business-days/999/feed")).status_code == 404
