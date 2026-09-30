@@ -1,14 +1,17 @@
 import { type CSSProperties, useCallback, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetBody, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { api } from "@/lib/api";
 import { serverNow } from "@/lib/clock";
 import { capitalize, formatAmount } from "@/lib/format";
+import { useMediaQuery } from "@/lib/useMediaQuery";
 import { useAuth } from "@/features/auth/useAuth";
 import { BarDialog } from "./BarDialog";
 import { BusinessDayGuard } from "./BusinessDayGuard";
 import { CloseBusinessDayDialog } from "./CloseBusinessDayDialog";
 import { ConsoleCard } from "./ConsoleCard";
+import { DayFeed } from "./DayFeed";
 import { ExtendSessionDialog } from "./ExtendSessionDialog";
 import { HallHelp } from "./HallHelp";
 import { HistoryPage } from "./HistoryPage";
@@ -39,7 +42,8 @@ type DialogState =
   // tracked here; the charge is frozen once stopped, so only payments made
   // through this dialog change it.
   | { kind: "settle"; sessionId: number; balance: number; returnTo?: "close-day" }
-  | { kind: "close-day" };
+  | { kind: "close-day" }
+  | { kind: "feed" };
 
 export function HallPage() {
   const { logout } = useAuth();
@@ -51,6 +55,10 @@ export function HallPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [view, setView] = useState<"hall" | "history">("hall");
   const [nowMs, setNowMs] = useState(serverNow);
+  const wide = useMediaQuery("(min-width: 1680px)");
+  const dayId = hall?.business_day_open ? hall.business_day_id : null;
+  // On a wide screen the feed is a permanent column beside the hall (never on the history view).
+  const showRail = wide && view === "hall" && dayId !== null;
 
   useEffect(() => {
     const interval = setInterval(() => setNowMs(serverNow()), 1000);
@@ -129,126 +137,139 @@ export function HallPage() {
         onLogout={() => logout().catch(() => {})}
       />
 
-      <main className="px-4 pb-10 pt-[18px] short:pt-2.5 sm:px-6">
-        {view === "hall" && (
-          <div className="mb-4 flex flex-wrap items-center gap-3 short:mb-2.5">
-            <h1 className="mr-1 font-display text-[26px] font-extrabold tracking-tight">Зал</h1>
-            {hall?.business_day_open && (
-              <>
-                <span className="inline-flex h-[30px] items-center gap-1.5 whitespace-nowrap rounded-full border border-line bg-surface px-3 text-[13px] text-fg-muted">
-                  <b className="font-semibold text-fg">
-                    {busyCount} из {consoles.length}
-                  </b>{" "}
-                  <span>заняты</span>
-                </span>
-                {alertCount > 0 && (
-                  <span className="inline-flex h-[30px] items-center gap-1.5 whitespace-nowrap rounded-full border border-status-circle/50 bg-status-circle/10 px-3 text-[13px] text-fg">
-                    <b className="font-semibold text-status-circle">{alertCount}</b>{" "}
-                    <span>ждут решения</span>
-                  </span>
-                )}
-              </>
-            )}
-            <div className="ml-auto flex flex-wrap gap-2 max-sm:ml-0 max-sm:w-full max-sm:[&>button]:flex-1">
+      <div className={showRail ? "grid grid-cols-[minmax(0,1fr)_340px]" : undefined}>
+        <main className="px-4 pb-10 pt-[18px] short:pt-2.5 sm:px-6">
+          {view === "hall" && (
+            <div className="mb-4 flex flex-wrap items-center gap-3 short:mb-2.5">
+              <h1 className="mr-1 font-display text-[26px] font-extrabold tracking-tight">Зал</h1>
               {hall?.business_day_open && (
-                <Button variant="outline" onClick={() => runSessionAction(() => openTicketMutation.mutateAsync())}>
-                  + Продажа без игры
-                </Button>
+                <>
+                  <span className="inline-flex h-[30px] items-center gap-1.5 whitespace-nowrap rounded-full border border-line bg-surface px-3 text-[13px] text-fg-muted">
+                    <b className="font-semibold text-fg">
+                      {busyCount} из {consoles.length}
+                    </b>{" "}
+                    <span>заняты</span>
+                  </span>
+                  {alertCount > 0 && (
+                    <span className="inline-flex h-[30px] items-center gap-1.5 whitespace-nowrap rounded-full border border-status-circle/50 bg-status-circle/10 px-3 text-[13px] text-fg">
+                      <b className="font-semibold text-status-circle">{alertCount}</b>{" "}
+                      <span>ждут решения</span>
+                    </span>
+                  )}
+                </>
               )}
-              <Button variant="ghost" onClick={() => setView("history")}>
-                История дней
-              </Button>
-              <HallHelp hotkeys />
+              <div className="ml-auto flex flex-wrap gap-2 max-sm:ml-0 max-sm:w-full max-sm:[&>button]:flex-1">
+                {hall?.business_day_open && (
+                  <Button variant="outline" onClick={() => runSessionAction(() => openTicketMutation.mutateAsync())}>
+                    + Продажа без игры
+                  </Button>
+                )}
+                {hall?.business_day_open && !wide && (
+                  <Button variant="outline" onClick={() => setDialog({ kind: "feed" })}>
+                    Лента дня
+                  </Button>
+                )}
+                <Button variant="ghost" onClick={() => setView("history")}>
+                  История дней
+                </Button>
+                <HallHelp hotkeys />
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {actionError && (
-          <p role="alert" className="mb-4 text-sm text-status-circle">
-            {actionError}
-          </p>
-        )}
+          {actionError && (
+            <p role="alert" className="mb-4 text-sm text-status-circle">
+              {actionError}
+            </p>
+          )}
 
-        {view === "history" ? (
-          <HistoryPage onBack={() => setView("hall")} />
-        ) : hall === undefined ? (
-          <div>Загрузка…</div>
-        ) : (
-          <BusinessDayGuard businessDayOpen={hall.business_day_open}>
-            <section
-              aria-label="Консоли"
-              className="grid grid-cols-1 gap-4 md:grid-cols-2 min-[1101px]:grid-cols-[repeat(var(--cols),minmax(0,1fr))]"
-              style={{ "--cols": hallColumns(consoles.length) } as CSSProperties}
-            >
-              {consoles.map((consoleView, index) => {
-                const session = consoleView.session;
-                return (
-                  <ConsoleCard
-                    key={consoleView.id}
-                    console={consoleView}
-                    nowMs={nowMs}
-                    warnMinutes={warnMinutes}
-                    hotkey={index < 9 ? index + 1 : undefined}
-                    productName={productName}
-                    onOpen={() => openConsole(consoleView)}
-                    onStart={() => setDialog({ kind: "start", consoleId: consoleView.id })}
-                    onExtend={() => session && setDialog({ kind: "extend", sessionId: session.id })}
-                    onStop={() => session && finishSession(session.id)}
-                    onCancel={() =>
-                      session &&
-                      runSessionAction(async () => {
-                        const cancelled = await cancel(session.id);
-                        if (cancelled.balance > 0) {
-                          setDialog({ kind: "settle", sessionId: cancelled.id, balance: cancelled.balance });
-                        }
-                      })
-                    }
-                    onPay={() => session && setDialog({ kind: "pay", sessionId: session.id })}
-                    onBar={() => session && setDialog({ kind: "bar", sessionId: session.id })}
-                  />
-                );
-              })}
-            </section>
-
-            {tickets.length > 0 && (
-              <section className="mt-7">
-                <h2 className="field-label">Чеки без игры</h2>
-                <div className="grid gap-2">
-                  {tickets.map((t) => (
-                    <div
-                      key={t.id}
-                      className="flex flex-wrap items-center gap-3.5 rounded-xl border border-line bg-surface px-3.5 py-3"
-                    >
-                      <span className="num text-fg-muted">№{t.id}</span>
-                      <span className="min-w-0 flex-1 text-sm text-fg-muted max-sm:basis-3/5">
-                        {t.orders.length > 0 ? (
-                          <b className="font-medium text-fg">{capitalize(summarizeOrders(t.orders, productName))}</b>
-                        ) : (
-                          "пока пусто"
-                        )}
-                      </span>
-                      <span className="num">
-                        {formatAmount(t.charge_total)}
-                        <span className="ml-1 font-sans text-[11px] text-fg-muted">сом</span>
-                      </span>
-                      <Button variant="outline" onClick={() => setDialog({ kind: "bar", sessionId: t.id })}>
-                        Бар
-                      </Button>
-                      {t.balance > 0 ? (
-                        <Button onClick={() => setDialog({ kind: "pay", sessionId: t.id })}>
-                          Принять {formatAmount(t.balance)}
-                        </Button>
-                      ) : (
-                        <Button onClick={() => runSessionAction(() => stop(t.id))}>Завершить</Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
+          {view === "history" ? (
+            <HistoryPage onBack={() => setView("hall")} />
+          ) : hall === undefined ? (
+            <div>Загрузка…</div>
+          ) : (
+            <BusinessDayGuard businessDayOpen={hall.business_day_open}>
+              <section
+                aria-label="Консоли"
+                className="grid grid-cols-1 gap-4 md:grid-cols-2 min-[1101px]:grid-cols-[repeat(var(--cols),minmax(0,1fr))]"
+                style={{ "--cols": hallColumns(consoles.length) } as CSSProperties}
+              >
+                {consoles.map((consoleView, index) => {
+                  const session = consoleView.session;
+                  return (
+                    <ConsoleCard
+                      key={consoleView.id}
+                      console={consoleView}
+                      nowMs={nowMs}
+                      warnMinutes={warnMinutes}
+                      hotkey={index < 9 ? index + 1 : undefined}
+                      productName={productName}
+                      onOpen={() => openConsole(consoleView)}
+                      onStart={() => setDialog({ kind: "start", consoleId: consoleView.id })}
+                      onExtend={() => session && setDialog({ kind: "extend", sessionId: session.id })}
+                      onStop={() => session && finishSession(session.id)}
+                      onCancel={() =>
+                        session &&
+                        runSessionAction(async () => {
+                          const cancelled = await cancel(session.id);
+                          if (cancelled.balance > 0) {
+                            setDialog({ kind: "settle", sessionId: cancelled.id, balance: cancelled.balance });
+                          }
+                        })
+                      }
+                      onPay={() => session && setDialog({ kind: "pay", sessionId: session.id })}
+                      onBar={() => session && setDialog({ kind: "bar", sessionId: session.id })}
+                    />
+                  );
+                })}
               </section>
-            )}
-          </BusinessDayGuard>
+
+              {tickets.length > 0 && (
+                <section className="mt-7">
+                  <h2 className="field-label">Чеки без игры</h2>
+                  <div className="grid gap-2">
+                    {tickets.map((t) => (
+                      <div
+                        key={t.id}
+                        className="flex flex-wrap items-center gap-3.5 rounded-xl border border-line bg-surface px-3.5 py-3"
+                      >
+                        <span className="num text-fg-muted">№{t.id}</span>
+                        <span className="min-w-0 flex-1 text-sm text-fg-muted max-sm:basis-3/5">
+                          {t.orders.length > 0 ? (
+                            <b className="font-medium text-fg">{capitalize(summarizeOrders(t.orders, productName))}</b>
+                          ) : (
+                            "пока пусто"
+                          )}
+                        </span>
+                        <span className="num">
+                          {formatAmount(t.charge_total)}
+                          <span className="ml-1 font-sans text-[11px] text-fg-muted">сом</span>
+                        </span>
+                        <Button variant="outline" onClick={() => setDialog({ kind: "bar", sessionId: t.id })}>
+                          Бар
+                        </Button>
+                        {t.balance > 0 ? (
+                          <Button onClick={() => setDialog({ kind: "pay", sessionId: t.id })}>
+                            Принять {formatAmount(t.balance)}
+                          </Button>
+                        ) : (
+                          <Button onClick={() => runSessionAction(() => stop(t.id))}>Завершить</Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+            </BusinessDayGuard>
+          )}
+        </main>
+        {showRail && (
+          <aside aria-label="Лента дня" className="border-l border-line bg-rail px-5 pb-10 pt-5">
+            <h2 className="field-label">Лента дня</h2>
+            <DayFeed businessDayId={dayId} snapshotAt={hall?.generated_at} />
+          </aside>
         )}
-      </main>
+      </div>
 
       {dialog.kind === "start" && (
         <StartSessionDialog
@@ -322,6 +343,18 @@ export function HallPage() {
             }
           }}
         />
+      )}
+      {dialog.kind === "feed" && dayId !== null && (
+        <Sheet open onOpenChange={(open) => !open && closeDialog()}>
+          <SheetContent tone="triangle">
+            <SheetHeader>
+              <SheetTitle>Лента дня</SheetTitle>
+            </SheetHeader>
+            <SheetBody>
+              <DayFeed businessDayId={dayId} snapshotAt={hall?.generated_at} />
+            </SheetBody>
+          </SheetContent>
+        </Sheet>
       )}
       {dialog.kind === "close-day" && hall && hall.business_day_id != null && (
         <CloseBusinessDayDialog

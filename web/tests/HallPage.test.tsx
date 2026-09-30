@@ -112,6 +112,17 @@ function stubApi(hall: HallSnapshotResponse | "pending") {
         }),
       };
     }
+    if (url.endsWith("/feed")) {
+      return {
+        ok: true,
+        json: async () => [
+          {
+            at: new Date().toISOString(), kind: "payment", session_id: 7, console_name: "PS5-1", session_kind: "paid",
+            segment_kind: null, tariff_name: null, reason: null, product_name: null, qty: null, amount: 300, method: "cash", minutes: null,
+          },
+        ],
+      };
+    }
     return { ok: true, json: async () => ({}) };
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -230,6 +241,16 @@ describe("HallPage", () => {
     expect(within(till).getByText("2 150")).toBeInTheDocument();
     expect(within(till).getByText("600")).toBeInTheDocument();
     expect(within(till).getByText("23 сессии · 31 ч 40 мин · бар 690")).toBeInTheDocument();
+  });
+
+  it("opens the day feed from the hall", async () => {
+    stubApi(snapshot([freeConsole(1)]));
+    renderHall();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Лента дня" }));
+    const feed = await screen.findByRole("list", { name: "Лента дня" });
+    expect(await within(feed).findByText("PS5-1")).toBeInTheDocument();
+    expect(within(feed).getByText("нал")).toBeInTheDocument();
   });
 
   it("counts consoles that need a decision", async () => {
