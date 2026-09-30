@@ -84,7 +84,7 @@ export function BarDialog({ open, sessionId, targetName, orders, onOpenChange }:
                       <button
                         type="button"
                         aria-label={`Убрать одну: ${name}`}
-                        className="h-8 w-[34px] bg-surface-2 text-base hover:bg-hover"
+                        className="h-10 w-10 bg-surface-2 text-base hover:bg-hover"
                         onClick={() => removeMutation.mutate(line.removableOrderId)}
                         disabled={removeMutation.isPending}
                       >
@@ -94,7 +94,7 @@ export function BarDialog({ open, sessionId, targetName, orders, onOpenChange }:
                       <button
                         type="button"
                         aria-label={`Добавить ещё: ${name}`}
-                        className="h-8 w-[34px] bg-surface-2 text-base hover:bg-hover"
+                        className="h-10 w-10 bg-surface-2 text-base hover:bg-hover"
                         onClick={() => addMutation.mutate(line.productId)}
                         disabled={addMutation.isPending}
                       >

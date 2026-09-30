@@ -144,7 +144,7 @@ export function StartSessionDialog({ open, consoleId, consoleName, onOpenChange,
                     key={text}
                     type="button"
                     onClick={() => setReason(text)}
-                    className="h-[30px] rounded-full border border-line px-3 text-[13px] text-fg-muted hover:border-hover-line hover:text-fg"
+                    className="h-10 rounded-full border border-line px-3 text-[13px] text-fg-muted hover:border-hover-line hover:text-fg"
                   >
                     {text}
                   </button>
