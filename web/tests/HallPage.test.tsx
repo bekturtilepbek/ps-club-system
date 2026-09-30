@@ -101,6 +101,7 @@ function stubApi(hall: HallSnapshotResponse | "pending") {
     if (url === "/api/settings") return { ok: true, json: async () => ({ grace_minutes: 3, warn_minutes: 5 }) };
     if (url === "/api/tariffs") return { ok: true, json: async () => [] };
     if (url === "/api/products") return { ok: true, json: async () => [] };
+    if (url === "/api/business-days?limit=30") return { ok: true, json: async () => [] };
     if (url === "/api/auth/logout") return { ok: true, json: async () => ({ authenticated: false }) };
     if (url.endsWith("/summary")) {
       return {
@@ -141,14 +142,14 @@ describe("HallPage", () => {
 
     expect(screen.getByTestId("hall-page")).toBeInTheDocument();
     expect(screen.getByText("Загрузка…")).toBeInTheDocument();
-    expect(screen.queryByText("День не открыт. Открыть?")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Открыть день" })).not.toBeInTheDocument();
   });
 
   it("keeps the header and logout button above the open-day prompt", async () => {
     const fetchMock = stubApi({ ...snapshot([freeConsole(1)]), business_day_open: false });
     renderHall();
 
-    await waitFor(() => expect(screen.getByText("День не открыт. Открыть?")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Открыть день" })).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Выйти" }));
     await waitFor(() =>
       expect(fetchMock.mock.calls.some(([url]) => url === "/api/auth/logout")).toBe(true),
@@ -493,7 +494,7 @@ describe("HallPage", () => {
       stubApi({ ...snapshot([freeConsole(1)]), business_day_open: false });
       renderHall();
 
-      await waitFor(() => expect(screen.getByText("День не открыт. Открыть?")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByRole("heading", { name: "Открыть день" })).toBeInTheDocument());
       expect(screen.queryByRole("button", { name: "Закрыть день" })).not.toBeInTheDocument();
     });
 
@@ -501,7 +502,7 @@ describe("HallPage", () => {
       stubApi({ ...snapshot([freeConsole(1)]), business_day_open: false });
       renderHall();
 
-      await waitFor(() => expect(screen.getByText("День не открыт. Открыть?")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByRole("heading", { name: "Открыть день" })).toBeInTheDocument());
       expect(screen.getByRole("button", { name: "История дней" })).toBeInTheDocument();
     });
 

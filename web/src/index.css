@@ -204,6 +204,31 @@
     @apply grid h-7 w-7 place-items-center rounded-full bg-surface-2 font-mono text-[13px] text-fg-muted;
     content: counter(step);
   }
+  .sleepers {
+    @apply flex gap-2;
+  }
+  .sleepers > i {
+    @apply h-1 flex-1 rounded-b-[3px] bg-status-idle transition-[background-color,box-shadow] duration-300;
+  }
+  .sleepers[data-waking="true"] > i {
+    background: hsl(var(--cross));
+    box-shadow: 0 0 12px hsl(var(--cross));
+  }
+  .sleepers[data-waking="true"] > i:nth-child(2) { transition-delay: 80ms; }
+  .sleepers[data-waking="true"] > i:nth-child(3) { transition-delay: 160ms; }
+  .sleepers[data-waking="true"] > i:nth-child(4) { transition-delay: 240ms; }
+  .sleepers[data-waking="true"] > i:nth-child(5) { transition-delay: 320ms; }
+  .sleepers[data-waking="true"] > i:nth-child(6) { transition-delay: 400ms; }
+  .gate-card {
+    @apply grid w-full max-w-[420px] gap-[18px] rounded-2xl border border-line bg-surface p-7 shadow-[var(--shadow-lg)];
+  }
+}
+
+/* Same breakpoint as Tailwind's max-sm; @apply cannot take max-sm with an arbitrary value here. */
+@media (max-width: 639px) {
+  .gate-card {
+    padding: 22px;
+  }
 }
 
 @media (max-height: 820px) and (min-width: 1101px) {
