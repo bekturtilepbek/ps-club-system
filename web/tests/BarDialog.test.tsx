@@ -125,4 +125,29 @@ describe("BarDialog", () => {
       expect(calls.some(([url, init]) => url === "/api/orders/2" && init?.method === "DELETE")).toBe(true);
     });
   });
+
+  it("filters the catalog by category", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url === "/api/products") {
+          return {
+            ok: true,
+            json: async () => [
+              { id: 1, name: "Кола", price: 60, is_active: true, category: "Напитки" },
+              { id: 2, name: "Сэндвич", price: 120, is_active: true, category: "Еда" },
+            ],
+          };
+        }
+        return { ok: true, json: async () => ({}) };
+      }),
+    );
+    renderDialog([]);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Еда" }));
+    expect(screen.getByText("Сэндвич")).toBeInTheDocument();
+    expect(screen.queryByText("Кола")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Всё" }));
+    expect(screen.getByText("Кола")).toBeInTheDocument();
+  });
 });

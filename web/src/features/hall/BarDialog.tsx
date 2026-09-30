@@ -1,9 +1,10 @@
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { api, type OrderResponse } from "@/lib/api";
 import { formatAmount, formatSom } from "@/lib/format";
-import { groupOrders, ordersTotal } from "./barLines";
+import { groupOrders, ordersTotal, productCategories, inCategory } from "./barLines";
 import { HALL_QUERY_KEY } from "./useHallSnapshot";
 
 interface BarDialogProps {
@@ -16,9 +17,13 @@ interface BarDialogProps {
 }
 
 export function BarDialog({ open, sessionId, targetName, orders, onOpenChange }: BarDialogProps) {
+  const [category, setCategory] = useState<string | null>(null);
   const productsQuery = useQuery({ queryKey: ["products"], queryFn: api.products, enabled: open });
   const queryClient = useQueryClient();
   const invalidateHall = () => queryClient.invalidateQueries({ queryKey: HALL_QUERY_KEY });
+  const products = productsQuery.data ?? [];
+  const categories = productCategories(products);
+  const shown = category === null ? products : products.filter((p) => inCategory(p, category));
 
   // Each tap adds one qty-1 row and a correction deletes a row (Stage 4 decision): the
   // grouped −/+ view is presentation only, the API calls are unchanged.
@@ -43,8 +48,23 @@ export function BarDialog({ open, sessionId, targetName, orders, onOpenChange }:
           <SheetTitle>Бар · {targetName}</SheetTitle>
         </SheetHeader>
         <SheetBody>
+          {categories.length > 0 && (
+            <div role="group" aria-label="Категории" className="flex flex-wrap gap-2">
+              {[null, ...categories].map((value) => (
+                <button
+                  key={value ?? "all"}
+                  type="button"
+                  aria-pressed={category === value}
+                  onClick={() => setCategory(value)}
+                  className="h-10 rounded-full border border-line px-3 text-[13px] text-fg-muted hover:text-fg aria-pressed:border-fg aria-pressed:bg-fg aria-pressed:font-semibold aria-pressed:text-ink"
+                >
+                  {value ?? "Всё"}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="grid grid-cols-3 gap-2">
-            {(productsQuery.data ?? []).map((product) => {
+            {shown.map((product) => {
               const qty = qtyOf(product.id);
               return (
                 <button

@@ -1,4 +1,4 @@
-import type { OrderResponse } from "@/lib/api";
+import type { OrderResponse, ProductResponse } from "@/lib/api";
 
 export interface BarLine {
   productId: number;
@@ -37,4 +37,24 @@ export function summarizeOrders(orders: OrderResponse[], productName: (productId
   return groupOrders(orders)
     .map((line) => productName(line.productId).toLowerCase() + (line.qty > 1 ? ` × ${line.qty}` : ""))
     .join(", ");
+}
+
+export const OTHER_CATEGORY = "Другое";
+
+/** Tabs for the bar: categories in catalog order, "Другое" for the rest; none for one group. */
+export function productCategories(products: ProductResponse[]): string[] {
+  const named: string[] = [];
+  let hasUncategorised = false;
+  for (const product of products) {
+    const category = product.category?.trim();
+    if (!category) hasUncategorised = true;
+    else if (!named.includes(category)) named.push(category);
+  }
+  const groups = hasUncategorised && named.length > 0 ? [...named, OTHER_CATEGORY] : named;
+  return groups.length >= 2 ? groups : [];
+}
+
+export function inCategory(product: ProductResponse, category: string): boolean {
+  const own = product.category?.trim();
+  return category === OTHER_CATEGORY ? !own : own === category;
 }
