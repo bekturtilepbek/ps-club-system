@@ -15,6 +15,7 @@ class HallConsoleResponse(BaseModel):
     charge_total: int
     paid_total: int
     balance: int
+    free_since: datetime | None = None
 
 
 class HallSnapshotResponse(BaseModel):
@@ -43,6 +44,7 @@ def hall_snapshot_to_response(snapshot: HallSnapshot) -> HallSnapshotResponse:
                 charge_total=view.charge_total,
                 paid_total=view.paid_total,
                 balance=view.balance,
+                free_since=view.free_since,
             )
         )
     tickets = [

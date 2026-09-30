@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db.models import Console, SessionStatus
@@ -20,6 +20,7 @@ class ConsoleHallView:
     charge_total: int
     paid_total: int
     balance: int
+    free_since: datetime | None = None
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,17 @@ class HallSnapshot:
 
 
 async def build_hall_snapshot(db: AsyncSession, now: datetime) -> HallSnapshot:
+    day = await business_days.get_open_business_day(db)
+
+    last_ended: dict[int, datetime] = {}
+    if day is not None:
+        ended_result = await db.execute(
+            select(SessionModel.console_id, func.max(SessionModel.ended_at))
+            .where(SessionModel.console_id.is_not(None), SessionModel.ended_at.is_not(None))
+            .group_by(SessionModel.console_id)
+        )
+        last_ended = {console_id: ended_at for console_id, ended_at in ended_result.all()}
+
     consoles_result = await db.execute(select(Console).order_by(Console.id))
     consoles = consoles_result.scalars().all()
 
@@ -58,6 +70,12 @@ async def build_hall_snapshot(db: AsyncSession, now: datetime) -> HallSnapshot:
             paid = await payments_service.session_paid_total(db, session.id)
         else:
             charge = paid = 0
+        free_since = None
+        if session is None and day is not None:
+            # Idle time runs from the last session's end, but never from before the day
+            # opened: the hours the club was closed are not "простой".
+            last = last_ended.get(console.id)
+            free_since = max(last, day.opened_at) if last is not None else day.opened_at
         views.append(
             ConsoleHallView(
                 id=console.id,
@@ -68,6 +86,7 @@ async def build_hall_snapshot(db: AsyncSession, now: datetime) -> HallSnapshot:
                 charge_total=charge,
                 paid_total=paid,
                 balance=charge - paid,
+                free_since=free_since,
             )
         )
 
@@ -81,7 +100,6 @@ async def build_hall_snapshot(db: AsyncSession, now: datetime) -> HallSnapshot:
             )
         )
 
-    day = await business_days.get_open_business_day(db)
     return HallSnapshot(
         generated_at=now,
         business_day_open=day is not None,
