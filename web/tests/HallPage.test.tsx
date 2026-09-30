@@ -178,13 +178,13 @@ describe("HallPage", () => {
 
     await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Принять 300" }));
-    await waitFor(() => expect(screen.getByText("Оплата — остаток 300 сом")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Оплата · остаток 300 сом")).toBeInTheDocument());
 
     // A split payment lands; the next snapshot carries the reduced balance.
     act(() => {
       queryClient.setQueryData(HALL_QUERY_KEY, snapshot([paidConsole(1, 7, 100)]));
     });
-    await waitFor(() => expect(screen.getByText("Оплата — остаток 100 сом")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Оплата · остаток 100 сом")).toBeInTheDocument());
   });
 
   it("stops the clicked session and reports a failed stop to the operator", async () => {
@@ -269,12 +269,12 @@ describe("HallPage", () => {
       fireEvent.click(screen.getByRole("article", { name: "PS5-1" }));
       fireEvent.click(await screen.findByRole("button", { name: "Завершить сессию" }));
 
-      await waitFor(() => expect(screen.getByText("Оплата — остаток 150 сом")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText("Оплата · остаток 150 сом")).toBeInTheDocument());
       await waitFor(() => expect(screen.getByText("Свободна")).toBeInTheDocument());
       act(() => {
         queryClient.setQueryData(HALL_QUERY_KEY, snapshot([freeConsole(1)]));
       });
-      expect(screen.getByText("Оплата — остаток 150 сом")).toBeInTheDocument();
+      expect(screen.getByText("Оплата · остаток 150 сом")).toBeInTheDocument();
     });
 
     it("tracks the remaining balance across a split settlement and closes once it is paid off", async () => {
@@ -284,16 +284,16 @@ describe("HallPage", () => {
       await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
       fireEvent.click(screen.getByRole("article", { name: "PS5-1" }));
       fireEvent.click(await screen.findByRole("button", { name: "Завершить сессию" }));
-      await waitFor(() => expect(screen.getByText("Оплата — остаток 150 сом")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText("Оплата · остаток 150 сом")).toBeInTheDocument());
 
       fireEvent.change(screen.getByLabelText("Сумма"), { target: { value: "100" } });
-      fireEvent.click(screen.getByRole("button", { name: "Внести" }));
-      await waitFor(() => expect(screen.getByText("Оплата — остаток 50 сом")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: /^Внести/ }));
+      await waitFor(() => expect(screen.getByText("Оплата · остаток 50 сом")).toBeInTheDocument());
 
       fireEvent.change(screen.getByLabelText("Сумма"), { target: { value: "50" } });
       fireEvent.click(screen.getByRole("button", { name: "QR" }));
-      fireEvent.click(screen.getByRole("button", { name: "Внести" }));
-      await waitFor(() => expect(screen.queryByText(/Оплата — остаток/)).not.toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: /^Внести/ }));
+      await waitFor(() => expect(screen.queryByText(/Оплата · остаток/)).not.toBeInTheDocument());
 
       const calls = fetchMock.mock.calls as unknown as [string, RequestInit | undefined][];
       const payments = calls
@@ -332,7 +332,7 @@ describe("HallPage", () => {
 
       await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => url === "/api/sessions/7/stop")).toBe(true));
       await waitFor(() => expect(screen.getByText("Свободна")).toBeInTheDocument());
-      expect(screen.queryByText(/Оплата — остаток/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Оплата · остаток/)).not.toBeInTheDocument();
     });
   });
 
@@ -342,12 +342,12 @@ describe("HallPage", () => {
 
     await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Принять 300" }));
-    await waitFor(() => expect(screen.getByText("Оплата — остаток 300 сом")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Оплата · остаток 300 сом")).toBeInTheDocument());
 
     act(() => {
       queryClient.setQueryData(HALL_QUERY_KEY, snapshot([freeConsole(1)]));
     });
-    await waitFor(() => expect(screen.queryByText(/Оплата — остаток/)).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText(/Оплата · остаток/)).not.toBeInTheDocument());
   });
 
   it("opens the settle dialog when cancelling a session with an unpaid bar tab", async () => {
@@ -369,7 +369,7 @@ describe("HallPage", () => {
     await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Отменить без оплаты" }));
 
-    await waitFor(() => expect(screen.getByText("Оплата — остаток 80 сом")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Оплата · остаток 80 сом")).toBeInTheDocument());
   });
 
   it("opens the session details when a busy card is clicked", async () => {
@@ -381,7 +381,7 @@ describe("HallPage", () => {
     const sheet = await screen.findByRole("dialog", { name: "PS5-1" });
     expect(within(sheet).getByText("Отрезки")).toBeInTheDocument();
     fireEvent.click(within(sheet).getByRole("button", { name: "Принять 300" }));
-    await waitFor(() => expect(screen.getByText("Оплата — остаток 300 сом")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Оплата · остаток 300 сом")).toBeInTheDocument());
   });
 
   it("does not open anything for a console under maintenance", async () => {
@@ -400,7 +400,7 @@ describe("HallPage", () => {
 
     await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Бар" }));
-    await waitFor(() => expect(screen.getByText("Бар — на счету 0 сом")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("dialog", { name: "Бар · PS5-1" })).toBeInTheDocument());
   });
 
   describe("продажа без игры", () => {
@@ -423,7 +423,7 @@ describe("HallPage", () => {
       await waitFor(() => expect(screen.getByRole("button", { name: "+ Продажа без игры" })).toBeInTheDocument());
       fireEvent.click(screen.getByRole("button", { name: "+ Продажа без игры" }));
 
-      await waitFor(() => expect(screen.getByText("Бар — на счету 0 сом")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByRole("dialog", { name: /^Бар · Чек №/ })).toBeInTheDocument());
     });
 
     it("shows an error when creating a new ticket fails", async () => {
@@ -452,7 +452,7 @@ describe("HallPage", () => {
       await waitFor(() => expect(screen.getByText("№9")).toBeInTheDocument());
       fireEvent.click(screen.getByRole("button", { name: "Принять 150" }));
 
-      await waitFor(() => expect(screen.getByText("Оплата — остаток 150 сом")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText("Оплата · остаток 150 сом")).toBeInTheDocument());
     });
 
     it("finishes a fully paid ticket", async () => {
@@ -591,9 +591,9 @@ describe("HallPage", () => {
       await waitFor(() => expect(screen.getByRole("button", { name: "Завершить" })).toBeInTheDocument());
       fireEvent.click(screen.getByRole("button", { name: "Завершить" }));
 
-      await waitFor(() => expect(screen.getByText("Оплата — остаток 150 сом")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText("Оплата · остаток 150 сом")).toBeInTheDocument());
       fireEvent.change(screen.getByLabelText("Сумма"), { target: { value: "150" } });
-      fireEvent.click(screen.getByRole("button", { name: "Внести" }));
+      fireEvent.click(screen.getByRole("button", { name: /^Внести/ }));
 
       await waitFor(() => expect(screen.getByText("Наличные ожидается: 5 000 сом")).toBeInTheDocument());
     });

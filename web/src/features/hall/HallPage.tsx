@@ -285,6 +285,7 @@ export function HallPage() {
           open
           sessionId={payTarget.id}
           balance={payTarget.balance}
+          targetName={consoles.find((c) => c.session?.id === payTarget.id)?.name ?? `Чек №${payTarget.id}`}
           onOpenChange={(open) => !open && closeDialog()}
           onPaid={() => {}}
         />
@@ -293,6 +294,7 @@ export function HallPage() {
         <BarDialog
           open
           sessionId={barTarget.id}
+          targetName={consoles.find((c) => c.session?.id === barTarget.id)?.name ?? `Чек №${barTarget.id}`}
           orders={barTarget.orders}
           onOpenChange={(open) => !open && closeDialog()}
         />
@@ -302,6 +304,7 @@ export function HallPage() {
           open
           sessionId={dialog.sessionId}
           balance={dialog.balance}
+          targetName={consoles.find((c) => c.session?.id === dialog.sessionId)?.name}
           onOpenChange={(open) => {
             if (open) return;
             setDialog(dialog.returnTo === "close-day" ? { kind: "close-day" } : { kind: "none" });

@@ -20,7 +20,7 @@ describe("PaymentDialog", () => {
 
     fireEvent.change(screen.getByLabelText("Сумма"), { target: { value: "100" } });
     fireEvent.click(screen.getByRole("button", { name: "Наличные" }));
-    fireEvent.click(screen.getByRole("button", { name: "Внести" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Внести/ }));
 
     await waitFor(() => expect(onPaid).toHaveBeenCalledWith(100));
     const calls = fetchMock.mock.calls as unknown as [string, RequestInit][];
@@ -43,7 +43,7 @@ describe("PaymentDialog", () => {
 
     fireEvent.change(screen.getByLabelText("Сумма"), { target: { value: "100" } });
     fireEvent.click(screen.getByRole("button", { name: "Наличные" }));
-    fireEvent.click(screen.getByRole("button", { name: "Внести" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Внести/ }));
 
     await waitFor(() => expect(onPaid).toHaveBeenCalled());
     expect(onOpenChange).not.toHaveBeenCalled();
@@ -67,7 +67,7 @@ describe("PaymentDialog", () => {
 
     fireEvent.change(screen.getByLabelText("Сумма"), { target: { value: "100" } });
     fireEvent.click(screen.getByRole("button", { name: "Наличные" }));
-    fireEvent.click(screen.getByRole("button", { name: "Внести" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Внести/ }));
 
     await waitFor(() => expect(screen.getByText("Не удалось провести оплату. Попробуйте ещё раз.")).toBeInTheDocument());
     expect(onPaid).not.toHaveBeenCalled();

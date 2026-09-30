@@ -21,7 +21,7 @@ function renderDialog(orders: OrderResponse[]) {
   const onOpenChange = vi.fn();
   render(
     <QueryClientProvider client={queryClient}>
-      <BarDialog open sessionId={5} orders={orders} onOpenChange={onOpenChange} />
+      <BarDialog open sessionId={5} targetName="PS5-1" orders={orders} onOpenChange={onOpenChange} />
     </QueryClientProvider>,
   );
   return { onOpenChange };
@@ -61,7 +61,7 @@ describe("BarDialog", () => {
     vi.stubGlobal("fetch", fetchMock);
     renderDialog([order({ id: 7, product_id: 1, qty: 2, unit_price: 80 })]);
 
-    fireEvent.click(screen.getByRole("button", { name: "Убрать" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Убрать одну/ }));
 
     await waitFor(() =>
       expect(fetchMock.mock.calls.some(([url]) => url === "/api/orders/7")).toBe(true),
@@ -72,7 +72,7 @@ describe("BarDialog", () => {
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => [] })));
     renderDialog([order({ qty: 2, unit_price: 80 })]);
 
-    expect(screen.getByText("Бар — на счету 160 сом")).toBeInTheDocument();
+    expect(screen.getByTestId("bar-total")).toHaveTextContent("160 сом");
   });
 
   it("shows an error when adding an item fails", async () => {
@@ -101,10 +101,28 @@ describe("BarDialog", () => {
     vi.stubGlobal("fetch", fetchMock);
     renderDialog([order({ id: 7 })]);
 
-    fireEvent.click(screen.getByRole("button", { name: "Убрать" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Убрать одну/ }));
 
     await waitFor(() =>
       expect(screen.getByText("Не удалось убрать товар. Попробуйте ещё раз.")).toBeInTheDocument(),
     );
+  });
+
+  it("groups repeated taps into one line and removes a single unit with −", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/products") return { ok: true, json: async () => [{ id: 1, name: "Кола", price: 80, is_active: true }] };
+      return { ok: true, json: async () => ({}) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderDialog([order({ id: 1 }), order({ id: 2, created_at: new Date(Date.now() + 1000).toISOString() })]);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Убрать одну: Кола" })).toBeInTheDocument());
+    expect(screen.getByTestId("bar-total")).toHaveTextContent("160 сом");
+    fireEvent.click(screen.getByRole("button", { name: "Убрать одну: Кола" }));
+
+    await waitFor(() => {
+      const calls = fetchMock.mock.calls as unknown as [string, RequestInit | undefined][];
+      expect(calls.some(([url, init]) => url === "/api/orders/2" && init?.method === "DELETE")).toBe(true);
+    });
   });
 });
