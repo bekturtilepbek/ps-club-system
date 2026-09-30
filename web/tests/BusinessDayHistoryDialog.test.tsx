@@ -43,10 +43,10 @@ describe("BusinessDayHistoryDialog", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByText(/Начало: 5000 сом · Ожидалось: 5300 сом · Посчитано: 5200 сом/),
+        screen.getByText(/Начало: 5 000 сом · Ожидалось: 5 300 сом · Посчитано: 5 200 сом/),
       ).toBeInTheDocument(),
     );
-    expect(screen.getByText(/Расхождение: -100 сом/)).toBeInTheDocument();
+    expect(screen.getByText(/Расхождение: −100 сом/)).toBeInTheDocument();
   });
 
   it("excludes any still-open day from the list", async () => {

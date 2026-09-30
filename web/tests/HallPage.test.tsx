@@ -448,7 +448,7 @@ describe("HallPage", () => {
       );
       fireEvent.click(screen.getByRole("button", { name: "Завершить" }));
 
-      await waitFor(() => expect(screen.getByText("Наличные ожидается: 5000 сом")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText("Наличные ожидается: 5 000 сом")).toBeInTheDocument());
     });
 
     it("opens the history dialog and shows a closed day", async () => {
@@ -471,7 +471,7 @@ describe("HallPage", () => {
       await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
       fireEvent.click(screen.getByRole("button", { name: "История дней" }));
 
-      await waitFor(() => expect(screen.getByText(/Начало: 1000 сом/)).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText(/Начало: 1 000 сом/)).toBeInTheDocument());
     });
 
     it("returns to the close-day dialog after settling a debt incurred while finishing a session from it", async () => {
@@ -507,7 +507,7 @@ describe("HallPage", () => {
       fireEvent.change(screen.getByLabelText("Сумма"), { target: { value: "150" } });
       fireEvent.click(screen.getByRole("button", { name: "Внести" }));
 
-      await waitFor(() => expect(screen.getByText("Наличные ожидается: 5000 сом")).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText("Наличные ожидается: 5 000 сом")).toBeInTheDocument());
     });
   });
 });

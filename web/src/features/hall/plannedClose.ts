@@ -1,6 +1,4 @@
-// Asia/Bishkek has had no DST since 2005 — a fixed UTC+6 offset, hardcoded here rather
-// than pulled in via a timezone library the frontend doesn't otherwise depend on.
-const BISHKEK_UTC_OFFSET_MS = 6 * 60 * 60_000;
+import { BISHKEK_UTC_OFFSET_MS } from "@/lib/bishkek";
 
 /** The next wall-clock occurrence of `plannedClose` ("HH:MM", Asia/Bishkek) at or after `nowMs`. */
 export function nextPlannedCloseMs(nowMs: number, plannedClose: string): number {

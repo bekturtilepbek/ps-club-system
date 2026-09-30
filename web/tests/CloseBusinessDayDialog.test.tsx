@@ -118,7 +118,7 @@ describe("CloseBusinessDayDialog", () => {
     stubSummaryFetch();
     renderDialog(emptySnapshot());
 
-    await waitFor(() => expect(screen.getByText("Наличные ожидается: 5300 сом")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Наличные ожидается: 5 300 сом")).toBeInTheDocument());
     expect(screen.getByText("QR: 200 сом")).toBeInTheDocument();
     expect(screen.getByText("Перевод: 100 сом")).toBeInTheDocument();
     expect(screen.getByText("Сессий: 2")).toBeInTheDocument();
@@ -133,7 +133,7 @@ describe("CloseBusinessDayDialog", () => {
     await waitFor(() => expect(screen.getByLabelText("Посчитано наличных")).toBeInTheDocument());
     fireEvent.change(screen.getByLabelText("Посчитано наличных"), { target: { value: "5200" } });
 
-    await waitFor(() => expect(screen.getByText(/Расхождение: -100 сом/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Расхождение: −100 сом/)).toBeInTheDocument());
   });
 
   it("closes the day with the entered counted cash and calls onClosed", async () => {
