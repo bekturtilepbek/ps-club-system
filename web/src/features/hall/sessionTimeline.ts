@@ -2,6 +2,7 @@ import type { Tone } from "@/components/ui/tone";
 import type { SessionResponse } from "@/lib/api";
 import { formatClock } from "@/lib/bishkek";
 import { formatAmount } from "@/lib/format";
+import { estimateOpenTimeAmount } from "@/lib/money";
 
 export interface TimelineRow {
   key: string;
@@ -52,12 +53,14 @@ export function sessionTimeline(
         : segment.ends_at
           ? `до ${formatClock(Date.parse(segment.ends_at))}`
           : "";
+    // A running open segment has no final amount yet: show what has accrued so far.
+    const accruing = segment.kind === "open" && segment.ends_at === null && segment.amount === null && startsAtMs <= nowMs;
     rows.push({
       key: `segment-${segment.id}`,
       atMs: startsAtMs,
       title: index === 0 || segment.kind === "open" ? name : `Продление: ${name}`,
       note,
-      amount: segment.amount,
+      amount: accruing ? estimateOpenTimeAmount(nowMs - startsAtMs, segment.price_snapshot) : segment.amount,
       tone: segment.kind === "open" ? "triangle" : "cross",
     });
   });
