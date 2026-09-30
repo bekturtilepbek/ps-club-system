@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
 import tailwindcssAnimate from "tailwindcss-animate";
 
 const token = (name: string) => `hsl(var(--${name}) / <alpha-value>)`;
@@ -13,10 +14,6 @@ export default {
       screens: { "2xl": "1400px" },
     },
     extend: {
-      screens: {
-        // a 1366×768 till monitor: both rows of consoles must fit without scrolling
-        short: { raw: "(max-height: 820px) and (min-width: 1101px)" },
-      },
       fontFamily: {
         sans: ['"Golos Text"', "system-ui", "sans-serif"],
         display: ["Unbounded", '"Golos Text"', "sans-serif"],
@@ -74,5 +71,11 @@ export default {
       },
     },
   },
-  plugins: [tailwindcssAnimate],
+  plugins: [
+    tailwindcssAnimate,
+    // A 1366×768 till monitor: both rows of consoles must fit without scrolling.
+    // This is a plugin variant, not a raw entry in theme.screens: a non-string screen
+    // makes Tailwind 3.4 disable every max-* and arbitrary min-[…]/max-[…] variant.
+    plugin(({ addVariant }) => addVariant("short", "@media (max-height: 820px) and (min-width: 1101px)")),
+  ],
 } satisfies Config;
