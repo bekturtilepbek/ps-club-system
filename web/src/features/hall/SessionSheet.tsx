@@ -96,14 +96,14 @@ export function SessionSheet({
                   </dd>
                 </div>
               </dl>
-              <Button variant="outline" className="mt-2 w-full" onClick={onBar}>
+              <Button variant="outline" className="mt-2 w-full" onClick={onBar} disabled={stopping}>
                 Добавить из бара
               </Button>
             </section>
           )}
 
           {canExtend && (
-            <Button variant="outline" onClick={onExtend}>
+            <Button variant="outline" onClick={onExtend} disabled={stopping}>
               Продлить
             </Button>
           )}
@@ -112,7 +112,7 @@ export function SessionSheet({
           <Button variant={owes ? "outline" : "default"} onClick={onStop} disabled={stopping}>
             Завершить сессию
           </Button>
-          {owes && <Button onClick={onPay}>Принять {formatAmount(timing.balance)}</Button>}
+          {owes && <Button onClick={onPay} disabled={stopping}>Принять {formatAmount(timing.balance)}</Button>}
         </SheetFooter>
       </SheetContent>
     </Sheet>

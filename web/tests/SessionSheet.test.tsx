@@ -41,7 +41,10 @@ function consoleWithDebt(): HallConsoleResponse {
   };
 }
 
-function renderSheet(handlers: Partial<Record<"onPay" | "onExtend" | "onBar" | "onStop", () => void>> = {}) {
+function renderSheet(
+  handlers: Partial<Record<"onPay" | "onExtend" | "onBar" | "onStop", () => void>> = {},
+  stopping = false,
+) {
   vi.stubGlobal(
     "fetch",
     vi.fn(async () => ({ ok: true, json: async () => [{ id: 2, zone_id: 1, kind: "package", name: "1 час", duration_min: 60, price: 150, hourly_rate: null, is_active: true }] })),
@@ -59,6 +62,7 @@ function renderSheet(handlers: Partial<Record<"onPay" | "onExtend" | "onBar" | "
         onExtend={handlers.onExtend ?? vi.fn()}
         onBar={handlers.onBar ?? vi.fn()}
         onStop={handlers.onStop ?? vi.fn()}
+        stopping={stopping}
       />
     </QueryClientProvider>,
   );
@@ -86,6 +90,14 @@ describe("SessionSheet", () => {
     fireEvent.click(screen.getByRole("button", { name: "Завершить сессию" }));
     expect(onPay).toHaveBeenCalled();
     expect(onStop).toHaveBeenCalled();
+  });
+
+  it("disables every action while a stop is in progress", () => {
+    renderSheet({}, true);
+
+    for (const name of ["Принять 240", "Продлить", "Добавить из бара", "Завершить сессию"]) {
+      expect(screen.getByRole("button", { name })).toBeDisabled();
+    }
   });
 
   it("routes extend and bar to their own sheets", () => {
