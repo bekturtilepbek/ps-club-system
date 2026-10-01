@@ -100,6 +100,7 @@ export function HallPage() {
 
   const extendTarget = dialog.kind === "extend" ? findSession(dialog.sessionId) : undefined;
   const payTarget = dialog.kind === "pay" ? findSession(dialog.sessionId) : undefined;
+  const payConsole = payTarget ? consoles.find((c) => c.session?.id === payTarget.id) : undefined;
   const barTarget = dialog.kind === "bar" ? findSession(dialog.sessionId) : undefined;
 
   function runSessionAction(action: () => Promise<unknown>) {
@@ -306,9 +307,12 @@ export function HallPage() {
           open
           sessionId={payTarget.id}
           balance={payTarget.balance}
-          targetName={consoles.find((c) => c.session?.id === payTarget.id)?.name ?? `Чек №${payTarget.id}`}
+          targetName={payConsole?.name ?? `Чек №${payTarget.id}`}
           onOpenChange={(open) => !open && closeDialog()}
           onPaid={() => {}}
+          onStop={() => finishSession(payTarget.id)}
+          stopLabel={payConsole ? `Остановить ${payConsole.name}` : `Завершить чек №${payTarget.id}`}
+          stopFirst={payConsole === undefined || computeCardTiming(payConsole, nowMs, warnMinutes).status === "package_overtime"}
         />
       )}
       {barTarget && (

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PaymentDialog } from "@/features/hall/PaymentDialog";
 
@@ -26,6 +26,88 @@ describe("PaymentDialog", () => {
     const calls = fetchMock.mock.calls as unknown as [string, RequestInit][];
     const payCall = calls.find(([url]) => url === "/api/sessions/5/payments");
     expect(JSON.parse(payCall![1].body as string)).toEqual({ amount: 100, method: "cash" });
+  });
+
+  describe("after the balance is paid off", () => {
+    function renderStoppable(props: { balance?: number; stopFirst?: boolean } = {}) {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 1 }) }));
+      const handlers = { onOpenChange: vi.fn(), onStop: vi.fn(), onPaid: vi.fn() };
+      render(
+        <QueryClientProvider client={new QueryClient()}>
+          <PaymentDialog
+            open
+            sessionId={5}
+            balance={props.balance ?? 300}
+            targetName="PS5-1"
+            stopLabel="Остановить PS5-1"
+            stopFirst={props.stopFirst}
+            {...handlers}
+          />
+        </QueryClientProvider>,
+      );
+      return handlers;
+    }
+
+    it("offers to stop the session as soon as the full amount is taken", async () => {
+      const { onStop, onOpenChange } = renderStoppable();
+
+      fireEvent.click(screen.getByRole("button", { name: /^Внести/ }));
+
+      expect(await screen.findByText("Оплачено")).toBeInTheDocument();
+      expect(screen.queryByLabelText("Сумма")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Остановить PS5-1" }));
+      expect(onStop).toHaveBeenCalledTimes(1);
+      expect(onOpenChange).not.toHaveBeenCalled();
+    });
+
+    it("keeps the payment form after a partial payment", async () => {
+      renderStoppable();
+
+      fireEvent.change(screen.getByLabelText("Сумма"), { target: { value: "100" } });
+      fireEvent.click(screen.getByRole("button", { name: /^Внести/ }));
+
+      await waitFor(() => expect(screen.getByLabelText("Сумма")).toBeInTheDocument());
+      expect(screen.queryByText("Оплачено")).toBeNull();
+      expect(screen.queryByRole("button", { name: "Остановить PS5-1" })).toBeNull();
+    });
+
+    it("lets the operator leave the session running by just closing", async () => {
+      const { onStop, onOpenChange } = renderStoppable();
+
+      fireEvent.click(screen.getByRole("button", { name: /^Внести/ }));
+      const stop = await screen.findByRole("button", { name: "Остановить PS5-1" });
+      // The sheet also has a corner "×" named "Закрыть"; the footer one is the offer.
+      fireEvent.click(within(stop.parentElement!).getByRole("button", { name: "Закрыть" }));
+
+      expect(onOpenChange).toHaveBeenCalledWith(false);
+      expect(onStop).not.toHaveBeenCalled();
+    });
+
+    it("makes stopping the main button when it is the likely next step", async () => {
+      renderStoppable({ stopFirst: true });
+
+      fireEvent.click(screen.getByRole("button", { name: /^Внести/ }));
+
+      const stop = await screen.findByRole("button", { name: "Остановить PS5-1" });
+      const close = within(stop.parentElement!).getByRole("button", { name: "Закрыть" });
+      expect(stop.className).not.toEqual(close.className);
+      expect(stop.className).toMatch(/bg-fg/); // the filled "default" variant
+      expect(close.className).not.toMatch(/bg-fg/);
+    });
+
+    it("has no such step where stopping is not offered (settling a stopped session)", async () => {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 1 }) }));
+      render(
+        <QueryClientProvider client={new QueryClient()}>
+          <PaymentDialog open sessionId={5} balance={300} onOpenChange={() => {}} onPaid={() => {}} />
+        </QueryClientProvider>,
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: /^Внести/ }));
+
+      await waitFor(() => expect(screen.getByLabelText("Сумма")).toBeInTheDocument());
+      expect(screen.queryByText("Оплачено")).toBeNull();
+    });
   });
 
   describe("closing with money still owed", () => {

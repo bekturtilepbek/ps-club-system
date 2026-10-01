@@ -265,6 +265,45 @@ describe("HallPage", () => {
     expect(screen.getByText("заняты").parentElement).toHaveTextContent("1 из 2 заняты");
   });
 
+  describe("paying a running session", () => {
+    function stubPay() {
+      let hall = snapshot([paidConsole(1, 7, 300)]);
+      const fetchMock = vi.fn(async (url: string) => {
+        if (url === "/api/hall") return { ok: true, json: async () => hall };
+        if (url === "/api/settings") return { ok: true, json: async () => ({ grace_minutes: 3, warn_minutes: 5 }) };
+        if (url === "/api/sessions/7/payments") {
+          hall = snapshot([paidConsole(1, 7, 0)]); // the refetch after the payment sees it settled
+          return { ok: true, json: async () => ({ id: 1 }) };
+        }
+        if (url === "/api/sessions/7/stop") {
+          hall = snapshot([freeConsole(1)]);
+          return { ok: true, json: async () => ({ id: 7, status: "finished", balance: 0 }) };
+        }
+        return { ok: true, json: async () => ({}) };
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      return fetchMock;
+    }
+
+    it("offers to stop the console once it is paid off, then closes everything", async () => {
+      const fetchMock = stubPay();
+      renderHall();
+
+      await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: "Принять 300" }));
+      await waitFor(() => expect(screen.getByText("Оплата · остаток 300 сом")).toBeInTheDocument());
+      fireEvent.click(screen.getByRole("button", { name: /^Внести/ }));
+
+      expect(await screen.findByText("Оплачено")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Остановить PS5-1" }));
+
+      await waitFor(() => expect(screen.queryByText("Оплачено")).not.toBeInTheDocument());
+      const calls = fetchMock.mock.calls as unknown as [string, RequestInit | undefined][];
+      expect(calls.some(([url, init]) => url === "/api/sessions/7/stop" && init?.method === "POST")).toBe(true);
+      await waitFor(() => expect(screen.getByText("Свободна")).toBeInTheDocument());
+    });
+  });
+
   describe("settling a stopped session", () => {
     // Stopping finishes the session, so it drops out of the hall snapshot; the
     // final balance only exists in the stop response itself.

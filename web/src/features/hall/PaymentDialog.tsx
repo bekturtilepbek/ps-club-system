@@ -21,6 +21,16 @@ interface PaymentDialogProps {
   confirmCloseWithBalance?: boolean;
   /** Called after each successful payment with the amount just recorded. */
   onPaid: (amount: number) => void;
+  /**
+   * Once the balance is zero the dialog offers to stop the session right here, so the
+   * operator does not close it and hunt for the stop button. Omit it where the session
+   * is already stopped (settling after a stop).
+   */
+  onStop?: () => void;
+  /** "Остановить PS5-1" / "Завершить чек №5". */
+  stopLabel?: string;
+  /** Stopping is the likely next step (package over, walk-in bill): make it the main button. */
+  stopFirst?: boolean;
 }
 
 const METHODS: { value: PaymentMethod; label: string }[] = [
@@ -36,8 +46,12 @@ export function PaymentDialog({
   onOpenChange,
   confirmCloseWithBalance = false,
   onPaid,
+  onStop,
+  stopLabel = "Остановить сессию",
+  stopFirst = false,
 }: PaymentDialogProps) {
   const [confirmingClose, setConfirmingClose] = useState(false);
+  const [settledNow, setSettledNow] = useState(false);
   const [amount, setAmount] = useState(String(balance));
   const [method, setMethod] = useState<PaymentMethod>("cash");
   const queryClient = useQueryClient();
@@ -48,12 +62,16 @@ export function PaymentDialog({
       queryClient.invalidateQueries({ queryKey: HALL_QUERY_KEY });
       onPaid(paidAmount);
       setAmount("");
+      // Don't wait for the hall refetch to show the "paid" step.
+      if (paidAmount >= balance) setSettledNow(true);
     },
   });
 
   // The API takes whole som (int): the label and the request both use the rounded value.
   const amountValue = Math.round(Number(amount));
   const isValidAmount = amount.trim() !== "" && Number.isFinite(amountValue) && amountValue > 0;
+
+  const paidInFull = onStop !== undefined && (balance <= 0 || settledNow);
 
   const handleOpenChange = (next: boolean) => {
     if (!next && confirmCloseWithBalance && balance > 0) {
@@ -67,6 +85,48 @@ export function PaymentDialog({
     <>
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent tone="muted">
+        {paidInFull ? (
+          <>
+            <SheetHeader>
+              <SheetTitle>Оплачено</SheetTitle>
+              {targetName && <StateChip tone="muted">{targetName}</StateChip>}
+            </SheetHeader>
+            <SheetBody>
+              <div className="flex items-center gap-3.5 rounded-xl border border-line bg-bg px-3.5 py-4">
+                <span aria-hidden className="text-3xl font-bold text-status-triangle">
+                  ✓
+                </span>
+                <span>
+                  <b className="block text-[17px] font-semibold">Остаток 0 сом</b>
+                  <span className="text-[13.5px] text-fg-muted">
+                    {stopFirst
+                      ? "Гости уходят? Остановите сессию."
+                      : "Если гости ещё играют — просто закройте окно."}
+                  </span>
+                </span>
+              </div>
+            </SheetBody>
+            <SheetFooter>
+              <Button
+                size="lg"
+                className="flex-1"
+                variant={stopFirst ? "default" : "outline"}
+                onClick={() => onStop?.()}
+              >
+                {stopLabel}
+              </Button>
+              <Button
+                size="lg"
+                className="flex-1"
+                variant={stopFirst ? "outline" : "default"}
+                onClick={() => onOpenChange(false)}
+              >
+                Закрыть
+              </Button>
+            </SheetFooter>
+          </>
+        ) : (
+          <>
         <SheetHeader>
           <SheetTitle>Оплата · остаток {formatSom(balance)}</SheetTitle>
           {targetName && <StateChip tone="muted">{targetName}</StateChip>}
@@ -111,6 +171,8 @@ export function PaymentDialog({
             Внести{isValidAmount ? ` ${formatSom(amountValue)}` : ""}
           </Button>
         </SheetFooter>
+          </>
+        )}
       </SheetContent>
     </Sheet>
     <Dialog open={confirmingClose} onOpenChange={setConfirmingClose}>
