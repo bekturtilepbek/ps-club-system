@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LoginPage } from "@/features/auth/LoginPage";
 
@@ -29,6 +29,27 @@ describe("LoginPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Показать" }));
     expect(input).toHaveAttribute("type", "text");
     expect(screen.getByRole("button", { name: "Скрыть" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("tells the operator when too many wrong passwords locked the login", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) =>
+        url === "/api/auth/login"
+          ? { ok: false, status: 429, json: async () => ({ detail: "too many failed attempts" }) }
+          : { ok: true, json: async () => ({ authenticated: false }) },
+      ),
+    );
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <LoginPage />
+      </QueryClientProvider>,
+    );
+
+    fireEvent.change(screen.getByLabelText("Пароль"), { target: { value: "x" } });
+    fireEvent.click(screen.getByRole("button", { name: "Войти" }));
+
+    await waitFor(() => expect(screen.getByText(/Слишком много неверных попыток/)).toBeInTheDocument());
   });
 
   it("warns about Caps Lock", () => {

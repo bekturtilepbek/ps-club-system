@@ -8,6 +8,7 @@ from sqladmin.authentication import AuthenticationBackend
 from starlette.responses import RedirectResponse
 
 from core.auth.password import verify_password
+from core.auth.throttle import login_throttle
 from core.config import settings
 from core.db.models import AuditLog, Console, Product, Setting, Tariff, Zone
 from core.db.session import async_session_factory, engine
@@ -123,10 +124,15 @@ class SettingAdmin(ModelView, model=Setting):
 
 class AdminAuth(AuthenticationBackend):
     async def login(self, request: Request) -> bool:
+        client = request.client.host if request.client else "unknown"
+        if login_throttle.retry_after(client):
+            return False
         form = await request.form()
         password = form.get("password")
         if not password or not verify_password(str(password), settings.admin_password_hash):
+            login_throttle.record_failure(client)
             return False
+        login_throttle.reset(client)
         request.session["authenticated"] = True
         return True
 

@@ -68,7 +68,11 @@ export function LoginPage() {
           {capsLock && <p className="mt-2 text-[13.5px] text-status-amber-text">Включён Caps Lock</p>}
           {loginError && (
             <p role="alert" className="mt-2 text-[13.5px] text-status-circle">
-              {loginError instanceof ApiError && loginError.status === 401 ? "Неверный пароль" : "Не удалось войти"}
+              {loginError instanceof ApiError && loginError.status === 401
+                ? "Неверный пароль"
+                : loginError instanceof ApiError && loginError.status === 429
+                  ? "Слишком много неверных попыток. Подождите 15 минут."
+                  : "Не удалось войти"}
             </p>
           )}
         </div>

@@ -1,11 +1,13 @@
 import os
 from collections.abc import AsyncGenerator
 
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from core.api.main import app
+from core.auth.throttle import login_throttle
 from core.db.base import Base
 from core.db.models import *  # noqa: F401,F403
 from core.db.session import get_session
@@ -13,6 +15,14 @@ from core.db.session import get_session
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL", "postgresql+asyncpg://psclub:psclub@localhost:5433/psclub_test"
 )
+
+
+@pytest.fixture(autouse=True)
+def _fresh_login_throttle():
+    """The throttle is process-wide state; one test's failed logins must not lock out the next."""
+    login_throttle._failures.clear()
+    yield
+    login_throttle._failures.clear()
 
 
 async def _build_client(*, auto_login: bool) -> AsyncGenerator[AsyncClient, None]:
