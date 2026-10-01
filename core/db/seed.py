@@ -13,8 +13,8 @@ async def seed_dev_data() -> None:
         for i in range(1, 4):
             db.add(Console(zone_id=zone.id, name=f"PS5-{i}", plug_driver="manual", is_active=True))
 
-        # Package prices are the owner's real ones. The open-time hourly rate and the package
-        # names are still PLACEHOLDERS (docs/OWNER_QUESTIONS.md question 2) - fix in /admin.
+        # The owner's real prices (docs/OWNER_QUESTIONS.md, "Решено"); open time costs the
+        # same per hour as the 1-hour package. Change them in /admin.
         db.add(
             Tariff(
                 zone_id=zone.id, kind=TariffKind.package, name="1 час", duration_min=60, price=180
@@ -39,7 +39,7 @@ async def seed_dev_data() -> None:
             )
         )
         db.add(
-            Tariff(zone_id=zone.id, kind=TariffKind.open, name="Открытое время", hourly_rate=120)
+            Tariff(zone_id=zone.id, kind=TariffKind.open, name="Открытое время", hourly_rate=180)
         )
 
         db.add(Setting(key="grace_minutes", value="1"))
