@@ -84,6 +84,12 @@ class DaySummary:
     bar_sales_total: int
     has_active_sessions: bool
 
+    @property
+    def revenue_total(self) -> int:
+        """Everything received during the day, cash and transfers together (each of the two
+        is still reported on its own too - CLAUDE.md rule 10). Unpaid balances are not in it."""
+        return self.cash_total + self.transfer_total
+
 
 async def summaries_for_days(
     db: AsyncSession, *, days: list[BusinessDay], now: datetime

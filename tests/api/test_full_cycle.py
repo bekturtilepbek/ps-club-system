@@ -38,7 +38,7 @@ async def _seed_reference_data():
 async def test_full_session_cycle_through_the_api(client):
     console_id, package_id, open_id = await _seed_reference_data()
 
-    await client.post("/api/business-days/open", json={"opening_cash": 5000})
+    day = (await client.post("/api/business-days/open", json={"opening_cash": 5000})).json()
 
     # start a package
     started = await client.post(
@@ -87,3 +87,11 @@ async def test_full_session_cycle_through_the_api(client):
     final = await client.get(f"/api/sessions/{session_id}")
     assert final.json()["balance"] == 0
     assert final.json()["paid_total"] == balance_due
+
+    # the day's revenue is everything received, both methods together (and each still apart)
+    summary = (await client.get(f"/api/business-days/{day['id']}/summary")).json()
+    assert summary["cash_total"] == first_payment
+    assert summary["transfer_total"] == remainder
+    assert summary["revenue_total"] == balance_due
+    [history_row] = (await client.get("/api/business-days")).json()
+    assert history_row["revenue_total"] == balance_due

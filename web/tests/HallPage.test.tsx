@@ -227,7 +227,7 @@ describe("HallPage", () => {
         return {
           ok: true,
           json: async () => ({
-            opening_cash: 2000, cash_total: 3830, transfer_total: 600, expected_cash: 5830,
+            opening_cash: 2000, cash_total: 3830, transfer_total: 600, revenue_total: 4430, expected_cash: 5830,
             sessions_count: 23, minutes_total: 1900, bar_sales_total: 690, has_active_sessions: true,
           }),
         };
@@ -239,6 +239,8 @@ describe("HallPage", () => {
     const till = await screen.findByRole("region", { name: "Касса дня" });
     await waitFor(() => expect(within(till).getByText("5 830")).toBeInTheDocument());
     expect(within(till).getByText("600")).toBeInTheDocument();
+    expect(within(till).getByText("Выручка за день")).toBeInTheDocument();
+    expect(within(till).getByText("4 430")).toBeInTheDocument();
     expect(within(till).getByText("23 сессии · 31 ч 40 мин · бар 690")).toBeInTheDocument();
   });
 

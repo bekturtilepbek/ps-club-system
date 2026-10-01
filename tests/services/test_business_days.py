@@ -183,6 +183,7 @@ async def test_day_summary_breaks_down_payments_by_method(db_session):
     assert summary.opening_cash == 5000
     assert summary.cash_total == 300
     assert summary.transfer_total == 300
+    assert summary.revenue_total == 600  # cash and transfers together, no opening cash
     assert summary.expected_cash == 5300
     assert summary.has_active_sessions is False
 

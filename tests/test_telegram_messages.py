@@ -32,6 +32,7 @@ def test_format_day_summary_includes_every_breakdown_line():
 
     text = format_day_summary(day, summary)
 
+    assert "Выручка за день: 500 сом" in text  # 300 cash + 200 transfer
     assert "300" in text and "200" in text
     assert "5300" in text
     assert "3" in text

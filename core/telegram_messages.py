@@ -22,6 +22,7 @@ def format_day_summary(day: BusinessDay, summary: DaySummary) -> str:
         f"Итоги дня — {opened_at:%d.%m %H:%M} — {closed_at:%d.%m %H:%M}"
         if closed_at is not None
         else f"Итоги дня — {opened_at:%d.%m %H:%M}",
+        f"Выручка за день: {summary.revenue_total} сом",
         f"Наличные: {summary.cash_total} сом (ожидалось {summary.expected_cash}, "
         f"посчитано {day.counted_cash})",
         f"Перевод: {summary.transfer_total} сом",

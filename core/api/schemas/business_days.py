@@ -28,6 +28,7 @@ class BusinessDaySummaryResponse(BaseModel):
     opening_cash: int
     cash_total: int
     transfer_total: int
+    revenue_total: int
     expected_cash: int
     sessions_count: int
     minutes_total: int
@@ -42,6 +43,7 @@ class BusinessDayHistoryItem(BusinessDayResponse):
 
     cash_total: int
     transfer_total: int
+    revenue_total: int
     sessions_count: int
     minutes_total: int
     free_minutes_total: int

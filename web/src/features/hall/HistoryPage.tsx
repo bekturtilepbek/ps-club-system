@@ -51,7 +51,8 @@ export function HistoryPage({ onBack }: { onBack: () => void }) {
             aria-label="Итого за период"
             className="mb-4 grid w-fit max-w-full grid-cols-2 rounded-xl border border-line bg-surface sm:flex"
           >
-            <Total label="Наличные за период" value={formatAmount(sum((d) => d.cash_total))} big />
+            <Total label="Выручка за период" value={formatAmount(sum((d) => d.revenue_total))} big />
+            <Total label="Наличные" value={formatAmount(sum((d) => d.cash_total))} />
             <Total label="Перевод" value={formatAmount(sum((d) => d.transfer_total))} />
             <Total
               label="Расхождения"
@@ -152,6 +153,9 @@ function DaySheet({ day, onClose }: { day: BusinessDayHistoryItem; onClose: () =
           </StateChip>
         </SheetHeader>
         <SheetBody>
+          <Section title="Выручка">
+            <Row label="Всего за день" note="наличные + переводы, без остатка на начало" value={formatAmount(day.revenue_total)} />
+          </Section>
           <Section title="Наличные">
             <Row label="На начало" value={formatAmount(day.opening_cash)} />
             <Row label="Пришло за день" value={`+${formatAmount(day.cash_total)}`} />

@@ -56,6 +56,7 @@ async def test_business_day_summary(client):
     body = response.json()
     assert body["opening_cash"] == 5000
     assert body["expected_cash"] == 5000
+    assert body["revenue_total"] == 0  # opening cash is not revenue
     assert body["has_active_sessions"] is False
 
 
@@ -167,6 +168,7 @@ async def test_history_list_carries_each_days_totals(client):
     for key in (
         "cash_total",
         "transfer_total",
+        "revenue_total",
         "sessions_count",
         "minutes_total",
         "free_minutes_total",

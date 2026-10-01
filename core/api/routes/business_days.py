@@ -103,6 +103,7 @@ async def list_days(
             BusinessDayHistoryItem(
                 **BusinessDayResponse.model_validate(day).model_dump(),
                 cash_total=summary.cash_total,
+                revenue_total=summary.revenue_total,
                 transfer_total=summary.transfer_total,
                 sessions_count=summary.sessions_count,
                 minutes_total=summary.minutes_total,

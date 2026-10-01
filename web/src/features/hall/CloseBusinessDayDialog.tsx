@@ -121,6 +121,17 @@ export function CloseBusinessDayDialog({
                 <>
                   <div className="flex items-baseline gap-2.5 py-2 text-sm">
                     <span className="flex-1 text-fg-muted">
+                      Выручка за день
+                      <small className="block text-[11.5px] text-fg-faint">
+                        наличные {formatAmount(summary.cash_total)} + переводы {formatAmount(summary.transfer_total)}
+                      </small>
+                    </span>
+                    <span data-testid="day-revenue" className="num text-xl font-bold">
+                      {formatSom(summary.revenue_total)}
+                    </span>
+                  </div>
+                  <div className="flex items-baseline gap-2.5 py-2 text-sm">
+                    <span className="flex-1 text-fg-muted">
                       Должно быть в кассе
                       <small className="block text-[11.5px] text-fg-faint">
                         {formatAmount(summary.opening_cash)} на начало + {formatAmount(summary.cash_total)} за день

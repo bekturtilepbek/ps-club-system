@@ -11,8 +11,8 @@ const DAY = {
   expected_cash: 5300,
   counted_cash: 5200,
   cash_total: 300,
-  
   transfer_total: 450,
+  revenue_total: 750,
   sessions_count: 27,
   minutes_total: 2290,
   free_minutes_total: 80,
@@ -56,6 +56,8 @@ describe("HistoryPage", () => {
   it("totals the period with each payment method on its own", async () => {
     renderPage([DAY, { ...DAY, id: 5, opened_at: "2026-09-23T04:00:00Z", closed_at: "2026-09-23T20:00:00Z", counted_cash: 5300 }]);
     const totals = await screen.findByRole("region", { name: "Итого за период" });
+    expect(within(totals).getByText("Выручка за период")).toBeInTheDocument();
+    expect(within(totals).getByText("1 500")).toBeInTheDocument(); // revenue 750 × 2
     expect(within(totals).getByText("900")).toBeInTheDocument(); // transfer 450 × 2
   });
 
@@ -63,6 +65,7 @@ describe("HistoryPage", () => {
     renderPage([DAY]);
     fireEvent.click(await screen.findByRole("button", { name: /чт, 24\.09/ }));
     const sheet = await screen.findByRole("dialog", { name: "чт, 24.09" });
+    expect(within(sheet).getByText("Всего за день").closest("div")).toHaveTextContent("750");
     expect(within(sheet).getByText("Перевод").closest("div")).toHaveTextContent("450");
     expect(within(sheet).getByText("Бесплатно").closest("div")).toHaveTextContent("1 ч 20 мин");
   });
