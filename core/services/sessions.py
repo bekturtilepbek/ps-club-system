@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -48,6 +48,26 @@ def _new_segment_from_tariff(
     )
 
 
+def normalize_game(game: str | None) -> str | None:
+    """Trim and collapse whitespace so "  FIFA   25 " and "FIFA 25" count as one game;
+    blank means "not said"."""
+    cleaned = " ".join((game or "").split())
+    return cleaned or None
+
+
+async def list_recent_games(db: AsyncSession, *, limit: int = 30) -> list[str]:
+    """Game names typed before, most used first - offered as suggestions at session start
+    so the spelling stays consistent for analytics."""
+    result = await db.execute(
+        select(SessionModel.game)
+        .where(SessionModel.game.is_not(None))
+        .group_by(SessionModel.game)
+        .order_by(func.count().desc(), func.max(SessionModel.started_at).desc())
+        .limit(limit)
+    )
+    return list(result.scalars().all())
+
+
 async def start_session(
     db: AsyncSession,
     *,
@@ -57,6 +77,7 @@ async def start_session(
     reason: str | None,
     comment: str | None,
     now: datetime,
+    game: str | None = None,
 ) -> SessionModel:
     console = await db.get(Console, console_id)
     if console is None or not console.is_active:
@@ -90,6 +111,7 @@ async def start_session(
         started_at=now,
         grace_until=grace_until,
         comment=comment,
+        game=normalize_game(game),
     )
 
     if kind == SessionKind.paid:

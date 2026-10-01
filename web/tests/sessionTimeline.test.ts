@@ -13,7 +13,7 @@ function session(overrides: Partial<SessionResponse>): SessionResponse {
     started_at: "2026-09-29T14:31:00Z",
     grace_until: "2026-09-29T14:34:00Z",
     ended_at: null,
-    comment: null,
+    comment: null, game: null,
     segments: [],
     orders: [],
     charge_total: 0,

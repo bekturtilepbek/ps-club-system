@@ -25,7 +25,7 @@ function activeConsole(id: number, sessionId: number, balance: number): HallCons
       started_at: now,
       grace_until: now,
       ended_at: null,
-      comment: null,
+      comment: null, game: null,
       segments: [],
       orders: [],
       charge_total: balance,
@@ -99,7 +99,7 @@ describe("CloseBusinessDayDialog", () => {
       tickets: [
         {
           id: 20, console_id: null, business_day_id: 1, kind: "paid", reason: null, status: "active",
-          started_at: new Date().toISOString(), grace_until: null, ended_at: null, comment: null,
+          started_at: new Date().toISOString(), grace_until: null, ended_at: null, comment: null, game: null,
           segments: [], orders: [], charge_total: 80, paid_total: 0, balance: 80,
         },
       ],

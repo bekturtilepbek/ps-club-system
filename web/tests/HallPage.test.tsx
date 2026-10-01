@@ -35,7 +35,7 @@ function paidConsole(id: number, sessionId: number, balance: number): HallConsol
       started_at: new Date(now - 10 * 60_000).toISOString(),
       grace_until: new Date(now - 7 * 60_000).toISOString(),
       ended_at: null,
-      comment: null,
+      comment: null, game: null,
       segments: [
         {
           id: 1,
@@ -70,7 +70,7 @@ function ticket(id: number, balance: number, orders: HallSnapshotResponse["ticke
     started_at: now,
     grace_until: null, // a ticket has no grace period (Task 4)
     ended_at: null,
-    comment: null,
+    comment: null, game: null,
     segments: [],
     orders,
     charge_total: orders.reduce((sum, o) => sum + o.qty * o.unit_price, 0),

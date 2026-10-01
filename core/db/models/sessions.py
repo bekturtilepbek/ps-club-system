@@ -51,6 +51,8 @@ class Session(Base):
     grace_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     comment: Mapped[str | None] = mapped_column(Text, default=None)
+    # What the guests said they would play (optional, for analytics; not verified).
+    game: Mapped[str | None] = mapped_column(String(100), default=None)
 
     segments: Mapped[list["SessionSegment"]] = relationship(
         "SessionSegment",

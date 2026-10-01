@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from core.api.schemas.bar import OrderResponse
 from core.db.models import SegmentKind, SessionKind, SessionStatus
@@ -13,6 +13,7 @@ class SessionStartRequest(BaseModel):
     tariff_id: int | None = None
     reason: str | None = None
     comment: str | None = None
+    game: str | None = Field(default=None, max_length=100)
 
 
 class SessionExtendRequest(BaseModel):
@@ -42,6 +43,7 @@ class SessionResponse(BaseModel):
     grace_until: datetime | None
     ended_at: datetime | None
     comment: str | None
+    game: str | None
     segments: list[SegmentResponse]
     orders: list[OrderResponse]
     charge_total: int
@@ -67,6 +69,7 @@ def build_session_response(
         grace_until=session.grace_until,
         ended_at=session.ended_at,
         comment=session.comment,
+        game=session.game,
         segments=[SegmentResponse.model_validate(s) for s in session.segments],
         orders=[OrderResponse.model_validate(o) for o in session.orders],
         charge_total=charge_total,

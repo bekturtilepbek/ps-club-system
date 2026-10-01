@@ -28,9 +28,11 @@ const REASONS = ["Друзья владельца", "Компенсация"];
 export function StartSessionDialog({ open, consoleId, consoleName, onOpenChange, onStarted }: StartSessionDialogProps) {
   const tariffsQuery = useQuery({ queryKey: ["tariffs"], queryFn: api.tariffs, enabled: open });
   const settingsQuery = useQuery({ queryKey: ["settings"], queryFn: api.settings, enabled: open });
+  const gamesQuery = useQuery({ queryKey: ["recent-games"], queryFn: api.recentGames, enabled: open });
   const [kind, setKind] = useState<SessionKind>("paid");
   const [tariffId, setTariffId] = useState<number | null>(null);
   const [reason, setReason] = useState("");
+  const [game, setGame] = useState("");
   const queryClient = useQueryClient();
 
   const tariffs = tariffsQuery.data ?? [];
@@ -67,6 +69,7 @@ export function StartSessionDialog({ open, consoleId, consoleName, onOpenChange,
         kind,
         tariff_id: kind === "paid" ? tariffId : null,
         reason: kind === "free" ? reason : null,
+        game: kind === "service" ? null : game.trim() || null,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: HALL_QUERY_KEY });
@@ -150,6 +153,28 @@ export function StartSessionDialog({ open, consoleId, consoleName, onOpenChange,
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {kind !== "service" && (
+            <div>
+              <label htmlFor="game" className="field-label">
+                Во что играют <span className="font-normal normal-case text-fg-faint">(по желанию)</span>
+              </label>
+              <Input
+                id="game"
+                value={game}
+                maxLength={100}
+                list="recent-games"
+                autoComplete="off"
+                onChange={(event) => setGame(event.target.value)}
+                placeholder="Например: FIFA 25"
+              />
+              <datalist id="recent-games">
+                {(Array.isArray(gamesQuery.data) ? gamesQuery.data : []).map((name) => (
+                  <option key={name} value={name} />
+                ))}
+              </datalist>
             </div>
           )}
 

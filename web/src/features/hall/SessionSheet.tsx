@@ -60,6 +60,11 @@ export function SessionSheet({
           </StateChip>
         </SheetHeader>
         <SheetBody>
+          {session.game && (
+            <p className="text-[13.5px] text-fg-muted">
+              Играют: <b className="font-medium text-fg">{session.game}</b>
+            </p>
+          )}
           <section>
             <h3 className="field-label">Отрезки</h3>
             <ol className="grid">

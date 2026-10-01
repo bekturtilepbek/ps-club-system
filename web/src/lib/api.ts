@@ -71,7 +71,9 @@ export const api = {
     kind: SessionKind;
     tariff_id?: number | null;
     reason?: string | null;
+    game?: string | null;
   }) => request<SessionResponse>("/api/sessions", { method: "POST", body: JSON.stringify(body) }),
+  recentGames: () => request<string[]>("/api/sessions/games"),
   extendSession: (sessionId: number, tariffId: number) =>
     request<SessionResponse>(`/api/sessions/${sessionId}/extend`, {
       method: "POST",

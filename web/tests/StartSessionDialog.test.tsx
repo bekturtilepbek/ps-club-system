@@ -44,6 +44,59 @@ describe("StartSessionDialog", () => {
     expect(JSON.parse(startCall![1].body as string)).toMatchObject({ console_id: 1, kind: "paid", tariff_id: 1 });
   });
 
+  it("sends the game when one is typed, and null when it is left empty", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/tariffs") {
+        return {
+          ok: true,
+          json: async () => [
+            { id: 1, zone_id: 1, kind: "package", name: "1 час", duration_min: 60, price: 150, hourly_rate: null, is_active: true },
+          ],
+        };
+      }
+      if (url === "/api/sessions/games") return { ok: true, json: async () => ["FIFA 25"] };
+      return { ok: true, json: async () => ({ id: 1 }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { onStarted } = renderDialog();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /^1 час/ })).toBeInTheDocument());
+    await waitFor(() => expect(document.querySelectorAll("#recent-games option")).toHaveLength(1));
+    fireEvent.click(screen.getByRole("button", { name: /^1 час/ }));
+    fireEvent.change(screen.getByLabelText(/Во что играют/), { target: { value: " Mortal Kombat " } });
+    fireEvent.click(screen.getByRole("button", { name: /^Начать на PS5-1/ }));
+
+    await waitFor(() => expect(onStarted).toHaveBeenCalled());
+    const calls = fetchMock.mock.calls as unknown as [string, RequestInit][];
+    const startCall = calls.find(([url, init]) => url === "/api/sessions" && init?.method === "POST");
+    expect(JSON.parse(startCall![1].body as string)).toMatchObject({ game: "Mortal Kombat" });
+  });
+
+  it("sends no game when the field is left empty", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "/api/tariffs") {
+        return {
+          ok: true,
+          json: async () => [
+            { id: 1, zone_id: 1, kind: "package", name: "1 час", duration_min: 60, price: 150, hourly_rate: null, is_active: true },
+          ],
+        };
+      }
+      return { ok: true, json: async () => ({ id: 1 }) };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { onStarted } = renderDialog();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /^1 час/ })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /^1 час/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Начать на PS5-1/ }));
+
+    await waitFor(() => expect(onStarted).toHaveBeenCalled());
+    const calls = fetchMock.mock.calls as unknown as [string, RequestInit][];
+    const startCall = calls.find(([url, init]) => url === "/api/sessions" && init?.method === "POST");
+    expect(JSON.parse(startCall![1].body as string).game).toBeNull();
+  });
+
   it("shows an error message when starting the session fails", async () => {
     const fetchMock = vi.fn(async (url: string) => {
       if (url === "/api/tariffs") {

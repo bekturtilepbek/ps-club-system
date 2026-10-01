@@ -90,3 +90,58 @@ async def test_paying_a_non_positive_amount_is_422(client):
         f"/api/sessions/{session_id}/payments", json={"amount": 0, "method": "cash"}
     )
     assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_start_session_records_the_optional_game(client):
+    console_id, package_id = await _setup(client)
+
+    response = await client.post(
+        "/api/sessions",
+        json={"console_id": console_id, "tariff_id": package_id, "game": "  FIFA   25 "},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["game"] == "FIFA 25"  # trimmed, inner whitespace collapsed
+
+
+@pytest.mark.asyncio
+async def test_game_is_optional_and_blank_means_not_said(client):
+    console_id, package_id = await _setup(client)
+
+    response = await client.post(
+        "/api/sessions",
+        json={"console_id": console_id, "tariff_id": package_id, "game": "   "},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["game"] is None
+
+
+@pytest.mark.asyncio
+async def test_a_too_long_game_name_is_rejected(client):
+    console_id, package_id = await _setup(client)
+
+    response = await client.post(
+        "/api/sessions",
+        json={"console_id": console_id, "tariff_id": package_id, "game": "x" * 101},
+    )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_recent_games_lists_the_most_played_first(client):
+    console_id, package_id = await _setup(client)
+    for game in ["FIFA 25", "Mortal Kombat", "FIFA 25", None]:
+        started = await client.post(
+            "/api/sessions",
+            json={"console_id": console_id, "tariff_id": package_id, "game": game},
+        )
+        assert started.status_code == 200
+        await client.post(f"/api/sessions/{started.json()['id']}/stop")
+
+    response = await client.get("/api/sessions/games")
+
+    assert response.status_code == 200
+    assert response.json() == ["FIFA 25", "Mortal Kombat"]

@@ -25,7 +25,7 @@ function consoleWithDebt(): HallConsoleResponse {
       started_at: "2026-09-29T17:44:00Z",
       grace_until: "2026-09-29T17:47:00Z",
       ended_at: null,
-      comment: null,
+      comment: null, game: null,
       segments: [
         { id: 1, tariff_id: 2, kind: "package", starts_at: "2026-09-29T17:44:00Z", ends_at: "2026-09-29T18:47:00Z", price_snapshot: 150, amount: 150 },
       ],
@@ -44,7 +44,10 @@ function consoleWithDebt(): HallConsoleResponse {
 function renderSheet(
   handlers: Partial<Record<"onPay" | "onExtend" | "onBar" | "onStop", () => void>> = {},
   stopping = false,
+  game: string | null = null,
 ) {
+  const consoleView = consoleWithDebt();
+  consoleView.session!.game = game;
   vi.stubGlobal(
     "fetch",
     vi.fn(async () => ({ ok: true, json: async () => [{ id: 2, zone_id: 1, kind: "package", name: "1 час", duration_min: 60, price: 150, hourly_rate: null, is_active: true }] })),
@@ -54,7 +57,7 @@ function renderSheet(
       <SessionSheet
         open
         onOpenChange={() => {}}
-        consoleView={consoleWithDebt()}
+        consoleView={consoleView}
         nowMs={NOW}
         warnMinutes={5}
         productName={(id) => (id === 1 ? "Кола" : "Сэндвич")}
@@ -70,6 +73,16 @@ function renderSheet(
 
 describe("SessionSheet", () => {
   afterEach(() => vi.unstubAllGlobals());
+
+  it("names the game the guests said they would play, when there is one", () => {
+    renderSheet({}, false, "FIFA 25");
+    expect(screen.getByText("FIFA 25")).toBeInTheDocument();
+  });
+
+  it("says nothing about a game when none was recorded", () => {
+    renderSheet();
+    expect(screen.queryByText(/Играют/)).toBeNull();
+  });
 
   it("shows the timeline, the bill and what the bar debt is made of", async () => {
     renderSheet();
