@@ -697,7 +697,7 @@ button.day-row:hover { background: var(--surface-2); }
       <h2 class="section-title">Касса дня</h2>
       <div class="feed-till">
         <div class="till-row"><span class="k">Наличные в кассе<small>2 000 на начало + 3 830 за день</small></span><span class="v">5 830</span></div>
-        <div class="till-row"><span class="k">QR<small>сверить в MBank / O!Dengi</small></span><span class="v">2 150</span></div>
+        <div class="till-row"><span class="k">QR</span><span class="v">2 150</span></div>
         <div class="till-row"><span class="k">Перевод по номеру</span><span class="v">600</span></div>
       </div>
       <h2 class="section-title" style="margin-top:24px">Лента дня</h2>
@@ -1247,7 +1247,7 @@ function openDay(d) {
       <div class="till-row total"><span class="k">Расхождение</span><span class="v" style="color:${diff < 0 ? "var(--circle)" : diff ? "var(--text)" : "var(--triangle)"}">${diffText}${diff ? '<span class="cur">сом</span>' : ""}</span></div>
     </div></div>
     <div><span class="field-label">Безнал · сверяется по банку</span><div class="billbox">
-      <div class="till-row"><span class="k">QR<small>MBank, O!Dengi</small></span><span class="v">${som(d.qr)}</span></div>
+      <div class="till-row"><span class="k">QR</span><span class="v">${som(d.qr)}</span></div>
       <div class="till-row"><span class="k">Перевод по номеру</span><span class="v">${som(d.transfer)}</span></div>
     </div></div>
     <div><span class="field-label">Зал</span><div class="billbox">

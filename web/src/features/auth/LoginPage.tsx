@@ -34,7 +34,7 @@ export function LoginPage() {
         </div>
         <div>
           <h1 className="font-display text-[34px] font-extrabold tracking-tight">
-            PS<span className="font-medium text-fg-muted">·клуб</span>
+            PS<span className="font-medium text-fg-muted">-клуб</span>
           </h1>
           <p className="text-sm text-fg-muted">Касса клуба. Один пароль на весь клуб.</p>
         </div>

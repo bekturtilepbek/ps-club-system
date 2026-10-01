@@ -53,7 +53,7 @@ export function PaymentDialog({
   const [confirmingClose, setConfirmingClose] = useState(false);
   const [settledNow, setSettledNow] = useState(false);
   const [amount, setAmount] = useState(String(balance));
-  const [method, setMethod] = useState<PaymentMethod>("cash");
+  const [method, setMethod] = useState<PaymentMethod>("transfer");
   const queryClient = useQueryClient();
 
   const payMutation = useMutation({

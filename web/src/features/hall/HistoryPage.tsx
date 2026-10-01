@@ -170,7 +170,7 @@ function DaySheet({ day, onClose }: { day: BusinessDayHistoryItem; onClose: () =
             />
           </Section>
           <Section title="Безнал · сверяется по банку">
-            <Row label="Перевод" note="MBank, O!Dengi" value={formatAmount(day.transfer_total)} />
+            <Row label="Перевод" value={formatAmount(day.transfer_total)} />
           </Section>
           <Section title="Зал">
             <Row label="Сессий" value={String(day.sessions_count)} />

@@ -6,6 +6,27 @@ import { PaymentDialog } from "@/features/hall/PaymentDialog";
 describe("PaymentDialog", () => {
   afterEach(() => vi.unstubAllGlobals());
 
+  it("takes the payment as a transfer unless the operator picks cash", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 1 }) });
+    vi.stubGlobal("fetch", fetchMock);
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <PaymentDialog open sessionId={5} balance={300} onOpenChange={() => {}} onPaid={() => {}} />
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByRole("button", { name: "Перевод" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: /^Внести/ }));
+
+    await waitFor(() => {
+      const calls = fetchMock.mock.calls as unknown as [string, RequestInit][];
+      expect(calls.some(([url]) => url === "/api/sessions/5/payments")).toBe(true);
+    });
+    const calls = fetchMock.mock.calls as unknown as [string, RequestInit][];
+    const payCall = calls.find(([url]) => url === "/api/sessions/5/payments");
+    expect(JSON.parse(payCall![1].body as string)).toEqual({ amount: 300, method: "transfer" });
+  });
+
   it("submits a cash payment for the entered amount", async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 1 }) });
     vi.stubGlobal("fetch", fetchMock);

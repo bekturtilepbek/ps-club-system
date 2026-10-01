@@ -241,6 +241,10 @@ describe("HallPage", () => {
     expect(within(till).getByText("600")).toBeInTheDocument();
     expect(within(till).getByText("Выручка за день")).toBeInTheDocument();
     expect(within(till).getByText("4 430")).toBeInTheDocument();
+    // the headline is split into its two parts, and the drawer figure is explained
+    expect(within(till).getByText("3 830")).toBeInTheDocument(); // cash taken
+    expect(within(till).getByText("Должно быть в кассе")).toBeInTheDocument();
+    expect(within(till).getByText("2 000 на начало + 3 830 наличные")).toBeInTheDocument();
     expect(within(till).getByText("23 сессии · 31 ч 40 мин · бар 690")).toBeInTheDocument();
   });
 
@@ -349,6 +353,7 @@ describe("HallPage", () => {
       await waitFor(() => expect(screen.getByText("Оплата · остаток 150 сом")).toBeInTheDocument());
 
       fireEvent.change(screen.getByLabelText("Сумма"), { target: { value: "100" } });
+      fireEvent.click(screen.getByRole("button", { name: "Наличные" }));
       fireEvent.click(screen.getByRole("button", { name: /^Внести/ }));
       await waitFor(() => expect(screen.getByText("Оплата · остаток 50 сом")).toBeInTheDocument());
 
