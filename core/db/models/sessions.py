@@ -1,10 +1,14 @@
 import enum
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Index, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from core.db.base import Base
+
+if TYPE_CHECKING:
+    from core.db.models.bar import Order
 
 
 class SessionKind(str, enum.Enum):
