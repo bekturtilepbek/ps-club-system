@@ -6,7 +6,7 @@ async def test_settings_returns_defaults_when_unset(client):
     response = await client.get("/api/settings")
     assert response.status_code == 200
     assert response.json() == {
-        "grace_minutes": 3,
+        "grace_minutes": 1,
         "warn_minutes": 5,
         "planned_open": "10:00",
         "planned_close": "05:00",

@@ -1,4 +1,6 @@
 import logging
+from dataclasses import dataclass
+from typing import Literal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -6,7 +8,7 @@ from core.db.models import Setting
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_GRACE_MINUTES = 3
+DEFAULT_GRACE_MINUTES = 1
 DEFAULT_WARN_MINUTES = 5
 DEFAULT_PLANNED_OPEN = "10:00"
 DEFAULT_PLANNED_CLOSE = "05:00"
@@ -101,3 +103,102 @@ async def get_day_reminder_interval_minutes(db: AsyncSession) -> int:
     return _parse_int_setting(
         "day_reminder_interval_minutes", value, DEFAULT_DAY_REMINDER_INTERVAL_MINUTES
     )
+
+
+@dataclass(frozen=True)
+class SettingSpec:
+    """What the admin shows for one known setting key (label, help text, validation)."""
+
+    key: str
+    label: str
+    hint: str
+    kind: Literal["minutes", "time", "chat_id"]
+    default: str | None
+
+
+SETTING_SPECS: tuple[SettingSpec, ...] = (
+    SettingSpec(
+        "grace_minutes",
+        "Время на выбор игры, минут",
+        "Первые минуты сессии: за это время гости выбирают игру, и если уходят — сессия "
+        "отменяется бесплатно. Для пакета конец сдвигается на это время.",
+        "minutes",
+        str(DEFAULT_GRACE_MINUTES),
+    ),
+    SettingSpec(
+        "warn_minutes",
+        "Предупреждать о конце пакета за, минут",
+        "За сколько минут до конца пакета карточка консоли подсвечивается как «скоро закончится».",
+        "minutes",
+        str(DEFAULT_WARN_MINUTES),
+    ),
+    SettingSpec(
+        "planned_open",
+        "Плановое открытие клуба (ЧЧ:ММ)",
+        "Только ориентир: день открывается и закрывается вручную.",
+        "time",
+        DEFAULT_PLANNED_OPEN,
+    ),
+    SettingSpec(
+        "planned_close",
+        "Плановое закрытие клуба (ЧЧ:ММ)",
+        "Ориентир для предупреждения «пакет закончится после закрытия» и для напоминания "
+        "о незакрытом дне. Может быть после полуночи, например 05:00.",
+        "time",
+        DEFAULT_PLANNED_CLOSE,
+    ),
+    SettingSpec(
+        "owner_chat_id",
+        "Telegram chat_id владельца",
+        "Число. Бот отвечает только этому чату и присылает сюда итоги дня. Без значения бот "
+        "молчит.",
+        "chat_id",
+        None,
+    ),
+    SettingSpec(
+        "day_reminder_threshold_minutes",
+        "Напомнить о незакрытом дне через, минут после планового закрытия",
+        "Через сколько минут после планового закрытия бот впервые напомнит закрыть день.",
+        "minutes",
+        str(DEFAULT_DAY_REMINDER_THRESHOLD_MINUTES),
+    ),
+    SettingSpec(
+        "day_reminder_interval_minutes",
+        "Повторять напоминание каждые, минут",
+        "Как часто бот повторяет напоминание, пока день не закрыт.",
+        "minutes",
+        str(DEFAULT_DAY_REMINDER_INTERVAL_MINUTES),
+    ),
+)
+
+SETTING_SPECS_BY_KEY = {spec.key: spec for spec in SETTING_SPECS}
+
+
+def validate_setting_value(key: str, value: str) -> str:
+    """Return the value normalised for storage, or raise ValueError with a message meant
+    for the operator (Russian). Unknown keys are refused: a typo would silently do nothing."""
+    spec = SETTING_SPECS_BY_KEY.get(key)
+    if spec is None:
+        raise ValueError(f"Неизвестный параметр «{key}».")
+    text = (value or "").strip()
+    if spec.kind == "time":
+        try:
+            hours_str, minutes_str = text.split(":")
+            hours, minutes = int(hours_str), int(minutes_str)
+            if not (0 <= hours <= 23 and 0 <= minutes <= 59):
+                raise ValueError
+        except ValueError:
+            raise ValueError("Время нужно писать как ЧЧ:ММ, например 10:00 или 05:30.") from None
+        return f"{hours:02d}:{minutes:02d}"
+    if spec.kind == "chat_id":
+        try:
+            return str(int(text))
+        except ValueError:
+            raise ValueError("chat_id — это число, например 123456789.") from None
+    try:
+        minutes_value = int(text)
+    except ValueError:
+        raise ValueError("Нужно целое число минут, например 3.") from None
+    if minutes_value < 0:
+        raise ValueError("Число минут не может быть отрицательным.")
+    return str(minutes_value)

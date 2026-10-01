@@ -81,9 +81,14 @@ dev-секретах в `docker compose -f docker-compose.prod.yml logs api` б�
 - **Tariff** — пакеты «1 час» 60 мин / 180 сом, «3 часа» 180 мин / 420, «5 часов» 300 мин / 600
   и «Открытое время» — 180 сом в час.
 - **Product** — меню бара (название, цена, категория).
-- **Setting** — `grace_minutes` = `1`, `warn_minutes`, `planned_open`, `planned_close`,
-  `owner_chat_id` (chat_id владельца), `day_reminder_threshold_minutes`,
-  `day_reminder_interval_minutes`.
+- **Параметры** — `grace_minutes` = `1` («Время на выбор игры»), `warn_minutes`, `planned_open`,
+  `planned_close`, `owner_chat_id` (chat_id владельца), `day_reminder_threshold_minutes`,
+  `day_reminder_interval_minutes`. Параметр выбирается из списка, у каждого есть подсказка,
+  значение проверяется (минуты, время ЧЧ:ММ, число) — опечатку админка не пропустит.
+
+Разделы админки называются по-русски: Тарифы, Товары бара, Консоли, Параметры, Зоны. Новые
+записи по умолчанию «включены»; удалять ничего нельзя — только выключать (чтобы не портить
+историю).
 
 Потом бот: написать ему `/start`, команда `/hall` должна ответить только владельцу.
 

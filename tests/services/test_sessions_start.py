@@ -17,6 +17,7 @@ from core.db.models import (
 from core.services.business_days import open_business_day
 from core.services.errors import ConflictError, NotFoundError, ValidationError
 from core.services.sessions import start_session
+from core.services.settings import DEFAULT_GRACE_MINUTES
 
 T = datetime(2026, 9, 23, 12, 0, 0, tzinfo=UTC)
 
@@ -55,14 +56,14 @@ async def test_start_paid_package_session_shifts_end_by_grace(db_session):
     )
 
     assert session.status == SessionStatus.active
-    assert session.grace_until == T + timedelta(minutes=3)
+    assert session.grace_until == T + timedelta(minutes=DEFAULT_GRACE_MINUTES)
     assert len(session.segments) == 1
     segment = session.segments[0]
     assert segment.kind == SegmentKind.package
     assert segment.price_snapshot == 150
     assert segment.amount == 150
-    assert segment.starts_at == T + timedelta(minutes=3)
-    assert segment.ends_at == T + timedelta(minutes=3) + timedelta(minutes=60)
+    assert segment.starts_at == T + timedelta(minutes=DEFAULT_GRACE_MINUTES)
+    assert segment.ends_at == T + timedelta(minutes=DEFAULT_GRACE_MINUTES) + timedelta(minutes=60)
 
 
 @pytest.mark.asyncio
@@ -79,7 +80,7 @@ async def test_start_open_session_billing_starts_after_grace(db_session):
     assert segment.ends_at is None
     assert segment.amount is None
     assert segment.price_snapshot == 120
-    assert segment.starts_at == T + timedelta(minutes=3)
+    assert segment.starts_at == T + timedelta(minutes=DEFAULT_GRACE_MINUTES)
 
 
 @pytest.mark.asyncio

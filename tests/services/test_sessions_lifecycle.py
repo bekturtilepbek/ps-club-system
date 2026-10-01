@@ -279,7 +279,7 @@ async def test_cancel_within_grace_zeroes_the_segment_and_logs_it(db_session):
     )
 
     cancelled = await cancel_session(
-        db_session, session_id=session.id, now=T + timedelta(minutes=2)
+        db_session, session_id=session.id, now=T + timedelta(seconds=30)
     )
 
     assert cancelled.status == SessionStatus.cancelled
@@ -312,7 +312,7 @@ async def test_cancel_with_bar_items_is_a_conflict_and_changes_nothing(db_sessio
     )
 
     with pytest.raises(ConflictError, match="bar items"):
-        await cancel_session(db_session, session_id=session.id, now=T + timedelta(minutes=2))
+        await cancel_session(db_session, session_id=session.id, now=T + timedelta(seconds=30))
 
     await db_session.refresh(session)
     assert session.status == SessionStatus.active
@@ -348,7 +348,7 @@ async def test_cancel_after_removing_the_bar_item_is_allowed(db_session):
     await remove_order(db_session, order_id=order.id, now=T + timedelta(minutes=1))
 
     cancelled = await cancel_session(
-        db_session, session_id=session.id, now=T + timedelta(minutes=2)
+        db_session, session_id=session.id, now=T + timedelta(seconds=30)
     )
 
     assert cancelled.status == SessionStatus.cancelled
