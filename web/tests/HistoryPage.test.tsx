@@ -47,6 +47,7 @@ describe("HistoryPage", () => {
     renderPage([DAY, { ...DAY, id: 4, closed_at: null }]);
     const row = await screen.findByRole("button", { name: /чт, 24\.09/ });
     expect(row).toHaveTextContent("10:00 → 02:00");
+    expect(row).toHaveTextContent("750"); // revenue: cash 300 + transfer 450
     expect(row).toHaveTextContent("450"); // transfer
     expect(row).toHaveTextContent("−100");
     expect(row).toHaveTextContent("38:10");
