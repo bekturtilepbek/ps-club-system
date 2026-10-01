@@ -11,3 +11,4 @@ web/src/types/api.ts
 *.egg-info/
 .worktrees/
 .superpowers/
+backups/

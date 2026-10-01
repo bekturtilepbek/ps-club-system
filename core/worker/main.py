@@ -9,6 +9,7 @@ from core import telegram
 from core.config import settings
 from core.db.session import async_session_factory, engine
 from core.services import business_days
+from core.services import health as health_service
 from core.services import settings as settings_service
 from core.telegram_messages import format_unclosed_day_reminder
 
@@ -20,8 +21,22 @@ def _worker_now() -> datetime:
     return datetime.now(ZoneInfo(settings.timezone))
 
 
+async def _record_heartbeat_async() -> None:
+    """Same fresh-event-loop caveat as _check_unclosed_day_reminder_async: dispose the
+    engine every tick. A failure is logged, never raised - /api/health goes stale,
+    which is exactly the signal."""
+    try:
+        async with async_session_factory() as db:
+            await health_service.record_heartbeat(db, health_service.WORKER, _worker_now())
+    except Exception:
+        logger.exception("failed to record the worker heartbeat")
+    finally:
+        await engine.dispose()
+
+
 def heartbeat() -> None:
     logger.info("worker alive at %s", _worker_now().isoformat())
+    asyncio.run(_record_heartbeat_async())
 
 
 async def _check_unclosed_day_reminder_async() -> None:
