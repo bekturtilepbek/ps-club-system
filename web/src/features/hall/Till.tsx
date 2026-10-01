@@ -18,7 +18,7 @@ export function Till({ businessDayId }: TillProps) {
   // Three zones, read left to right: what the day earned (the headline, with its two parts
   // spelled out - cash and transfers stay apart, CLAUDE.md rule 10), what should physically
   // be in the cash drawer (a different number: it includes the opening cash), and the day's
-  // activity (hidden on a phone: the sticky header must stay short). Revenue sits on a tinted panel so it can't be mistaken for one of its parts.
+  // activity. Revenue sits on a tinted panel so it can't be mistaken for one of its parts.
   return (
     <section
       aria-label="Касса дня"
@@ -46,7 +46,7 @@ export function Till({ businessDayId }: TillProps) {
           {formatAmount(data.opening_cash)} на начало + {formatAmount(data.cash_total)} наличные
         </span>
       </div>
-      <div className="hidden content-center gap-0.5 px-4 py-2.5 sm:grid">
+      <div className="col-span-2 grid content-center gap-0.5 border-t border-line px-3.5 py-2.5 sm:col-span-1 sm:border-t-0 sm:px-4">
         <span className="text-[11px] text-fg-muted">За день</span>
         <span className="text-[13px] font-medium">
           {sessions} · {formatHoursMinutes(data.minutes_total)} · бар {formatAmount(data.bar_sales_total)}

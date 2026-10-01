@@ -31,7 +31,7 @@ export function TopBar({ businessDayOpen, businessDayId, nowMs, onCloseDay, onLo
   }
 
   return (
-    <header className="sticky top-0 z-20 flex flex-wrap items-center gap-x-5 gap-y-2.5 border-b border-line bg-bg/90 px-4 py-2.5 backdrop-blur short:py-2 sm:px-6">
+    <header className="z-20 flex flex-wrap items-center gap-x-5 gap-y-2.5 border-b border-line bg-bg/90 px-4 py-2.5 backdrop-blur short:py-2 sm:sticky sm:top-0 sm:px-6">
       <div className="grid gap-0.5">
         <div className="font-display text-base font-extrabold tracking-wide">
           PS<span className="font-medium text-fg-muted">-клуб</span>
