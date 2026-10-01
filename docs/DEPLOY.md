@@ -1,26 +1,95 @@
 # Деплой и эксплуатация
 
-Прод-стек — `docker-compose.prod.yml` (отдельный файл, без dev-override). Код один для
-локального варианта и гибрида; различается только место запуска и HTTPS.
+Выбранный вариант — **гибрид**: ядро на VPS (Hetzner), в клубе только браузер на кассе.
+Стек — `docker-compose.prod.yml` (отдельный файл, без dev-override). Схема:
 
-## Первый запуск
+    браузер ──HTTPS──▶ caddy ──▶ nginx(web) ──▶ api ──▶ db
+                                                worker ─┘   backup ─▶ ./backups ─▶ облако
+                                                bot ────────▶ Telegram
 
-1. `cp .env.example .env` и заполнить:
-   - `POSTGRES_PASSWORD` — обязательно свой (в прод-стеке значения по умолчанию нет);
-   - `ADMIN_PASSWORD_HASH` — `uv run python -m core.auth.password 'пароль'`;
-   - `SESSION_SECRET` — `python -c "import secrets; print(secrets.token_hex(32))"`;
-   - `BOT_TOKEN`; `owner_chat_id` потом вносится в `/admin` → Setting.
-2. `docker compose -f docker-compose.prod.yml up -d --build`
-3. Открыть `http://<адрес>:<WEB_PORT>` (по умолчанию порт 80).
+- `caddy` — единственный, кто слушает 80/443; сам получает сертификат Let's Encrypt.
+- `nginx` отдаёт собранный фронт и проксирует `/api` (включая WebSocket) и `/admin`.
+- `api` накатывает миграции при старте; `worker`, `bot`, `backup` ждут, пока он станет healthy.
+- Все сервисы с `restart: unless-stopped`.
 
-Миграции накатывает контейнер `api` при старте; `worker`, `bot` и `backup` ждут,
-пока он станет healthy. Все сервисы с `restart: unless-stopped`.
+## 1. Сервер (Hetzner Cloud)
 
-Обновление: `git pull && docker compose -f docker-compose.prod.yml up -d --build`.
+1. Создать проект и сервер: Ubuntu 24.04, тариф с 2 vCPU / 4 ГБ (CX22 или аналог), локация
+   Falkenstein/Nuremberg/Helsinki. При создании добавить свой **SSH-ключ** (пароль root не нужен).
+2. В Hetzner → Firewalls создать правило: входящие TCP **22, 80, 443**, остальное закрыть, и
+   привязать к серверу.
+3. Зайти `ssh root@<IP сервера>` и выполнить:
 
-## `/api/health`
+       apt update && apt -y upgrade
+       apt -y install unattended-upgrades fail2ban git
+       curl -fsSL https://get.docker.com | sh
+       adduser --disabled-password --gecos "" deploy && usermod -aG docker deploy
+       mkdir -p /home/deploy/.ssh && cp ~/.ssh/authorized_keys /home/deploy/.ssh/ \
+         && chown -R deploy:deploy /home/deploy/.ssh
+       sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/;s/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+       systemctl restart ssh
 
-Публичный (без логина), для мониторинга и для глаз.
+   Дальше работать как `ssh deploy@<IP>` (проверьте вход **до** закрытия root-сессии).
+
+## 2. Имя для сайта (без покупки домена)
+
+Нужен адрес, на который Let's Encrypt выдаст сертификат. Бесплатно — DuckDNS:
+
+1. Зайти на duckdns.org (вход через Google/GitHub), создать поддомен, например `psclub-bishkek`.
+2. В поле *current ip* вписать IP сервера. Получится `psclub-bishkek.duckdns.org`.
+
+Это значение пойдёт в `SITE_ADDRESS`. (IP сервера не меняется, пока вы не удалите сервер, так что
+обновлять запись не придётся.) Сайт будет открыт из интернета — от подбора пароля защищает
+ограничение попыток входа (5 неверных за 15 минут с одного адреса), поэтому пароль админа
+должен быть длинным.
+
+## 3. Первый запуск
+
+На сервере под пользователем `deploy`:
+
+    git clone <адрес репозитория> ps-club-system && cd ps-club-system
+    git checkout main          # или тот коммит/ветка, которую вы выкатываете
+    cp .env.example .env
+    nano .env
+
+Что заполнить в `.env`:
+
+| Переменная | Значение |
+|---|---|
+| `POSTGRES_PASSWORD` | свой длинный пароль (в прод-стеке значения по умолчанию нет) |
+| `ADMIN_PASSWORD_HASH` | `uv run python -m core.auth.password 'пароль'` (можно на своём ПК). **Значение в одинарных кавычках!** В хеше есть `$`, без кавычек Docker Compose его портит и войти будет нельзя |
+| `SESSION_SECRET` | `python3 -c "import secrets; print(secrets.token_hex(32))"` |
+| `SESSION_COOKIE_SECURE` | `true` |
+| `SITE_ADDRESS` | `psclub-bishkek.duckdns.org` |
+| `BOT_TOKEN` | токен от @BotFather |
+| `BACKUP_REMOTE` | см. раздел 6 (можно заполнить позже) |
+
+Запуск:
+
+    docker compose -f docker-compose.prod.yml up -d --build
+
+Первая сборка — несколько минут. Затем открыть `https://<ваше имя>`; сертификат выдаётся при
+первом обращении, если порты 80/443 доступны и DuckDNS указывает на сервер. Предупреждений о
+dev-секретах в `docker compose -f docker-compose.prod.yml logs api` быть не должно.
+
+## 4. Данные клуба (через `/admin`, seed на проде не запускается)
+
+Зайти в `https://<имя>/admin` тем же паролем и внести:
+
+- **Zone** — одна зона («Зал»).
+- **Console** — все консоли (названия «PS5-1» … ; `plug_driver` = `manual`).
+- **Tariff** — пакеты «1 час» 60 мин / 180 сом, «3 часа» 180 мин / 420, «5 часов» 300 мин / 600
+  и «Открытое время» — 180 сом в час.
+- **Product** — меню бара (название, цена, категория).
+- **Setting** — `grace_minutes` = `1`, `warn_minutes`, `planned_open`, `planned_close`,
+  `owner_chat_id` (chat_id владельца), `day_reminder_threshold_minutes`,
+  `day_reminder_interval_minutes`.
+
+Потом бот: написать ему `/start`, команда `/hall` должна ответить только владельцу.
+
+## 5. `/api/health` и мониторинг
+
+Публичный (без логина).
 
 | Поле | Смысл |
 |---|---|
@@ -29,19 +98,35 @@
 | `backup` | последний дамп моложе 3 часов |
 | `status` | `ok` — всё в порядке; `degraded` — воркер или бэкап отстали; `down` — нет базы |
 
-HTTP 200 при `ok` и `degraded`, 503 только при `down`. Для внешнего монитора
-(UptimeRobot и т.п.) ищите в ответе `"status":"ok"`, а не код ответа.
+HTTP 200 при `ok` и `degraded`, 503 только при `down`, поэтому внешний монитор должен искать
+в ответе **текст** `"status":"ok"`, а не смотреть на код.
 
-## Бэкапы
+**Алерты на телефон (UptimeRobot, бесплатно):** Add monitor → тип *Keyword*, URL
+`https://<имя>/api/health`, слово `"status":"ok"`, *Alert when keyword does not exist*,
+интервал 5 минут, контакт — ваш Telegram или e-mail. Так вы узнаете и про упавший сервер, и про
+остановившийся воркер, и про устаревший бэкап.
 
-Сервис `backup` каждый час делает `pg_dump` в `${BACKUP_HOST_DIR:-./backups}` на хосте
-(файлы `psclub-ГГГГММДД-ЧЧММСС.sql.gz`), хранит `BACKUP_KEEP_DAYS` (14) дней.
+## 6. Бэкапы
 
-**Вне машины.** Папка с дампами лежит на том же диске, что и база, — от поломки диска или
-ПК кассы она не спасает. Раз в день дамп нужно уносить: либо скопировать вручную на флешку
-или в облако, либо задать `BACKUP_UPLOAD_CMD` (команда получает путь к дампу как `$1`;
-в образе `postgres:alpine` нет `rclone`/`scp` — образ придётся расширить). Что именно
-использовать — зависит от решения «локальный / гибрид» (см. `OWNER_QUESTIONS.md`, вопрос 1).
+Сервис `backup` каждый час делает `pg_dump` в `./backups` на сервере (файлы
+`psclub-ГГГГММДД-ЧЧММСС.sql.gz`), хранит `BACKUP_KEEP_DAYS` (14) дней. Это защита от ошибок, но
+**не от потери сервера**, поэтому раз в день первая успешная копия уходит в облако через rclone
+(`BACKUP_REMOTE`, хранится `BACKUP_REMOTE_KEEP_DAYS` = 60 дней). Если выгрузка упала, в логе
+`offsite upload FAILED` и следующий часовой запуск повторяет попытку.
+
+**Настроить облако один раз** (пример для Backblaze B2: создать bucket и *Application Key*;
+для другого хранилища — другой тип в `rclone config`):
+
+    mkdir -p rclone
+    docker run --rm -it -v "$PWD/rclone:/config/rclone" \
+      -e RCLONE_CONFIG=/config/rclone/rclone.conf rclone/rclone config
+    # n (new remote) → имя: offsite → тип: b2 → account/key → остальное по умолчанию
+
+Затем в `.env`: `BACKUP_REMOTE=offsite:имя-bucket` и
+`docker compose -f docker-compose.prod.yml up -d backup`. Через час в логе
+(`docker compose -f docker-compose.prod.yml logs backup`) должно появиться
+`offsite upload ok`. Папка `rclone/` с ключами не коммитится. Дампы содержат выручку клуба —
+bucket должен быть приватным.
 
 **Восстановление** (проверено на пустой базе):
 
@@ -52,16 +137,40 @@ HTTP 200 при `ok` и `degraded`, 503 только при `down`. Для вн�
       docker compose -f docker-compose.prod.yml exec -T db psql -U psclub -d psclub -v ON_ERROR_STOP=1
     docker compose -f docker-compose.prod.yml start api worker bot
 
-Раз в неделю стоит проверять, что дамп восстанавливается (в отдельной базе
-`createdb restore_test`), а не только что файл создаётся.
+Дамп из облака сначала скачать: `rclone copyto offsite:имя-bucket/<файл> backups/` (тем же
+контейнером `rclone/rclone` с монтированием `rclone/` и `backups/`).
 
-## Если ядро на ПК кассы
+**Проверьте восстановление до начала пилота** и потом раз в неделю: восстановить свежий дамп в
+отдельную базу (`createdb restore_test`) — хороший дамп это тот, который восстанавливается.
 
-Отключить сон и гибернацию, автологин Windows, Docker Desktop в автозапуск, в BIOS —
-включение после пропадания питания; роутер и ПК на ИБП (`SPEC.md`, раздел 8).
+## 7. Обновление и откат
 
-## Если гибрид (VPS)
+    cd ~/ps-club-system
+    docker compose -f docker-compose.prod.yml exec -T backup sh -c 'pg_dump --no-owner | gzip > /backups/psclub-before-update.sql.gz'
+    git pull
+    docker compose -f docker-compose.prod.yml up -d --build
 
-Нужен HTTPS перед nginx (Caddy/Traefik/certbot — выбор на этапе деплоя), после этого
-`SESSION_COOKIE_SECURE=true` в `.env`. nginx уже передаёт `X-Forwarded-Proto`,
-а uvicorn запущен с `--proxy-headers`.
+Миграции применяются автоматически. Обновлять лучше вне рабочих часов клуба: на несколько секунд
+перезапускается `api` (идущие сессии не страдают — остатки времени считаются из меток в БД, но
+открытый экран на кассе переподключится).
+
+**Откат:** `git checkout <прошлый коммит>` и `up -d --build`. Если новая версия успела изменить
+схему БД, откат кода сам схему не вернёт — тогда восстановить БД из `psclub-before-update`.
+
+## 8. Касса и безопасность
+
+- На ПК кассы нужен только браузер: открыть `https://<имя>`, добавить в закладки, лучше
+  как ярлык/приложение на весь экран. Вход помнится 30 дней.
+- Сайт доступен из интернета, но все данные закрыты логином; вход ограничен по числу попыток
+  (после 5 неверных — пауза 15 минут, экран входа пишет об этом).
+- Ограничение попыток хранится в памяти `api`: перезапуск его сбрасывает. Для кассы это нормально.
+- Порт базы наружу не опубликован; наружу открыты только 22/80/443 (и только они разрешены в
+  firewall Hetzner).
+- Секреты только в `.env` на сервере (не коммитятся). Потеря `caddy_data` не страшна, но
+  сертификат придётся выпускать заново.
+
+## 9. Если когда-нибудь вернуться на ПК кассы
+
+Код один и тот же: поставить Docker Desktop, отключить сон и гибернацию, автологин, в BIOS —
+включение после пропадания питания, роутер и ПК на ИБП; `SITE_ADDRESS=:80`, а данные перенести
+дампом и восстановлением (раздел 6).
