@@ -19,18 +19,28 @@
    При создании добавить свой **SSH-ключ**.
 2. В панели DigitalOcean → Networking → Firewalls: входящие TCP **22, 80, 443**, остальное
    закрыть, привязать к дроплету (на самом сервере то же делает `ufw`).
-3. Подготовка сервера одной командой с вашего ПК (скрипт ставит Docker, обновления, swap,
-   открывает только 22/80/443 и создаёт пользователя `deploy`):
+3. Если дроплет создан с входом по паролю, сначала положите на него **свой публичный ключ**
+   (на ПК, в Git Bash; пароль root вводится один раз):
 
-       scp scripts/server-setup.sh root@<IP>:/tmp/
-       ssh root@<IP> bash /tmp/server-setup.sh
+       ssh-copy-id root@<IP>
 
-4. Проверить вход под новым пользователем: `ssh deploy@<IP>` — должен пускать без пароля.
-5. **Только после этого** закрыть вход по паролю и под root:
+   (Нет ключа — `ssh-keygen -t ed25519`, потом команда выше. Или вставьте содержимое
+   `~/.ssh/id_ed25519.pub` в `/root/.ssh/authorized_keys` через веб-консоль DigitalOcean.)
+4. Подготовка сервера (скрипт ставит Docker, обновления, swap, открывает только 22/80/443 и
+   создаёт пользователя `deploy` с вашим ключом):
 
-       ssh root@<IP> "sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/;s/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config && systemctl restart ssh"
+       ssh root@<IP>
+       git clone -b dev https://github.com/bekturtilepbek/ps-club-system.git /tmp/psclub-setup
+       bash /tmp/psclub-setup/scripts/server-setup.sh
 
-   (если вход под `deploy` не работал, не делайте этот шаг: вы потеряете доступ к серверу).
+5. Проверить вход под новым пользователем, **в другом окне терминала**: `ssh deploy@<IP>` —
+   должен пускать без пароля.
+6. **Только после этого** закрыть вход по паролю и под root (в сессии root):
+
+       sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/;s/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+       systemctl restart ssh
+
+   Если вход под `deploy` не работал, этот шаг пропустите: вы потеряете доступ к серверу.
 
 ## 2. Имя для сайта (без покупки домена)
 
@@ -46,17 +56,17 @@
 
 ## 3. Первый запуск
 
-Git-репозитория на сервере нет: код едет с вашего ПК одним коммитом, `scripts/deploy.sh`
-упаковывает его (`git archive`), копирует по ssh и синхронизирует в `~/ps-club-system`
-(файлы `.env`, `backups/` и `rclone/` на сервере не трогаются).
-
-Сначала создать `.env` на сервере (один раз):
+Репозиторий публичный, поэтому на сервере его можно просто клонировать, без ключей.
+Под пользователем `deploy`:
 
     ssh deploy@<IP>
-    mkdir -p ~/ps-club-system && cd ~/ps-club-system
-    # положите сюда .env.example любым способом, например с ПК:
-    #   scp .env.example deploy@<IP>:~/ps-club-system/.env
+    git clone -b dev https://github.com/bekturtilepbek/ps-club-system.git
+    cd ps-club-system
+    cp .env.example .env
     nano .env
+
+(Ветка `dev` — пока основная: в `main` последние изменения ещё не влиты. Когда решите влить
+`dev` в `main`, клонируйте `main` и обновляйтесь с неё.)
 
 Что заполнить в `.env`:
 
@@ -70,9 +80,9 @@ Git-репозитория на сервере нет: код едет с ваш
 | `BOT_TOKEN` | токен от @BotFather |
 | `BACKUP_REMOTE` | см. раздел 6 (можно заполнить позже) |
 
-Запуск (с вашего ПК, из корня репозитория, на ветке/коммите, который выкатываете):
+Запуск (на сервере, в папке `~/ps-club-system`):
 
-    scripts/deploy.sh deploy@<IP>
+    docker compose -f docker-compose.prod.yml up -d --build
 
 Первая сборка — несколько минут. Затем открыть `https://<ваше имя>`; сертификат выдаётся при
 первом обращении, если порты 80/443 доступны и DuckDNS указывает на сервер. Предупреждений о
@@ -160,22 +170,22 @@ bucket должен быть приватным.
 
 ## 7. Обновление и откат
 
-Если в релизе есть миграция базы, сначала снимите дамп на сервере:
+Всё на сервере, в `~/ps-club-system`. Если в релизе есть миграция базы, сначала снимите дамп:
 
-    ssh deploy@<IP> "cd ps-club-system && docker compose -f docker-compose.prod.yml exec -T backup sh -c 'pg_dump --no-owner | gzip > /backups/psclub-before-update.sql.gz'"
+    docker compose -f docker-compose.prod.yml exec -T backup sh -c 'pg_dump --no-owner | gzip > /backups/psclub-before-update.sql.gz'
 
-Потом выкатка с ПК:
+Потом обновление:
 
-    scripts/deploy.sh deploy@<IP>            # текущий коммит
-    scripts/deploy.sh deploy@<IP> <коммит>   # конкретный коммит или тег
+    git pull
+    docker compose -f docker-compose.prod.yml up -d --build
 
 Миграции применяются автоматически. Обновлять лучше вне рабочих часов клуба: на несколько секунд
 перезапускается `api` (идущие сессии не страдают — остатки времени считаются из меток в БД, но
-открытый экран на кассе переподключится). Какой коммит сейчас на сервере:
-`ssh deploy@<IP> cat ps-club-system/.deployed-version`.
+открытый экран на кассе переподключится). Какая версия сейчас запущена: `git log -1 --oneline`.
 
-**Откат:** `scripts/deploy.sh deploy@<IP> <прошлый коммит>`. Если новая версия успела изменить
-схему БД, откат кода сам схему не вернёт — тогда восстановить БД из `psclub-before-update`.
+**Откат:** `git checkout <прошлый коммит>` и `docker compose -f docker-compose.prod.yml up -d --build`
+(потом `git checkout dev`, чтобы снова обновляться). Если новая версия успела изменить схему БД,
+откат кода сам схему не вернёт — тогда восстановить БД из `psclub-before-update`.
 
 ## 8. Касса и безопасность
 

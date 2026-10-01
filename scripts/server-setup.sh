@@ -17,7 +17,7 @@ export DEBIAN_FRONTEND=noninteractive
 
 apt-get update
 apt-get -y upgrade
-apt-get -y install unattended-upgrades fail2ban ufw rsync curl ca-certificates
+apt-get -y install unattended-upgrades fail2ban ufw git curl ca-certificates
 
 if ! command -v docker >/dev/null 2>&1; then
   curl -fsSL https://get.docker.com | sh

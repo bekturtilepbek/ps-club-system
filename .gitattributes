@@ -1,4 +1,1 @@
 *.sh text eol=lf
-.claude export-ignore
-docs/design export-ignore
-docs/superpowers export-ignore
