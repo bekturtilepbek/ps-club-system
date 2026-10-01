@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://psclub:psclub@localhost:5432/psclub"
     bot_token: str | None = None
     timezone: str = "Asia/Bishkek"
+    # Where the backup container drops dumps (mounted read-only into the api);
+    # /api/health reports the newest one.
+    backup_dir: str = "/backups"
 
     # Hall-screen login (Stage 3). These two dev defaults let a fresh checkout run
     # with zero setup (password: "admin") — replace both in .env before a real
