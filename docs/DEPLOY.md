@@ -1,6 +1,6 @@
 # Деплой и эксплуатация
 
-Выбранный вариант — **гибрид**: ядро на VPS (Hetzner), в клубе только браузер на кассе.
+Выбранный вариант — **гибрид**: ядро на VPS (DigitalOcean), в клубе только браузер на кассе.
 Стек — `docker-compose.prod.yml` (отдельный файл, без dev-override). Схема:
 
     браузер ──HTTPS──▶ caddy ──▶ nginx(web) ──▶ api ──▶ db
@@ -12,24 +12,25 @@
 - `api` накатывает миграции при старте; `worker`, `bot`, `backup` ждут, пока он станет healthy.
 - Все сервисы с `restart: unless-stopped`.
 
-## 1. Сервер (Hetzner Cloud)
+## 1. Сервер (DigitalOcean)
 
-1. Создать проект и сервер: Ubuntu 24.04, тариф с 2 vCPU / 4 ГБ (CX22 или аналог), локация
-   Falkenstein/Nuremberg/Helsinki. При создании добавить свой **SSH-ключ** (пароль root не нужен).
-2. В Hetzner → Firewalls создать правило: входящие TCP **22, 80, 443**, остальное закрыть, и
-   привязать к серверу.
-3. Зайти `ssh root@<IP сервера>` и выполнить:
+1. Дроплет: Ubuntu 24.04, регион Frankfurt (или другой европейский), **не меньше 2 ГБ памяти**
+   (на 1 ГБ сборка образов может не уложиться; скрипт ниже добавляет swap, но 2 ГБ надёжнее).
+   При создании добавить свой **SSH-ключ**.
+2. В панели DigitalOcean → Networking → Firewalls: входящие TCP **22, 80, 443**, остальное
+   закрыть, привязать к дроплету (на самом сервере то же делает `ufw`).
+3. Подготовка сервера одной командой с вашего ПК (скрипт ставит Docker, обновления, swap,
+   открывает только 22/80/443 и создаёт пользователя `deploy`):
 
-       apt update && apt -y upgrade
-       apt -y install unattended-upgrades fail2ban git
-       curl -fsSL https://get.docker.com | sh
-       adduser --disabled-password --gecos "" deploy && usermod -aG docker deploy
-       mkdir -p /home/deploy/.ssh && cp ~/.ssh/authorized_keys /home/deploy/.ssh/ \
-         && chown -R deploy:deploy /home/deploy/.ssh
-       sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/;s/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
-       systemctl restart ssh
+       scp scripts/server-setup.sh root@<IP>:/tmp/
+       ssh root@<IP> bash /tmp/server-setup.sh
 
-   Дальше работать как `ssh deploy@<IP>` (проверьте вход **до** закрытия root-сессии).
+4. Проверить вход под новым пользователем: `ssh deploy@<IP>` — должен пускать без пароля.
+5. **Только после этого** закрыть вход по паролю и под root:
+
+       ssh root@<IP> "sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/;s/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config && systemctl restart ssh"
+
+   (если вход под `deploy` не работал, не делайте этот шаг: вы потеряете доступ к серверу).
 
 ## 2. Имя для сайта (без покупки домена)
 
@@ -45,11 +46,16 @@
 
 ## 3. Первый запуск
 
-На сервере под пользователем `deploy`:
+Git-репозитория на сервере нет: код едет с вашего ПК одним коммитом, `scripts/deploy.sh`
+упаковывает его (`git archive`), копирует по ssh и синхронизирует в `~/ps-club-system`
+(файлы `.env`, `backups/` и `rclone/` на сервере не трогаются).
 
-    git clone <адрес репозитория> ps-club-system && cd ps-club-system
-    git checkout main          # или тот коммит/ветка, которую вы выкатываете
-    cp .env.example .env
+Сначала создать `.env` на сервере (один раз):
+
+    ssh deploy@<IP>
+    mkdir -p ~/ps-club-system && cd ~/ps-club-system
+    # положите сюда .env.example любым способом, например с ПК:
+    #   scp .env.example deploy@<IP>:~/ps-club-system/.env
     nano .env
 
 Что заполнить в `.env`:
@@ -64,13 +70,17 @@
 | `BOT_TOKEN` | токен от @BotFather |
 | `BACKUP_REMOTE` | см. раздел 6 (можно заполнить позже) |
 
-Запуск:
+Запуск (с вашего ПК, из корня репозитория, на ветке/коммите, который выкатываете):
 
-    docker compose -f docker-compose.prod.yml up -d --build
+    scripts/deploy.sh deploy@<IP>
 
 Первая сборка — несколько минут. Затем открыть `https://<ваше имя>`; сертификат выдаётся при
 первом обращении, если порты 80/443 доступны и DuckDNS указывает на сервер. Предупреждений о
-dev-секретах в `docker compose -f docker-compose.prod.yml logs api` быть не должно.
+dev-секретах в `docker compose -f docker-compose.prod.yml logs api` (на сервере) быть не должно.
+
+**Важно про Telegram-бота:** один токен нельзя опрашивать из двух мест. Пока на сервере запущен
+бот, остановите локального (`docker compose stop bot` на ПК) или заведите для разработки
+отдельного бота у @BotFather, иначе оба будут сбрасывать друг другу соединение.
 
 ## 4. Данные клуба (через `/admin`, seed на проде не запускается)
 
@@ -150,16 +160,21 @@ bucket должен быть приватным.
 
 ## 7. Обновление и откат
 
-    cd ~/ps-club-system
-    docker compose -f docker-compose.prod.yml exec -T backup sh -c 'pg_dump --no-owner | gzip > /backups/psclub-before-update.sql.gz'
-    git pull
-    docker compose -f docker-compose.prod.yml up -d --build
+Если в релизе есть миграция базы, сначала снимите дамп на сервере:
+
+    ssh deploy@<IP> "cd ps-club-system && docker compose -f docker-compose.prod.yml exec -T backup sh -c 'pg_dump --no-owner | gzip > /backups/psclub-before-update.sql.gz'"
+
+Потом выкатка с ПК:
+
+    scripts/deploy.sh deploy@<IP>            # текущий коммит
+    scripts/deploy.sh deploy@<IP> <коммит>   # конкретный коммит или тег
 
 Миграции применяются автоматически. Обновлять лучше вне рабочих часов клуба: на несколько секунд
 перезапускается `api` (идущие сессии не страдают — остатки времени считаются из меток в БД, но
-открытый экран на кассе переподключится).
+открытый экран на кассе переподключится). Какой коммит сейчас на сервере:
+`ssh deploy@<IP> cat ps-club-system/.deployed-version`.
 
-**Откат:** `git checkout <прошлый коммит>` и `up -d --build`. Если новая версия успела изменить
+**Откат:** `scripts/deploy.sh deploy@<IP> <прошлый коммит>`. Если новая версия успела изменить
 схему БД, откат кода сам схему не вернёт — тогда восстановить БД из `psclub-before-update`.
 
 ## 8. Касса и безопасность
@@ -170,7 +185,7 @@ bucket должен быть приватным.
   (после 5 неверных — пауза 15 минут, экран входа пишет об этом).
 - Ограничение попыток хранится в памяти `api`: перезапуск его сбрасывает. Для кассы это нормально.
 - Порт базы наружу не опубликован; наружу открыты только 22/80/443 (и только они разрешены в
-  firewall Hetzner).
+  firewall DigitalOcean).
 - Секреты только в `.env` на сервере (не коммитятся). Потеря `caddy_data` не страшна, но
   сертификат придётся выпускать заново.
 
