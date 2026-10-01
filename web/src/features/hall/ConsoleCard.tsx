@@ -206,18 +206,23 @@ function CardStrip({
 
   const graceUntilMs = session.grace_until ? Date.parse(session.grace_until) : null;
   if (session.kind === "paid" && graceUntilMs !== null && graceUntilMs > nowMs) {
+    // Once a guest has taken bar items the session can only be stopped and paid (owner
+    // decision, OWNER_QUESTIONS.md q6) - the API refuses to cancel it too.
+    const canCancel = session.orders.length === 0;
     return (
       <div className={cn(base, "bg-surface-2 text-fg-muted")}>
         <span className="flex-1">
           Выбор игры · <span className="num text-fg">{formatDuration(graceUntilMs - nowMs)}</span>
         </span>
-        <button
-          type="button"
-          className="whitespace-nowrap text-[13px] text-fg underline underline-offset-[3px]"
-          onClick={act(onCancel)}
-        >
-          Отменить без оплаты
-        </button>
+        {canCancel && (
+          <button
+            type="button"
+            className="whitespace-nowrap text-[13px] text-fg underline underline-offset-[3px]"
+            onClick={act(onCancel)}
+          >
+            Отменить без оплаты
+          </button>
+        )}
       </div>
     );
   }

@@ -210,10 +210,7 @@ export function HallPage() {
                       onCancel={() =>
                         session &&
                         runSessionAction(async () => {
-                          const cancelled = await cancel(session.id);
-                          if (cancelled.balance > 0) {
-                            setDialog({ kind: "settle", sessionId: cancelled.id, balance: cancelled.balance });
-                          }
+                          await cancel(session.id);
                         })
                       }
                       onPay={() => session && setDialog({ kind: "pay", sessionId: session.id })}
@@ -329,6 +326,7 @@ export function HallPage() {
           sessionId={dialog.sessionId}
           balance={dialog.balance}
           targetName={consoles.find((c) => c.session?.id === dialog.sessionId)?.name}
+          confirmCloseWithBalance
           onOpenChange={(open) => {
             if (open) return;
             setDialog(dialog.returnTo === "close-day" ? { kind: "close-day" } : { kind: "none" });

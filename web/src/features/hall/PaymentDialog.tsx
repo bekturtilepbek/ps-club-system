@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SegmentedControl } from "@/components/ui/segmented";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { StateChip } from "@/components/ui/state-chip";
 import { api, type PaymentMethod } from "@/lib/api";
@@ -16,6 +17,8 @@ interface PaymentDialogProps {
   /** "PS 2" or "Чек №214", shown in the header. */
   targetName?: string;
   onOpenChange: (open: boolean) => void;
+  /** Ask before closing while money is still owed (the session is already over). */
+  confirmCloseWithBalance?: boolean;
   /** Called after each successful payment with the amount just recorded. */
   onPaid: (amount: number) => void;
 }
@@ -26,7 +29,16 @@ const METHODS: { value: PaymentMethod; label: string }[] = [
   { value: "transfer", label: "Перевод" },
 ];
 
-export function PaymentDialog({ open, sessionId, balance, targetName, onOpenChange, onPaid }: PaymentDialogProps) {
+export function PaymentDialog({
+  open,
+  sessionId,
+  balance,
+  targetName,
+  onOpenChange,
+  confirmCloseWithBalance = false,
+  onPaid,
+}: PaymentDialogProps) {
+  const [confirmingClose, setConfirmingClose] = useState(false);
   const [amount, setAmount] = useState(String(balance));
   const [method, setMethod] = useState<PaymentMethod>("cash");
   const queryClient = useQueryClient();
@@ -44,8 +56,17 @@ export function PaymentDialog({ open, sessionId, balance, targetName, onOpenChan
   const amountValue = Math.round(Number(amount));
   const isValidAmount = amount.trim() !== "" && Number.isFinite(amountValue) && amountValue > 0;
 
+  const handleOpenChange = (next: boolean) => {
+    if (!next && confirmCloseWithBalance && balance > 0) {
+      setConfirmingClose(true);
+      return;
+    }
+    onOpenChange(next);
+  };
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent tone="muted">
         <SheetHeader>
           <SheetTitle>Оплата · остаток {formatSom(balance)}</SheetTitle>
@@ -93,6 +114,30 @@ export function PaymentDialog({ open, sessionId, balance, targetName, onOpenChan
         </SheetFooter>
       </SheetContent>
     </Sheet>
+    <Dialog open={confirmingClose} onOpenChange={setConfirmingClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Гость ещё должен {formatSom(balance)}</DialogTitle>
+          <DialogDescription>
+            Если закрыть окно, долг пропадёт с экрана зала. Закрыть без оплаты?
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setConfirmingClose(false)}>
+            Вернуться к оплате
+          </Button>
+          <Button
+            onClick={() => {
+              setConfirmingClose(false);
+              onOpenChange(false);
+            }}
+          >
+            Закрыть без оплаты
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
 

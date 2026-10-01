@@ -6,6 +6,7 @@ from sqlalchemy import select
 from core.db.models import (
     AuditLog,
     Console,
+    Product,
     SegmentKind,
     SessionKind,
     SessionStatus,
@@ -13,6 +14,7 @@ from core.db.models import (
     TariffKind,
     Zone,
 )
+from core.services.bar import add_order
 from core.services.business_days import open_business_day
 from core.services.errors import ConflictError, ValidationError
 from core.services.sessions import cancel_session, extend_session, start_session, stop_session
@@ -288,6 +290,68 @@ async def test_cancel_within_grace_zeroes_the_segment_and_logs_it(db_session):
         .all()
     )
     assert any(e.action == "cancel" for e in entries)
+
+
+@pytest.mark.asyncio
+async def test_cancel_with_bar_items_is_a_conflict_and_changes_nothing(db_session):
+    console_id, package_id, _ = await _setup(db_session)
+    cola = Product(name="Кола", price=80, is_active=True)
+    db_session.add(cola)
+    await db_session.commit()
+    session = await start_session(
+        db_session,
+        console_id=console_id,
+        kind=SessionKind.paid,
+        tariff_id=package_id,
+        reason=None,
+        comment=None,
+        now=T,
+    )
+    await add_order(
+        db_session, session_id=session.id, product_id=cola.id, qty=1, now=T + timedelta(minutes=1)
+    )
+
+    with pytest.raises(ConflictError, match="bar items"):
+        await cancel_session(db_session, session_id=session.id, now=T + timedelta(minutes=2))
+
+    await db_session.refresh(session)
+    assert session.status == SessionStatus.active
+    assert session.segments[0].amount == 150
+    entries = (
+        (await db_session.execute(select(AuditLog).where(AuditLog.entity_id == session.id)))
+        .scalars()
+        .all()
+    )
+    assert not any(e.action == "cancel" for e in entries)
+
+
+@pytest.mark.asyncio
+async def test_cancel_after_removing_the_bar_item_is_allowed(db_session):
+    from core.services.bar import remove_order
+
+    console_id, package_id, _ = await _setup(db_session)
+    cola = Product(name="Кола", price=80, is_active=True)
+    db_session.add(cola)
+    await db_session.commit()
+    session = await start_session(
+        db_session,
+        console_id=console_id,
+        kind=SessionKind.paid,
+        tariff_id=package_id,
+        reason=None,
+        comment=None,
+        now=T,
+    )
+    order = await add_order(
+        db_session, session_id=session.id, product_id=cola.id, qty=1, now=T + timedelta(minutes=1)
+    )
+    await remove_order(db_session, order_id=order.id, now=T + timedelta(minutes=1))
+
+    cancelled = await cancel_session(
+        db_session, session_id=session.id, now=T + timedelta(minutes=2)
+    )
+
+    assert cancelled.status == SessionStatus.cancelled
 
 
 @pytest.mark.asyncio

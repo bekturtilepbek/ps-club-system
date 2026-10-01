@@ -88,6 +88,12 @@ describe("ConsoleCard", () => {
     expect(handlers.onOpen).toHaveBeenCalled();
   });
 
+  it("offers no free cancel once a bar item is on the tab", () => {
+    renderCard(busy({ graceLeftMs: 90_000, withBar: true }));
+    expect(screen.getByText("01:30")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Отменить без оплаты" })).toBeNull();
+  });
+
   it("cancels for free during the grace period", () => {
     const handlers = renderCard(busy({ graceLeftMs: 90_000 }));
     expect(screen.getByText("01:30")).toBeInTheDocument();

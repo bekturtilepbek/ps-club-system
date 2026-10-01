@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.db.models import (
     AuditLog,
     Console,
+    Order,
     SegmentKind,
     SessionKind,
     SessionSegment,
@@ -249,6 +250,11 @@ async def cancel_session(db: AsyncSession, *, session_id: int, now: datetime) ->
         raise ConflictError(f"session {session_id} is not active")
     if not domain_segments.is_within_grace(now, session.grace_until):
         raise ConflictError("cancel window has expired")
+    has_orders = await db.scalar(select(Order.id).where(Order.session_id == session_id).limit(1))
+    if has_orders is not None:
+        # Owner decision (docs/OWNER_QUESTIONS.md, question 6): once a guest has taken bar
+        # items the session is a normal one - stop it and settle, or remove the items first.
+        raise ConflictError("session has bar items; stop it instead of cancelling")
 
     for segment in session.segments:
         segment.amount = 0

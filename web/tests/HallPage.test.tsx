@@ -372,7 +372,7 @@ describe("HallPage", () => {
     await waitFor(() => expect(screen.queryByText(/Оплата · остаток/)).not.toBeInTheDocument());
   });
 
-  it("opens the settle dialog when cancelling a session with an unpaid bar tab", async () => {
+  it("cancels a session within the grace period without opening a payment dialog", async () => {
     const now = Date.now();
     const withinGraceConsole = paidConsole(1, 7, 300);
     withinGraceConsole.session!.grace_until = new Date(now + 60_000).toISOString();
@@ -381,7 +381,7 @@ describe("HallPage", () => {
       if (url === "/api/settings") return { ok: true, json: async () => ({ grace_minutes: 3, warn_minutes: 5 }) };
       if (url === "/api/products") return { ok: true, json: async () => [] };
       if (url === "/api/sessions/7/cancel") {
-        return { ok: true, json: async () => ({ id: 7, status: "cancelled", balance: 80 }) };
+        return { ok: true, json: async () => ({ id: 7, status: "cancelled", balance: 0 }) };
       }
       return { ok: true, json: async () => ({}) };
     });
@@ -391,7 +391,8 @@ describe("HallPage", () => {
     await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Отменить без оплаты" }));
 
-    await waitFor(() => expect(screen.getByText("Оплата · остаток 80 сом")).toBeInTheDocument());
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/sessions/7/cancel", expect.anything()));
+    expect(screen.queryByText(/Оплата · остаток/)).not.toBeInTheDocument();
   });
 
   it("opens the session details when a busy card is clicked", async () => {
