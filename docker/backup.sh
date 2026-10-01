@@ -3,14 +3,22 @@
 # off the machine. Dumps are written to a .tmp name and renamed, so /api/health (which
 # looks at *.sql.gz) never counts a half-written file.
 #
-# BACKUP_UPLOAD_CMD (optional): shell command run once per day with the newest dump's
-# path as $1, e.g. 'rclone copyto "$1" remote:psclub/$(basename "$1")'. If it fails the
-# marker is not written, so the next hourly run retries.
+# Off-machine copy, once a day (the first successful dump of the day), either:
+#   BACKUP_REMOTE      an rclone remote path, e.g. "offsite:psclub-backups" (the remote is
+#                      defined in /config/rclone/rclone.conf, see docs/DEPLOY.md). Old files
+#                      there are pruned after BACKUP_REMOTE_KEEP_DAYS (default 60).
+#   BACKUP_UPLOAD_CMD  any shell command, run with the dump's path as $1.
+# If the upload fails the daily marker is not written, so the next hourly run retries.
 set -u
 
 BACKUP_DIR="${BACKUP_DIR:-/backups}"
 INTERVAL="${BACKUP_INTERVAL_SECONDS:-3600}"
 KEEP_DAYS="${BACKUP_KEEP_DAYS:-14}"
+export REMOTE_KEEP_DAYS="${BACKUP_REMOTE_KEEP_DAYS:-60}" # the upload command runs in a child shell
+
+if [ -n "${BACKUP_REMOTE:-}" ] && [ -z "${BACKUP_UPLOAD_CMD:-}" ]; then
+  BACKUP_UPLOAD_CMD='rclone copyto "$1" "$BACKUP_REMOTE/$(basename "$1")" && rclone delete "$BACKUP_REMOTE" --min-age "${REMOTE_KEEP_DAYS}d"'
+fi
 
 mkdir -p "$BACKUP_DIR"
 

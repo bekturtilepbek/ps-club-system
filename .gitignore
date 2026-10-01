@@ -12,3 +12,4 @@ web/src/types/api.ts
 .worktrees/
 .superpowers/
 backups/
+rclone/
