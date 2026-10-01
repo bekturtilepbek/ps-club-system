@@ -70,7 +70,7 @@ async def test_full_session_cycle_through_the_api(client):
     # correct per SPEC 3.2's elapsed-time rule, not a bug
     assert balance_due >= 150
 
-    # split payment: cash, then QR for the remainder
+    # split payment: cash, then a transfer for the remainder
     first_payment = balance_due // 2
     remainder = balance_due - first_payment
     pay1 = await client.post(
@@ -80,7 +80,7 @@ async def test_full_session_cycle_through_the_api(client):
     assert pay1.status_code == 200
     pay2 = await client.post(
         f"/api/sessions/{session_id}/payments",
-        json={"amount": remainder, "method": "qr"},
+        json={"amount": remainder, "method": "transfer"},
     )
     assert pay2.status_code == 200
 

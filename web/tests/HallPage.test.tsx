@@ -107,7 +107,7 @@ function stubApi(hall: HallSnapshotResponse | "pending") {
       return {
         ok: true,
         json: async () => ({
-          opening_cash: 5000, cash_total: 0, qr_total: 0, transfer_total: 0, expected_cash: 5000,
+          opening_cash: 5000, cash_total: 0, transfer_total: 0, expected_cash: 5000,
           sessions_count: 0, minutes_total: 0, bar_sales_total: 0, has_active_sessions: false,
         }),
       };
@@ -227,7 +227,7 @@ describe("HallPage", () => {
         return {
           ok: true,
           json: async () => ({
-            opening_cash: 2000, cash_total: 3830, qr_total: 2150, transfer_total: 600, expected_cash: 5830,
+            opening_cash: 2000, cash_total: 3830, transfer_total: 600, expected_cash: 5830,
             sessions_count: 23, minutes_total: 1900, bar_sales_total: 690, has_active_sessions: true,
           }),
         };
@@ -238,7 +238,6 @@ describe("HallPage", () => {
 
     const till = await screen.findByRole("region", { name: "Касса дня" });
     await waitFor(() => expect(within(till).getByText("5 830")).toBeInTheDocument());
-    expect(within(till).getByText("2 150")).toBeInTheDocument();
     expect(within(till).getByText("600")).toBeInTheDocument();
     expect(within(till).getByText("23 сессии · 31 ч 40 мин · бар 690")).toBeInTheDocument();
   });
@@ -313,7 +312,7 @@ describe("HallPage", () => {
       await waitFor(() => expect(screen.getByText("Оплата · остаток 50 сом")).toBeInTheDocument());
 
       fireEvent.change(screen.getByLabelText("Сумма"), { target: { value: "50" } });
-      fireEvent.click(screen.getByRole("button", { name: "QR" }));
+      fireEvent.click(screen.getByRole("button", { name: "Перевод" }));
       fireEvent.click(screen.getByRole("button", { name: /^Внести/ }));
       await waitFor(() => expect(screen.queryByText(/Оплата · остаток/)).not.toBeInTheDocument());
 
@@ -323,7 +322,7 @@ describe("HallPage", () => {
         .map(([, init]) => JSON.parse(init!.body as string));
       expect(payments).toEqual([
         { amount: 100, method: "cash" },
-        { amount: 50, method: "qr" },
+        { amount: 50, method: "transfer" },
       ]);
     });
 
@@ -541,7 +540,7 @@ describe("HallPage", () => {
           return {
             ok: true,
             json: async () => ({
-              opening_cash: 5000, cash_total: 0, qr_total: 0, transfer_total: 0, expected_cash: 5000,
+              opening_cash: 5000, cash_total: 0, transfer_total: 0, expected_cash: 5000,
               sessions_count: 1, minutes_total: 10, bar_sales_total: 0, has_active_sessions: false,
             }),
           };
@@ -571,7 +570,7 @@ describe("HallPage", () => {
             ok: true,
             json: async () => [
               { id: 2, opened_at: "2026-09-23T04:00:00Z", closed_at: "2026-09-23T20:00:00Z", opening_cash: 1000, expected_cash: 1200, counted_cash: 1200,
-                cash_total: 0, qr_total: 0, transfer_total: 0, sessions_count: 0, minutes_total: 0, free_minutes_total: 0, bar_sales_total: 0 },
+                cash_total: 0, transfer_total: 0, sessions_count: 0, minutes_total: 0, free_minutes_total: 0, bar_sales_total: 0 },
             ],
           };
         }
@@ -603,7 +602,7 @@ describe("HallPage", () => {
           return {
             ok: true,
             json: async () => ({
-              opening_cash: 5000, cash_total: 0, qr_total: 0, transfer_total: 0, expected_cash: 5000,
+              opening_cash: 5000, cash_total: 0, transfer_total: 0, expected_cash: 5000,
               sessions_count: 1, minutes_total: 10, bar_sales_total: 0, has_active_sessions: false,
             }),
           };

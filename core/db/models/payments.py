@@ -9,7 +9,6 @@ from core.db.base import Base
 
 class PaymentMethod(str, enum.Enum):
     cash = "cash"
-    qr = "qr"
     transfer = "transfer"
 
 

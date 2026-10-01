@@ -25,14 +25,14 @@ def test_format_day_summary_includes_every_breakdown_line():
         opening_cash=5000, expected_cash=5300, counted_cash=5300,
     )
     summary = DaySummary(
-        opening_cash=5000, cash_total=300, qr_total=200, transfer_total=100,
+        opening_cash=5000, cash_total=300, transfer_total=200,
         expected_cash=5300, sessions_count=3, minutes_total=150, free_minutes_total=30,
         bar_sales_total=160, has_active_sessions=False,
     )
 
     text = format_day_summary(day, summary)
 
-    assert "300" in text and "200" in text and "100" in text
+    assert "300" in text and "200" in text
     assert "5300" in text
     assert "3" in text
     assert "2 ч 30 мин" in text  # 150 minutes total
@@ -60,7 +60,7 @@ def test_format_day_summary_shows_bishkek_local_time_not_db_utc_tzinfo():
         opening_cash=5000, expected_cash=5300, counted_cash=5300,
     )
     summary = DaySummary(
-        opening_cash=5000, cash_total=300, qr_total=200, transfer_total=100,
+        opening_cash=5000, cash_total=300, transfer_total=200,
         expected_cash=5300, sessions_count=3, minutes_total=150, free_minutes_total=30,
         bar_sales_total=160, has_active_sessions=False,
     )

@@ -166,12 +166,7 @@ export function CloseBusinessDayDialog({
                 <>
                   <label className="flex min-h-10 items-center gap-2.5 py-1.5 text-sm">
                     <input type="checkbox" className="h-[18px] w-[18px] accent-[hsl(var(--triangle))]" />
-                    <span className="flex-1">QR</span>
-                    <span className="num">{formatSom(summary.qr_total)}</span>
-                  </label>
-                  <label className="flex min-h-10 items-center gap-2.5 py-1.5 text-sm">
-                    <input type="checkbox" className="h-[18px] w-[18px] accent-[hsl(var(--triangle))]" />
-                    <span className="flex-1">Перевод по номеру</span>
+                    <span className="flex-1">Перевод</span>
                     <span className="num">{formatSom(summary.transfer_total)}</span>
                   </label>
                   <p className="mt-2 text-[13px] text-fg-muted">

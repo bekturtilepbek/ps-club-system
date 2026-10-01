@@ -16,17 +16,16 @@ export function Till({ businessDayId }: TillProps) {
 
   const sessions = `${data.sessions_count} ${pluralRu(data.sessions_count, ["сессия", "сессии", "сессий"])}`;
 
-  // Cash and non-cash are always shown apart (CLAUDE.md rule 10): cash is counted, QR and
+  // Cash and non-cash are always shown apart (CLAUDE.md rule 10): cash is counted,
   // transfers are checked against the bank app.
   return (
     <section
       aria-label="Касса дня"
-      className="order-last grid w-full grid-cols-3 rounded-xl border border-line bg-surface min-[1281px]:order-none min-[1281px]:flex min-[1281px]:w-auto"
+      className="order-last grid w-full grid-cols-2 rounded-xl border border-line bg-surface min-[1281px]:order-none min-[1281px]:flex min-[1281px]:w-auto"
     >
       <TillItem label="Наличные в кассе" value={formatAmount(data.expected_cash)} big />
-      <TillItem label="QR" value={formatAmount(data.qr_total)} />
       <TillItem label="Перевод" value={formatAmount(data.transfer_total)} />
-      <div className="col-span-3 grid content-center border-t border-line px-4 py-1.5 min-[1281px]:border-l min-[1281px]:border-t-0">
+      <div className="col-span-2 grid content-center border-t border-line px-4 py-1.5 min-[1281px]:border-l min-[1281px]:border-t-0">
         <span className="text-[11px] text-fg-muted">За день</span>
         <span className="text-[13px] font-medium">
           {sessions} · {formatHoursMinutes(data.minutes_total)} · бар {formatAmount(data.bar_sales_total)}

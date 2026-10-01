@@ -89,8 +89,8 @@ docs/
 8. **Tariffs belong to a zone.** One zone today; VIP rooms later are a new zone.
 9. **Every manual override goes to `audit_log`**: free session, early stop, cancel,
    edit, tariff change.
-10. **Cash and non-cash are always reported separately.** Payment methods: cash, qr,
-    transfer.
+10. **Cash and non-cash are always reported separately.** Payment methods: cash,
+    transfer (a QR payment is a transfer).
 11. **Plugs control the TV only, never the console.** Hard power loss corrupts the PS5.
 12. **The plug layer is behind `PlugDriver`.** No vendor library types outside
     `core/plugs/` and `agent/`. Phase 1 uses the manual driver.

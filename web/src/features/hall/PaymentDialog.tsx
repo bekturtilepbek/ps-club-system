@@ -25,7 +25,6 @@ interface PaymentDialogProps {
 
 const METHODS: { value: PaymentMethod; label: string }[] = [
   { value: "cash", label: "Наличные" },
-  { value: "qr", label: "QR" },
   { value: "transfer", label: "Перевод" },
 ];
 

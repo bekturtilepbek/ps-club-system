@@ -40,7 +40,7 @@ describe("Till", () => {
         return {
           ok: true,
           json: async () => ({
-            opening_cash: 5000, cash_total: cash - 5000, qr_total: 0, transfer_total: 0, expected_cash: cash,
+            opening_cash: 5000, cash_total: cash - 5000, transfer_total: 0, expected_cash: cash,
             sessions_count: 0, minutes_total: 0, bar_sales_total: 0, has_active_sessions: false,
           }),
         };

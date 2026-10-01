@@ -92,7 +92,7 @@ async def test_close_business_day_computes_expected_cash_from_cash_payments_only
             session_id=session_id,
             business_day_id=day.id,
             amount=999,
-            method=PaymentMethod.qr,
+            method=PaymentMethod.transfer,
             created_at=T,
         )
     )
@@ -101,7 +101,7 @@ async def test_close_business_day_computes_expected_cash_from_cash_payments_only
     closed = await close_business_day(
         db_session, business_day_id=day.id, counted_cash=5300, now=T + timedelta(hours=8)
     )
-    assert closed.expected_cash == 5300  # 5000 opening + 300 cash, QR excluded
+    assert closed.expected_cash == 5300  # 5000 opening + 300 cash, non-cash excluded
     assert closed.counted_cash == 5300
     assert closed.closed_at is not None
 
@@ -168,7 +168,7 @@ async def test_day_summary_breaks_down_payments_by_method(db_session):
             ),
             Payment(
                 session_id=session_id, business_day_id=day.id, amount=200,
-                method=PaymentMethod.qr, created_at=T,
+                method=PaymentMethod.transfer, created_at=T,
             ),
             Payment(
                 session_id=session_id, business_day_id=day.id, amount=100,
@@ -182,8 +182,7 @@ async def test_day_summary_breaks_down_payments_by_method(db_session):
 
     assert summary.opening_cash == 5000
     assert summary.cash_total == 300
-    assert summary.qr_total == 200
-    assert summary.transfer_total == 100
+    assert summary.transfer_total == 300
     assert summary.expected_cash == 5300
     assert summary.has_active_sessions is False
 
@@ -433,7 +432,7 @@ async def test_summaries_for_days_keeps_each_day_apart(db_session):
                 session_id=session_id,
                 business_day_id=first.id,
                 amount=200,
-                method=PaymentMethod.qr,
+                method=PaymentMethod.transfer,
                 created_at=T,
             ),
         ]
@@ -463,11 +462,7 @@ async def test_summaries_for_days_keeps_each_day_apart(db_session):
         db_session, business_day_id=first.id, now=now
     )
     first_summary = summaries[first.id]
-    assert (first_summary.cash_total, first_summary.qr_total, first_summary.transfer_total) == (
-        300,
-        200,
-        0,
-    )
+    assert (first_summary.cash_total, first_summary.transfer_total) == (300, 200)
     assert summaries[first.id].sessions_count == 1
     assert (summaries[second.id].cash_total, summaries[second.id].transfer_total) == (0, 150)
     assert summaries[second.id].expected_cash == 2000

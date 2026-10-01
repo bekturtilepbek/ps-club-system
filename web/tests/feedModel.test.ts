@@ -34,8 +34,8 @@ describe("describeFeedEvent", () => {
   });
 
   it("describes a payment by method, and a ticket by its number", () => {
-    const line = describeFeedEvent(event({ kind: "payment", console_name: null, session_id: 214, amount: 150, method: "qr" }));
-    expect(line).toMatchObject({ who: "Чек №214", what: "оплата", amount: 150, method: "QR" });
+    const line = describeFeedEvent(event({ kind: "payment", console_name: null, session_id: 214, amount: 150, method: "transfer" }));
+    expect(line).toMatchObject({ who: "Чек №214", what: "оплата", amount: 150, method: "перевод" });
   });
 
   it("describes bar orders and finished sessions", () => {

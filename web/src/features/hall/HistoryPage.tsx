@@ -10,7 +10,7 @@ import { formatAmount, formatHoursClock, formatHoursMinutes, formatSignedSom, pl
 import { cn } from "@/lib/utils";
 
 const COLUMNS =
-  "md:grid-cols-[minmax(140px,1.4fr)_repeat(3,minmax(64px,1fr))_minmax(96px,1fr)_repeat(3,minmax(56px,.8fr))]";
+  "md:grid-cols-[minmax(140px,1.4fr)_repeat(2,minmax(64px,1fr))_minmax(96px,1fr)_repeat(3,minmax(56px,.8fr))]";
 
 function discrepancyOf(day: BusinessDayHistoryItem): number {
   return (day.counted_cash ?? 0) - (day.expected_cash ?? 0);
@@ -52,7 +52,6 @@ export function HistoryPage({ onBack }: { onBack: () => void }) {
             className="mb-4 grid w-fit max-w-full grid-cols-2 rounded-xl border border-line bg-surface sm:flex"
           >
             <Total label="Наличные за период" value={formatAmount(sum((d) => d.cash_total))} big />
-            <Total label="QR" value={formatAmount(sum((d) => d.qr_total))} />
             <Total label="Перевод" value={formatAmount(sum((d) => d.transfer_total))} />
             <Total
               label="Расхождения"
@@ -72,7 +71,6 @@ export function HistoryPage({ onBack }: { onBack: () => void }) {
             >
               <span>День</span>
               <span>Наличные</span>
-              <span>QR</span>
               <span>Перевод</span>
               <span>Расхождение</span>
               <span>Сессии</span>
@@ -87,18 +85,17 @@ export function HistoryPage({ onBack }: { onBack: () => void }) {
                   type="button"
                   onClick={() => setSelected(day)}
                   className={cn(
-                    "grid w-full grid-cols-4 items-center gap-x-2 gap-y-2.5 border-t border-line px-[18px] py-3 text-left text-sm first-of-type:border-t-0 hover:bg-surface-2 md:gap-3 md:first-of-type:border-t",
+                    "grid w-full grid-cols-3 items-center gap-x-2 gap-y-2.5 border-t border-line px-[18px] py-3 text-left text-sm first-of-type:border-t-0 hover:bg-surface-2 md:gap-3 md:first-of-type:border-t",
                     COLUMNS,
                   )}
                 >
-                  <span className="col-span-4 md:col-span-1">
+                  <span className="col-span-3 md:col-span-1">
                     <b className="block font-semibold">{formatDayLabel(Date.parse(day.opened_at))}</b>
                     <span className="text-[13px] text-fg-muted">
                       {formatClock(Date.parse(day.opened_at))} → {formatClock(Date.parse(day.closed_at!))}
                     </span>
                   </span>
                   <Cell label="Наличные" value={formatAmount(day.cash_total)} />
-                  <Cell label="QR" value={formatAmount(day.qr_total)} />
                   <Cell label="Перевод" value={formatAmount(day.transfer_total)} />
                   <Cell
                     label="Расхождение"
@@ -167,8 +164,7 @@ function DaySheet({ day, onClose }: { day: BusinessDayHistoryItem; onClose: () =
             />
           </Section>
           <Section title="Безнал · сверяется по банку">
-            <Row label="QR" note="MBank, O!Dengi" value={formatAmount(day.qr_total)} />
-            <Row label="Перевод по номеру" value={formatAmount(day.transfer_total)} />
+            <Row label="Перевод" note="MBank, O!Dengi" value={formatAmount(day.transfer_total)} />
           </Section>
           <Section title="Зал">
             <Row label="Сессий" value={String(day.sessions_count)} />

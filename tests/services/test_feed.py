@@ -58,7 +58,7 @@ async def test_feed_tells_the_day_newest_first(db_session):
         db_session, session_id=session.id, tariff_id=one_hour.id, now=T + timedelta(hours=2)
     )
     await add_payment(
-        db_session, session_id=session.id, amount=670, method=PaymentMethod.qr,
+        db_session, session_id=session.id, amount=670, method=PaymentMethod.transfer,
         now=T + timedelta(hours=3),
     )
     await stop_session(db_session, session_id=session.id, now=T + timedelta(hours=4))
@@ -77,7 +77,7 @@ async def test_feed_tells_the_day_newest_first(db_session):
     assert (started.segment_kind, started.tariff_name) == (SegmentKind.package, "3 часа")
     assert (order.product_name, order.qty, order.amount) == ("Кола", 2, 120)
     assert (extended.tariff_name, extended.at) == ("1 час", T + timedelta(hours=2))
-    assert (payment.amount, payment.method) == (670, PaymentMethod.qr)
+    assert (payment.amount, payment.method) == (670, PaymentMethod.transfer)
     assert finished.minutes == 239
 
 

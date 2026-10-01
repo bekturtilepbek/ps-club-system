@@ -166,7 +166,6 @@ async def test_history_list_carries_each_days_totals(client):
     assert day["opening_cash"] == 1000
     for key in (
         "cash_total",
-        "qr_total",
         "transfer_total",
         "sessions_count",
         "minutes_total",

@@ -45,7 +45,7 @@ function emptySnapshot(): HallSnapshotResponse {
 const SUMMARY = {
   opening_cash: 5000,
   cash_total: 300,
-  qr_total: 200,
+  
   transfer_total: 100,
   expected_cash: 5300,
   sessions_count: 2,
@@ -120,8 +120,7 @@ describe("CloseBusinessDayDialog", () => {
 
     await waitFor(() => expect(screen.getByText("Должно быть в кассе")).toBeInTheDocument());
     expect(screen.getByTestId("expected-cash")).toHaveTextContent("5 300 сом");
-    expect(screen.getByText("QR").closest("label")).toHaveTextContent("200 сом");
-    expect(screen.getByText("Перевод по номеру").closest("label")).toHaveTextContent("100 сом");
+    expect(screen.getByText("Перевод").closest("label")).toHaveTextContent("100 сом");
     expect(screen.getByText("Сессий: 2")).toBeInTheDocument();
     expect(screen.getByText("Часы игры: 1 ч 30 мин")).toBeInTheDocument();
     expect(screen.getByText("Бар: 160 сом")).toBeInTheDocument();

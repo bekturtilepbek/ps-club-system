@@ -24,7 +24,6 @@ def format_day_summary(day: BusinessDay, summary: DaySummary) -> str:
         else f"Итоги дня — {opened_at:%d.%m %H:%M}",
         f"Наличные: {summary.cash_total} сом (ожидалось {summary.expected_cash}, "
         f"посчитано {day.counted_cash})",
-        f"QR: {summary.qr_total} сом",
         f"Перевод: {summary.transfer_total} сом",
         f"Сессий: {summary.sessions_count}, часов: {format_hours_minutes(summary.minutes_total)}",
         f"Бесплатно: {format_hours_minutes(summary.free_minutes_total)}",

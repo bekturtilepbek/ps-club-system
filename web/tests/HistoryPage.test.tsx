@@ -11,7 +11,7 @@ const DAY = {
   expected_cash: 5300,
   counted_cash: 5200,
   cash_total: 300,
-  qr_total: 2900,
+  
   transfer_total: 450,
   sessions_count: 27,
   minutes_total: 2290,
@@ -47,7 +47,6 @@ describe("HistoryPage", () => {
     renderPage([DAY, { ...DAY, id: 4, closed_at: null }]);
     const row = await screen.findByRole("button", { name: /чт, 24\.09/ });
     expect(row).toHaveTextContent("10:00 → 02:00");
-    expect(row).toHaveTextContent("2 900"); // QR
     expect(row).toHaveTextContent("450"); // transfer
     expect(row).toHaveTextContent("−100");
     expect(row).toHaveTextContent("38:10");
@@ -57,7 +56,6 @@ describe("HistoryPage", () => {
   it("totals the period with each payment method on its own", async () => {
     renderPage([DAY, { ...DAY, id: 5, opened_at: "2026-09-23T04:00:00Z", closed_at: "2026-09-23T20:00:00Z", counted_cash: 5300 }]);
     const totals = await screen.findByRole("region", { name: "Итого за период" });
-    expect(within(totals).getByText("5 800")).toBeInTheDocument(); // QR 2 900 × 2
     expect(within(totals).getByText("900")).toBeInTheDocument(); // transfer 450 × 2
   });
 
@@ -65,7 +63,7 @@ describe("HistoryPage", () => {
     renderPage([DAY]);
     fireEvent.click(await screen.findByRole("button", { name: /чт, 24\.09/ }));
     const sheet = await screen.findByRole("dialog", { name: "чт, 24.09" });
-    expect(within(sheet).getByText("QR").closest("div")).toHaveTextContent("2 900");
+    expect(within(sheet).getByText("Перевод").closest("div")).toHaveTextContent("450");
     expect(within(sheet).getByText("Бесплатно").closest("div")).toHaveTextContent("1 ч 20 мин");
   });
 

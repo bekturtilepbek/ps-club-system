@@ -76,7 +76,6 @@ async def close_business_day(
 class DaySummary:
     opening_cash: int
     cash_total: int
-    qr_total: int
     transfer_total: int
     expected_cash: int
     sessions_count: int
@@ -139,7 +138,6 @@ async def summaries_for_days(
         summaries[day.id] = DaySummary(
             opening_cash=day.opening_cash,
             cash_total=cash_total,
-            qr_total=paid[day.id][PaymentMethod.qr],
             transfer_total=paid[day.id][PaymentMethod.transfer],
             expected_cash=day.opening_cash + cash_total,
             sessions_count=len(sessions_by_day[day.id]),

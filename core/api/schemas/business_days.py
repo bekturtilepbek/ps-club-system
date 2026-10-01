@@ -27,7 +27,6 @@ class BusinessDaySummaryResponse(BaseModel):
 
     opening_cash: int
     cash_total: int
-    qr_total: int
     transfer_total: int
     expected_cash: int
     sessions_count: int
@@ -42,7 +41,6 @@ class BusinessDayHistoryItem(BusinessDayResponse):
     (CLAUDE.md rule 10)."""
 
     cash_total: int
-    qr_total: int
     transfer_total: int
     sessions_count: int
     minutes_total: int

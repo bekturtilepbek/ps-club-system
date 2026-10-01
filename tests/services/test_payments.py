@@ -49,7 +49,7 @@ async def test_charge_total_for_a_package_is_its_price_even_while_running(db_ses
 
 
 @pytest.mark.asyncio
-async def test_charge_total_and_balance_after_partial_cash_and_qr_payment(db_session):
+async def test_charge_total_and_balance_after_partial_cash_and_transfer_payment(db_session):
     console_id, package_id = await _setup(db_session)
     session = await start_session(
         db_session,
@@ -64,7 +64,9 @@ async def test_charge_total_and_balance_after_partial_cash_and_qr_payment(db_ses
     await add_payment(
         db_session, session_id=session.id, amount=100, method=PaymentMethod.cash, now=T
     )
-    await add_payment(db_session, session_id=session.id, amount=50, method=PaymentMethod.qr, now=T)
+    await add_payment(
+        db_session, session_id=session.id, amount=50, method=PaymentMethod.transfer, now=T
+    )
 
     assert await session_paid_total(db_session, session.id) == 150
     assert await session_balance(db_session, session.id, now=T) == 0

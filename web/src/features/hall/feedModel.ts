@@ -11,7 +11,7 @@ export interface FeedLine {
   method: string | null;
 }
 
-const METHOD_LABELS: Record<string, string> = { cash: "нал", qr: "QR", transfer: "перевод" };
+const METHOD_LABELS: Record<string, string> = { cash: "нал", transfer: "перевод" };
 
 export function describeFeedEvent(event: FeedEventResponse): FeedLine {
   const who = event.console_name ?? `Чек №${event.session_id}`;
