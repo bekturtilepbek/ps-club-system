@@ -8,11 +8,11 @@ import { StateChip } from "@/components/ui/state-chip";
 import type { Tone } from "@/components/ui/tone";
 import { api, type SessionKind, type TariffResponse } from "@/lib/api";
 import { formatClock } from "@/lib/bishkek";
-import { serverNow } from "@/lib/clock";
 import { formatSom, pluralRu } from "@/lib/format";
 import { LatePackageWarning } from "./LatePackageWarning";
 import { TariffTile } from "./TariffTile";
 import { packageEndsAfterPlannedClose } from "./plannedClose";
+import { useNow } from "./useNow";
 import { HALL_QUERY_KEY } from "./useHallSnapshot";
 
 interface StartSessionDialogProps {
@@ -37,7 +37,7 @@ export function StartSessionDialog({ open, consoleId, consoleName, onOpenChange,
   const selectedTariff = tariffs.find((t) => t.id === tariffId);
   const graceMinutes = settingsQuery.data?.grace_minutes ?? 3;
   const plannedClose = settingsQuery.data?.planned_close;
-  const packageStartMs = serverNow() + graceMinutes * 60_000;
+  const packageStartMs = useNow(open) + graceMinutes * 60_000;
 
   const endsAt = (tariff: TariffResponse) =>
     tariff.kind === "package" && tariff.duration_min != null ? packageStartMs + tariff.duration_min * 60_000 : null;

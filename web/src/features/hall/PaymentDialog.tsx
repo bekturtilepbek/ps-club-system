@@ -40,7 +40,8 @@ export function PaymentDialog({ open, sessionId, balance, targetName, onOpenChan
     },
   });
 
-  const amountValue = Number(amount);
+  // The API takes whole som (int): the label and the request both use the rounded value.
+  const amountValue = Math.round(Number(amount));
   const isValidAmount = amount.trim() !== "" && Number.isFinite(amountValue) && amountValue > 0;
 
   return (
