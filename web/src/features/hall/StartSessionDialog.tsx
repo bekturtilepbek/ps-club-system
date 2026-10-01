@@ -8,6 +8,7 @@ import { StateChip } from "@/components/ui/state-chip";
 import type { Tone } from "@/components/ui/tone";
 import { api, type SessionKind, type TariffResponse } from "@/lib/api";
 import { formatClock } from "@/lib/bishkek";
+import { cn } from "@/lib/utils";
 import { formatSom, pluralRu } from "@/lib/format";
 import { LatePackageWarning } from "./LatePackageWarning";
 import { TariffTile } from "./TariffTile";
@@ -28,14 +29,15 @@ const REASONS = ["Друзья владельца", "Компенсация"];
 export function StartSessionDialog({ open, consoleId, consoleName, onOpenChange, onStarted }: StartSessionDialogProps) {
   const tariffsQuery = useQuery({ queryKey: ["tariffs"], queryFn: api.tariffs, enabled: open });
   const settingsQuery = useQuery({ queryKey: ["settings"], queryFn: api.settings, enabled: open });
-  const gamesQuery = useQuery({ queryKey: ["recent-games"], queryFn: api.recentGames, enabled: open });
+  const gamesQuery = useQuery({ queryKey: ["games"], queryFn: api.games, enabled: open });
   const [kind, setKind] = useState<SessionKind>("paid");
   const [tariffId, setTariffId] = useState<number | null>(null);
   const [reason, setReason] = useState("");
-  const [game, setGame] = useState("");
+  const [gameId, setGameId] = useState<number | null>(null);
   const queryClient = useQueryClient();
 
   const tariffs = tariffsQuery.data ?? [];
+  const games = Array.isArray(gamesQuery.data) ? gamesQuery.data : [];
   const selectedTariff = tariffs.find((t) => t.id === tariffId);
   const graceMinutes = settingsQuery.data?.grace_minutes ?? 3;
   const plannedClose = settingsQuery.data?.planned_close;
@@ -69,7 +71,7 @@ export function StartSessionDialog({ open, consoleId, consoleName, onOpenChange,
         kind,
         tariff_id: kind === "paid" ? tariffId : null,
         reason: kind === "free" ? reason : null,
-        game: kind === "service" ? null : game.trim() || null,
+        game_id: kind === "service" ? null : gameId,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: HALL_QUERY_KEY });
@@ -156,25 +158,27 @@ export function StartSessionDialog({ open, consoleId, consoleName, onOpenChange,
             </div>
           )}
 
-          {kind !== "service" && (
+          {kind !== "service" && games.length > 0 && (
             <div>
-              <label htmlFor="game" className="field-label">
+              <span className="field-label" id="game-label">
                 Во что играют <span className="font-normal normal-case text-fg-faint">(по желанию)</span>
-              </label>
-              <Input
-                id="game"
-                value={game}
-                maxLength={100}
-                list="recent-games"
-                autoComplete="off"
-                onChange={(event) => setGame(event.target.value)}
-                placeholder="Например: FIFA 25"
-              />
-              <datalist id="recent-games">
-                {(Array.isArray(gamesQuery.data) ? gamesQuery.data : []).map((name) => (
-                  <option key={name} value={name} />
+              </span>
+              <div role="group" aria-labelledby="game-label" className="flex flex-wrap gap-2">
+                {games.map((game) => (
+                  <button
+                    key={game.id}
+                    type="button"
+                    aria-pressed={gameId === game.id}
+                    onClick={() => setGameId(gameId === game.id ? null : game.id)}
+                    className={cn(
+                      "h-10 rounded-full border px-3.5 text-[13px] hover:border-hover-line hover:text-fg",
+                      gameId === game.id ? "border-fg bg-surface-2 font-medium text-fg" : "border-line text-fg-muted",
+                    )}
+                  >
+                    {game.name}
+                  </button>
                 ))}
-              </datalist>
+              </div>
             </div>
           )}
 

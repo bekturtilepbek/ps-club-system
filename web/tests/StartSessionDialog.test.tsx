@@ -44,7 +44,7 @@ describe("StartSessionDialog", () => {
     expect(JSON.parse(startCall![1].body as string)).toMatchObject({ console_id: 1, kind: "paid", tariff_id: 1 });
   });
 
-  it("sends the game when one is typed, and null when it is left empty", async () => {
+  function stubWithGames(games: { id: number; name: string }[]) {
     const fetchMock = vi.fn(async (url: string) => {
       if (url === "/api/tariffs") {
         return {
@@ -54,47 +54,67 @@ describe("StartSessionDialog", () => {
           ],
         };
       }
-      if (url === "/api/sessions/games") return { ok: true, json: async () => ["FIFA 25"] };
+      if (url === "/api/games") return { ok: true, json: async () => games };
       return { ok: true, json: async () => ({ id: 1 }) };
     });
     vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  function startedBody(fetchMock: ReturnType<typeof stubWithGames>) {
+    const calls = fetchMock.mock.calls as unknown as [string, RequestInit][];
+    const startCall = calls.find(([url, init]) => url === "/api/sessions" && init?.method === "POST");
+    return JSON.parse(startCall![1].body as string);
+  }
+
+  it("lets the operator pick a game from the owner's list and sends its id", async () => {
+    const fetchMock = stubWithGames([
+      { id: 5, name: "FC26" },
+      { id: 6, name: "UFC5" },
+    ]);
     const { onStarted } = renderDialog();
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /^1 час/ })).toBeInTheDocument());
-    await waitFor(() => expect(document.querySelectorAll("#recent-games option")).toHaveLength(1));
+    await waitFor(() => expect(screen.getByRole("button", { name: "FC26" })).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /^1 час/ }));
-    fireEvent.change(screen.getByLabelText(/Во что играют/), { target: { value: " Mortal Kombat " } });
+    fireEvent.click(screen.getByRole("button", { name: "UFC5" }));
+    expect(screen.getByRole("button", { name: "UFC5" })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(screen.getByRole("button", { name: /^Начать на PS5-1/ }));
 
     await waitFor(() => expect(onStarted).toHaveBeenCalled());
-    const calls = fetchMock.mock.calls as unknown as [string, RequestInit][];
-    const startCall = calls.find(([url, init]) => url === "/api/sessions" && init?.method === "POST");
-    expect(JSON.parse(startCall![1].body as string)).toMatchObject({ game: "Mortal Kombat" });
+    expect(startedBody(fetchMock)).toMatchObject({ game_id: 6 });
   });
 
-  it("sends no game when the field is left empty", async () => {
-    const fetchMock = vi.fn(async (url: string) => {
-      if (url === "/api/tariffs") {
-        return {
-          ok: true,
-          json: async () => [
-            { id: 1, zone_id: 1, kind: "package", name: "1 час", duration_min: 60, price: 150, hourly_rate: null, is_active: true },
-          ],
-        };
-      }
-      return { ok: true, json: async () => ({ id: 1 }) };
-    });
-    vi.stubGlobal("fetch", fetchMock);
+  it("sends no game when none is picked, or when the pick is tapped again", async () => {
+    const fetchMock = stubWithGames([{ id: 5, name: "FC26" }]);
     const { onStarted } = renderDialog();
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /^1 час/ })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "FC26" })).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /^1 час/ }));
+    fireEvent.click(screen.getByRole("button", { name: "FC26" }));
+    fireEvent.click(screen.getByRole("button", { name: "FC26" }));
+    expect(screen.getByRole("button", { name: "FC26" })).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(screen.getByRole("button", { name: /^Начать на PS5-1/ }));
 
     await waitFor(() => expect(onStarted).toHaveBeenCalled());
-    const calls = fetchMock.mock.calls as unknown as [string, RequestInit][];
-    const startCall = calls.find(([url, init]) => url === "/api/sessions" && init?.method === "POST");
-    expect(JSON.parse(startCall![1].body as string).game).toBeNull();
+    expect(startedBody(fetchMock).game_id).toBeNull();
+  });
+
+  it("shows no game section while the owner's list is empty", async () => {
+    stubWithGames([]);
+    renderDialog();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /^1 час/ })).toBeInTheDocument());
+    expect(screen.queryByText(/Во что играют/)).toBeNull();
+  });
+
+  it("asks for no game on a service session", async () => {
+    stubWithGames([{ id: 5, name: "FC26" }]);
+    renderDialog();
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "FC26" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Служебная" }));
+
+    expect(screen.queryByRole("button", { name: "FC26" })).toBeNull();
   });
 
   it("shows an error message when starting the session fails", async () => {

@@ -50,7 +50,7 @@ describe("STATUS_VISUALS coverage", () => {
 function session(overrides: Partial<SessionResponse>): SessionResponse {
   return {
     id: 7, console_id: 3, business_day_id: 1, kind: "paid", reason: null, status: "active",
-    started_at: "2026-09-29T14:31:00Z", grace_until: null, ended_at: null, comment: null, game: null,
+    started_at: "2026-09-29T14:31:00Z", grace_until: null, ended_at: null, comment: null, game_id: null, game: null,
     segments: [], orders: [], charge_total: 0, paid_total: 0, balance: 0,
     ...overrides,
   };

@@ -9,6 +9,7 @@ from core.api.errors import register_exception_handlers
 from core.api.routes.auth import router as auth_router
 from core.api.routes.bar import orders_router, products_router
 from core.api.routes.business_days import router as business_days_router
+from core.api.routes.games import router as games_router
 from core.api.routes.hall import router as hall_router
 from core.api.routes.hall_ws import router as hall_ws_router
 from core.api.routes.health import router as health_router
@@ -69,6 +70,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router, prefix="/api")
     app.include_router(settings_router, prefix="/api")
     app.include_router(tariffs_router, prefix="/api")
+    app.include_router(games_router, prefix="/api")
     app.include_router(business_days_router, prefix="/api")
     app.include_router(sessions_router, prefix="/api")
     app.include_router(tickets_router, prefix="/api")

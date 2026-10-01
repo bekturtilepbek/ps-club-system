@@ -92,56 +92,77 @@ async def test_paying_a_non_positive_amount_is_422(client):
     assert response.status_code == 422
 
 
+async def _add_game(name: str, *, is_active: bool = True) -> int:
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from core.db.models import Game
+
+    engine = create_async_engine(TEST_DATABASE_URL)
+    async with async_sessionmaker(engine, expire_on_commit=False)() as db:
+        game = Game(name=name, is_active=is_active)
+        db.add(game)
+        await db.commit()
+        game_id = game.id
+    await engine.dispose()
+    return game_id
+
+
 @pytest.mark.asyncio
-async def test_start_session_records_the_optional_game(client):
+async def test_start_session_records_the_chosen_game(client):
     console_id, package_id = await _setup(client)
+    game_id = await _add_game("FC26")
 
     response = await client.post(
         "/api/sessions",
-        json={"console_id": console_id, "tariff_id": package_id, "game": "  FIFA   25 "},
+        json={"console_id": console_id, "tariff_id": package_id, "game_id": game_id},
     )
 
     assert response.status_code == 200
-    assert response.json()["game"] == "FIFA 25"  # trimmed, inner whitespace collapsed
+    assert (response.json()["game_id"], response.json()["game"]) == (game_id, "FC26")
 
 
 @pytest.mark.asyncio
-async def test_game_is_optional_and_blank_means_not_said(client):
+async def test_the_game_is_optional(client):
     console_id, package_id = await _setup(client)
 
     response = await client.post(
-        "/api/sessions",
-        json={"console_id": console_id, "tariff_id": package_id, "game": "   "},
+        "/api/sessions", json={"console_id": console_id, "tariff_id": package_id}
     )
 
     assert response.status_code == 200
-    assert response.json()["game"] is None
+    assert (response.json()["game_id"], response.json()["game"]) == (None, None)
 
 
 @pytest.mark.asyncio
-async def test_a_too_long_game_name_is_rejected(client):
+@pytest.mark.parametrize("hidden", [False, True])
+async def test_an_unknown_or_hidden_game_is_refused(client, hidden):
     console_id, package_id = await _setup(client)
+    game_id = await _add_game("Старая игра", is_active=False) if hidden else 9999
 
     response = await client.post(
         "/api/sessions",
-        json={"console_id": console_id, "tariff_id": package_id, "game": "x" * 101},
+        json={"console_id": console_id, "tariff_id": package_id, "game_id": game_id},
     )
 
-    assert response.status_code == 422
+    assert response.status_code == 404
+    started = await client.get("/api/hall")
+    assert all(c["session"] is None for c in started.json()["consoles"])
 
 
 @pytest.mark.asyncio
-async def test_recent_games_lists_the_most_played_first(client):
-    console_id, package_id = await _setup(client)
-    for game in ["FIFA 25", "Mortal Kombat", "FIFA 25", None]:
-        started = await client.post(
-            "/api/sessions",
-            json={"console_id": console_id, "tariff_id": package_id, "game": game},
-        )
-        assert started.status_code == 200
-        await client.post(f"/api/sessions/{started.json()['id']}/stop")
+async def test_games_endpoint_lists_active_games_by_name(client):
+    await _add_game("UFC5")
+    await _add_game("FC26")
+    await _add_game("Старая игра", is_active=False)
+    await _add_game("Mortal Kombat 1")
 
-    response = await client.get("/api/sessions/games")
+    response = await client.get("/api/games")
 
     assert response.status_code == 200
-    assert response.json() == ["FIFA 25", "Mortal Kombat"]
+    assert [g["name"] for g in response.json()] == ["FC26", "Mortal Kombat 1", "UFC5"]
+    assert set(response.json()[0]) == {"id", "name"}
+
+
+@pytest.mark.asyncio
+async def test_games_endpoint_requires_login(anonymous_client):
+    assert (await anonymous_client.get("/api/games")).status_code == 401

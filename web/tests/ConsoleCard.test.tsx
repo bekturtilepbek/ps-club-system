@@ -32,7 +32,7 @@ function busy(overrides: { balance?: number; endsInMs?: number; graceLeftMs?: nu
       started_at: new Date(NOW - 20 * 60_000).toISOString(),
       grace_until: new Date(NOW + graceLeftMs).toISOString(),
       ended_at: null,
-      comment: null, game: null,
+      comment: null, game_id: null, game: null,
       segments: [
         {
           id: 1,

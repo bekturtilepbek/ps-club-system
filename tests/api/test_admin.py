@@ -7,7 +7,7 @@ import pytest_asyncio
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from core.db.models import AuditLog, Console, Product, Setting, Tariff, TariffKind, Zone
+from core.db.models import AuditLog, Console, Game, Product, Setting, Tariff, TariffKind, Zone
 from core.db.session import engine as app_engine
 
 TEST_DATABASE_URL = os.environ.get(
@@ -40,7 +40,7 @@ async def _zone(db) -> Zone:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("path", ["tariff", "product", "console", "setting", "zone"])
+@pytest.mark.parametrize("path", ["tariff", "product", "console", "setting", "zone", "game"])
 async def test_every_list_and_create_page_renders(client, path):
     assert (await client.get(f"/admin/{path}/list")).status_code == 200
     assert (await client.get(f"/admin/{path}/create")).status_code == 200
@@ -202,7 +202,7 @@ async def test_creating_an_open_time_tariff_and_a_product_and_a_console(client, 
 
 @pytest.mark.asyncio
 async def test_new_records_are_active_by_default(client):
-    for path in ("tariff", "product", "console", "zone"):
+    for path in ("tariff", "product", "console", "zone", "game"):
         page = (await client.get(f"/admin/{path}/create")).text
         checkbox = page[page.index('name="is_active"') - 80 : page.index('name="is_active"') + 80]
         assert "checked" in checkbox, path
@@ -287,3 +287,55 @@ async def test_save_and_continue_still_redirects_to_the_edit_page(client, db):
 
     assert response.status_code == 302
     assert "/admin/zone/edit/" in response.headers["location"]
+
+
+@pytest.mark.asyncio
+async def test_adding_a_game_trims_the_name(client, db):
+    response = await client.post(
+        "/admin/game/create",
+        data={"name": "  Mortal   Kombat 1 ", "is_active": "y"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 302
+    assert (await db.execute(select(Game.name))).scalar_one() == "Mortal Kombat 1"
+
+
+@pytest.mark.asyncio
+async def test_a_game_cannot_be_added_twice_even_with_other_letter_case(client, db):
+    db.add(Game(name="FC26"))
+    await db.commit()
+
+    response = await client.post(
+        "/admin/game/create", data={"name": "fc26", "is_active": "y"}, follow_redirects=False
+    )
+
+    assert response.status_code == 400
+    assert "уже есть в списке" in response.text
+    assert len((await db.execute(select(Game))).scalars().all()) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_blank_game_name_is_refused(client):
+    response = await client.post(
+        "/admin/game/create", data={"name": "   ", "is_active": "y"}, follow_redirects=False
+    )
+
+    assert response.status_code in (400,)
+
+
+@pytest.mark.asyncio
+async def test_renaming_a_game_to_its_own_name_is_fine_and_hiding_works(client, db):
+    game = Game(name="UFC5")
+    db.add(game)
+    await db.commit()
+    game_id = game.id
+
+    response = await client.post(
+        f"/admin/game/edit/{game_id}", data={"name": "UFC5"}, follow_redirects=False
+    )  # is_active left out = unticked = hidden
+
+    assert response.status_code == 302
+    db.expire_all()
+    stored = await db.get(Game, game_id)
+    assert (stored.name, stored.is_active) == ("UFC5", False)

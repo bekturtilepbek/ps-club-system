@@ -25,7 +25,7 @@ function consoleWithDebt(): HallConsoleResponse {
       started_at: "2026-09-29T17:44:00Z",
       grace_until: "2026-09-29T17:47:00Z",
       ended_at: null,
-      comment: null, game: null,
+      comment: null, game_id: null, game: null,
       segments: [
         { id: 1, tariff_id: 2, kind: "package", starts_at: "2026-09-29T17:44:00Z", ends_at: "2026-09-29T18:47:00Z", price_snapshot: 150, amount: 150 },
       ],

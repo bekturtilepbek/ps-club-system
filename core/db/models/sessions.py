@@ -9,6 +9,7 @@ from core.db.base import Base
 
 if TYPE_CHECKING:
     from core.db.models.bar import Order
+    from core.db.models.games import Game
 
 
 class SessionKind(str, enum.Enum):
@@ -52,7 +53,8 @@ class Session(Base):
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=None)
     comment: Mapped[str | None] = mapped_column(Text, default=None)
     # What the guests said they would play (optional, for analytics; not verified).
-    game: Mapped[str | None] = mapped_column(String(100), default=None)
+    game_id: Mapped[int | None] = mapped_column(ForeignKey("games.id"), default=None)
+    game: Mapped["Game | None"] = relationship("Game", lazy="selectin")
 
     segments: Mapped[list["SessionSegment"]] = relationship(
         "SessionSegment",

@@ -8,13 +8,14 @@ from fastapi import FastAPI, Request
 from markupsafe import Markup, escape
 from sqladmin import Admin, ModelView
 from sqladmin.authentication import AuthenticationBackend
+from sqlalchemy import func, select
 from starlette.responses import RedirectResponse
 from wtforms import Form, SelectField, StringField
 
 from core.auth.password import verify_password
 from core.auth.throttle import login_throttle
 from core.config import settings
-from core.db.models import AuditLog, Console, Product, Setting, Tariff, TariffKind, Zone
+from core.db.models import AuditLog, Console, Game, Product, Setting, Tariff, TariffKind, Zone
 from core.db.session import async_session_factory, engine
 from core.services.settings import SETTING_SPECS, SETTING_SPECS_BY_KEY, validate_setting_value
 
@@ -244,6 +245,43 @@ class ProductAdmin(OwnerView, model=Product):
     }
 
 
+class GameAdmin(OwnerView, model=Game):
+    name = "Игра"
+    name_plural = "Игры"
+    icon = "fa-solid fa-trophy"
+    column_list = [Game.name, Game.is_active]
+    column_labels = {Game.name: "Название", Game.is_active: "В списке"}
+    column_formatters = {Game.is_active: lambda m, a: _yes_no(m, "is_active")}
+    column_default_sort = [(Game.name, False)]
+    form_columns = [Game.name, Game.is_active]
+    form_args = {
+        "name": {
+            "description": "Так игра будет называться в списке при старте сессии и в статистике. "
+            "Пишите одинаково, например «FC26» (а не «fc 26»)."
+        },
+        "is_active": {
+            "default": True,
+            "description": "Снимите галочку, чтобы убрать игру из списка при старте. В старых "
+            "сессиях она останется. Удалять игры нельзя — только убирать из списка.",
+        },
+    }
+
+    async def on_model_change(
+        self, data: dict, model: Any, is_created: bool, request: Request
+    ) -> None:
+        name = " ".join((data.get("name") or "").split())
+        if not name:
+            raise ValueError("Укажите название игры.")
+        same_name = select(Game.id).where(func.lower(Game.name) == name.lower())
+        if model.id is not None:
+            same_name = same_name.where(Game.id != model.id)
+        async with async_session_factory() as session:
+            clash = await session.scalar(same_name)
+        if clash is not None:
+            raise ValueError(f"Игра «{name}» уже есть в списке.")
+        data["name"] = name
+
+
 def _setting_name(model: Setting, attribute: str) -> Markup:
     spec = SETTING_SPECS_BY_KEY.get(model.key)
     if spec is None:
@@ -346,6 +384,7 @@ def register_admin(app: FastAPI) -> Admin:
         templates_dir=str(TEMPLATES_DIR),
     )
     admin.add_view(TariffAdmin)
+    admin.add_view(GameAdmin)
     admin.add_view(ProductAdmin)
     admin.add_view(ConsoleAdmin)
     admin.add_view(SettingAdmin)

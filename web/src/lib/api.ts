@@ -16,6 +16,7 @@ export type SessionKind = components["schemas"]["SessionKind"];
 export type PaymentMethod = components["schemas"]["PaymentMethod"];
 export type ProductResponse = components["schemas"]["ProductResponse"];
 export type OrderResponse = components["schemas"]["OrderResponse"];
+export type GameResponse = components["schemas"]["GameResponse"];
 
 export class ApiError extends Error {
   status: number;
@@ -71,9 +72,9 @@ export const api = {
     kind: SessionKind;
     tariff_id?: number | null;
     reason?: string | null;
-    game?: string | null;
+    game_id?: number | null;
   }) => request<SessionResponse>("/api/sessions", { method: "POST", body: JSON.stringify(body) }),
-  recentGames: () => request<string[]>("/api/sessions/games"),
+  games: () => request<GameResponse[]>("/api/games"),
   extendSession: (sessionId: number, tariffId: number) =>
     request<SessionResponse>(`/api/sessions/${sessionId}/extend`, {
       method: "POST",

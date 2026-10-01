@@ -41,15 +41,10 @@ async def start(body: SessionStartRequest, db: AsyncSession = Depends(get_sessio
         tariff_id=body.tariff_id,
         reason=body.reason,
         comment=body.comment,
-        game=body.game,
+        game_id=body.game_id,
         now=now,
     )
     return await session_to_response(db, session, now)
-
-
-@router.get("/games", response_model=list[str])
-async def recent_games(db: AsyncSession = Depends(get_session)):  # noqa: B008
-    return await sessions_service.list_recent_games(db)
 
 
 @router.get("/{session_id}", response_model=SessionResponse)
