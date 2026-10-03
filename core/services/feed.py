@@ -133,7 +133,8 @@ async def day_feed(db: AsyncSession, *, business_day_id: int, limit: int = 200) 
             continue  # the first segment is the start, already listed
         events.append(
             FeedEvent(
-                at=segment.created_at,
+                # Rows from before created_at was recorded have NULL there.
+                at=segment.created_at or segment.starts_at,
                 kind=FeedKind.session_extended,
                 segment_kind=segment.kind,
                 tariff_name=tariff_names.get(segment.tariff_id) if segment.tariff_id else None,

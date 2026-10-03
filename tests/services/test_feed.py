@@ -209,3 +209,33 @@ async def test_events_at_the_same_moment_keep_a_stable_order(db_session):
     events = await day_feed(db_session, business_day_id=day.id)
 
     assert [e.kind for e in events] == [FeedKind.payment, FeedKind.order, FeedKind.session_started]
+
+
+async def test_feed_survives_a_segment_from_before_created_at_was_recorded(db_session):
+    """Rows created before session_segments.created_at existed have NULL there; sorting the day's
+    events used to fail comparing None with a time. They fall back to the segment's own start."""
+    console, three_hours, one_hour, _ = await _hall(db_session)
+    await open_business_day(db_session, opening_cash=0, now=T)
+    session = await start_session(
+        db_session,
+        console_id=console.id,
+        kind=SessionKind.paid,
+        tariff_id=three_hours.id,
+        reason=None,
+        comment=None,
+        now=T + timedelta(minutes=1),
+    )
+    await extend_session(
+        db_session, session_id=session.id, tariff_id=one_hour.id, now=T + timedelta(hours=2)
+    )
+    await db_session.execute(
+        update(SessionSegment)
+        .where(SessionSegment.session_id == session.id, SessionSegment.tariff_id == one_hour.id)
+        .values(created_at=None)
+    )
+    await db_session.commit()
+
+    events = await day_feed(db_session, business_day_id=1)
+
+    extended = next(e for e in events if e.kind == FeedKind.session_extended)
+    assert extended.at is not None
