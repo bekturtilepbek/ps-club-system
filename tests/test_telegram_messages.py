@@ -51,6 +51,60 @@ def test_format_day_summary_includes_every_breakdown_line():
     assert "160" in text
 
 
+def _closed_day(counted_cash: int) -> BusinessDay:
+    return BusinessDay(
+        id=1,
+        opened_at=T,
+        closed_at=T + timedelta(hours=10),
+        opening_cash=5000,
+        expected_cash=5300,
+        counted_cash=counted_cash,
+    )
+
+
+def _summary(**overrides) -> DaySummary:
+    values = dict(
+        opening_cash=5000,
+        cash_total=300,
+        transfer_total=200,
+        expected_cash=5300,
+        sessions_count=3,
+        minutes_total=150,
+        free_minutes_total=30,
+        bar_sales_total=160,
+        has_active_sessions=False,
+    )
+    return DaySummary(**{**values, **overrides})
+
+
+def test_day_summary_states_a_cash_shortage_so_the_owner_does_not_have_to_subtract():
+    text = format_day_summary(_closed_day(counted_cash=5250), _summary())
+
+    assert "Расхождение: −50 сом" in text
+
+
+def test_day_summary_states_a_cash_surplus_with_a_plus_sign():
+    text = format_day_summary(_closed_day(counted_cash=5320), _summary())
+
+    assert "Расхождение: +20 сом" in text
+
+
+def test_day_summary_says_the_cash_matches_when_it_does():
+    text = format_day_summary(_closed_day(counted_cash=5300), _summary())
+
+    assert "Расхождение: нет, сходится" in text
+
+
+def test_day_summary_lists_service_time_only_when_there_was_some():
+    without = format_day_summary(_closed_day(counted_cash=5300), _summary())
+    with_service = format_day_summary(
+        _closed_day(counted_cash=5300), _summary(service_minutes_total=95)
+    )
+
+    assert "Служебные" not in without
+    assert "Служебные: 1 ч 35 мин" in with_service
+
+
 def test_format_unclosed_day_reminder_names_the_open_time_and_planned_close():
     day = BusinessDay(id=1, opened_at=T, opening_cash=5000)
 

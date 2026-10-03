@@ -12,6 +12,17 @@ def format_hours_minutes(total_minutes: int) -> str:
     return f"{hours} ч {minutes} мин"
 
 
+def _cash_discrepancy_line(day: BusinessDay, summary: DaySummary) -> str:
+    """What the owner checks first: how far the counted cash is from the expected one."""
+    if day.counted_cash is None:
+        return "Расхождение: касса не пересчитана"
+    difference = day.counted_cash - summary.expected_cash
+    if difference == 0:
+        return "Расхождение: нет, сходится"
+    sign = "+" if difference > 0 else "−"
+    return f"Расхождение: {sign}{abs(difference)} сом"
+
+
 def format_day_summary(day: BusinessDay, summary: DaySummary) -> str:
     # day.opened_at/closed_at, loaded from TIMESTAMP(timezone=True) columns, come
     # back UTC-tagged even when written as Bishkek-aware (same instant, different
@@ -25,11 +36,14 @@ def format_day_summary(day: BusinessDay, summary: DaySummary) -> str:
         f"Выручка за день: {summary.revenue_total} сом",
         f"Наличные: {summary.cash_total} сом (ожидалось {summary.expected_cash}, "
         f"посчитано {day.counted_cash})",
+        _cash_discrepancy_line(day, summary),
         f"Перевод: {summary.transfer_total} сом",
         f"Сессий: {summary.sessions_count}, часов: {format_hours_minutes(summary.minutes_total)}",
         f"Бесплатно: {format_hours_minutes(summary.free_minutes_total)}",
-        f"Продажи бара: {summary.bar_sales_total} сом",
     ]
+    if summary.service_minutes_total > 0:
+        lines.append(f"Служебные: {format_hours_minutes(summary.service_minutes_total)}")
+    lines.append(f"Продажи бара: {summary.bar_sales_total} сом")
     return "\n".join(lines)
 
 
