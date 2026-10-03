@@ -7,3 +7,10 @@
 **/node_modules/
 web/dist/
 .env
+# Database dumps and the rclone remote credentials live next to the code on the server
+# (BACKUP_HOST_DIR=./backups, ./rclone); `COPY . .` must not bake them into an image.
+backups/
+rclone/
+.worktrees/
+.claude/
+docs/
