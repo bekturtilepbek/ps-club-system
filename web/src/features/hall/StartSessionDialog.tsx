@@ -39,7 +39,7 @@ export function StartSessionDialog({ open, consoleId, consoleName, onOpenChange,
   const tariffs = tariffsQuery.data ?? [];
   const games = Array.isArray(gamesQuery.data) ? gamesQuery.data : [];
   const selectedTariff = tariffs.find((t) => t.id === tariffId);
-  const graceMinutes = settingsQuery.data?.grace_minutes ?? 3;
+  const graceMinutes = settingsQuery.data?.grace_minutes ?? 1; // the club's default (SPEC 3.2) until settings load
   const plannedClose = settingsQuery.data?.planned_close;
   const packageStartMs = useNow(open) + graceMinutes * 60_000;
 

@@ -234,4 +234,18 @@ describe("StartSessionDialog", () => {
     await waitFor(() => expect(screen.getByText("до 07:03 · после закрытия")).toBeInTheDocument());
     expect(screen.getByText("до 03:03")).toBeInTheDocument();
   });
+
+  it("states the club's own grace default (1 minute) until the settings arrive", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (url === "/api/settings") return new Promise(() => {}); // still loading
+        if (url === "/api/tariffs") return { ok: true, json: async () => [] };
+        return { ok: true, json: async () => ({}) };
+      }),
+    );
+    renderDialog();
+
+    expect(await screen.findByText(/Первые 1 минута — на выбор игры/)).toBeInTheDocument();
+  });
 });
