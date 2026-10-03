@@ -31,6 +31,8 @@ export function useHallSnapshot() {
         const current = queryClient.getQueryData<HallSnapshotResponse>(HALL_QUERY_KEY);
         if (current) return current;
       }
+      // The poll is the only source of server time while the socket is down.
+      updateClockOffset(snapshot.generated_at);
       return snapshot;
     },
     // Fast poll while the socket is down. While it is up, still refetch slowly as a

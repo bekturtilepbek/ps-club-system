@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { useHallSnapshot } from "@/features/hall/useHallSnapshot";
+import { serverNow } from "@/lib/clock";
 
 class FakeWebSocket {
   static instances: FakeWebSocket[] = [];
@@ -151,5 +152,29 @@ describe("useHallSnapshot", () => {
     expect(FakeWebSocket.instances).toHaveLength(3);
     await act(() => vi.advanceTimersByTimeAsync(1));
     expect(FakeWebSocket.instances).toHaveLength(4);
+  });
+
+  it("takes the clock offset from a polled snapshot too, not only from the websocket", async () => {
+    // With the socket down (or between pushes) the poll is the only source of server time.
+    const serverMs = Date.now() + 60_000;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          generated_at: new Date(serverMs).toISOString(),
+          business_day_open: false,
+          business_day_id: null,
+          consoles: [],
+          tickets: [],
+        }),
+      }),
+    );
+    vi.stubGlobal("WebSocket", FakeWebSocket as unknown as typeof WebSocket);
+
+    const { result } = renderHook(() => useHallSnapshot(), { wrapper });
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    expect(Math.abs(serverNow() - serverMs)).toBeLessThan(2000);
   });
 });
