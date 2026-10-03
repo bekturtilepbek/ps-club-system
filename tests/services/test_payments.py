@@ -2,7 +2,15 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from core.db.models import Console, PaymentMethod, SessionKind, Tariff, TariffKind, Zone
+from core.db.models import (
+    Console,
+    PaymentMethod,
+    SessionKind,
+    SessionStatus,
+    Tariff,
+    TariffKind,
+    Zone,
+)
 from core.services.business_days import open_business_day
 from core.services.errors import ConflictError, NotFoundError
 from core.services.payments import (
@@ -254,3 +262,62 @@ async def test_free_session_still_charges_for_bar_orders(db_session):
     await add_order(db_session, session_id=session.id, product_id=water.id, qty=1, now=T)
 
     assert await session_charge_total(db_session, session.id, now=T) == 50
+
+
+@pytest.mark.asyncio
+async def test_a_cancelled_session_takes_no_payments(db_session):
+    """A cancelled session charges nothing: money put on it would just sit in the day's cash."""
+    from core.db.models import Session
+
+    console_id, package_id = await _setup(db_session)
+    session = await start_session(
+        db_session,
+        console_id=console_id,
+        kind=SessionKind.paid,
+        tariff_id=package_id,
+        reason=None,
+        comment=None,
+        now=T,
+    )
+    cancelled = await db_session.get(Session, session.id)
+    cancelled.status = SessionStatus.cancelled
+    await db_session.commit()
+
+    with pytest.raises(ConflictError, match="cancelled"):
+        await add_payment(
+            db_session,
+            session_id=session.id,
+            amount=150,
+            method=PaymentMethod.cash,
+            now=T + timedelta(seconds=10),
+        )
+
+    assert await session_paid_total(db_session, session.id) == 0
+
+
+@pytest.mark.asyncio
+async def test_a_stopped_session_can_still_be_paid_off(db_session):
+    """Settling after "Стоп" is the normal way a bill is paid."""
+    from core.services.sessions import stop_session
+
+    console_id, package_id = await _setup(db_session)
+    session = await start_session(
+        db_session,
+        console_id=console_id,
+        kind=SessionKind.paid,
+        tariff_id=package_id,
+        reason=None,
+        comment=None,
+        now=T,
+    )
+    await stop_session(db_session, session_id=session.id, now=T + timedelta(minutes=30))
+
+    await add_payment(
+        db_session,
+        session_id=session.id,
+        amount=150,
+        method=PaymentMethod.cash,
+        now=T + timedelta(minutes=31),
+    )
+
+    assert await session_paid_total(db_session, session.id) == 150

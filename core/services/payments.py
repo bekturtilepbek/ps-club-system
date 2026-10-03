@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.db.models import Payment, PaymentMethod, SessionKind
+from core.db.models import Payment, PaymentMethod, SessionKind, SessionStatus
 from core.db.models import Session as SessionModel
 from core.domain import money
 from core.services import bar as bar_service
@@ -51,6 +51,9 @@ async def add_payment(
         raise NotFoundError(f"session {session_id} not found")
     if amount <= 0:
         raise ValidationError("payment amount must be positive")
+    if session.status == SessionStatus.cancelled:
+        # A cancelled session charges nothing; money put on it would only inflate the day's cash.
+        raise ConflictError(f"session {session_id} is cancelled")
 
     day = await business_days.get_open_business_day(db)
     if day is None:

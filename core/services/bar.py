@@ -3,9 +3,9 @@ from datetime import datetime
 from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.db.models import AuditLog, Order, Product
+from core.db.models import AuditLog, Order, Product, SessionStatus
 from core.db.models import Session as SessionModel
-from core.services.errors import NotFoundError, ValidationError
+from core.services.errors import ConflictError, NotFoundError, ValidationError
 
 
 async def list_active_products(db: AsyncSession) -> list[Product]:
@@ -21,6 +21,9 @@ async def add_order(
     session = await db.get(SessionModel, session_id)
     if session is None:
         raise NotFoundError(f"session {session_id} not found")
+    if session.status != SessionStatus.active:
+        # A finished bill is settled; items added now would change a total the guest may have paid.
+        raise ConflictError(f"session {session_id} is not active")
 
     product = await db.get(Product, product_id)
     if product is None or not product.is_active:
@@ -51,6 +54,9 @@ async def remove_order(db: AsyncSession, *, order_id: int, now: datetime) -> Non
     order = await db.get(Order, order_id)
     if order is None:
         raise NotFoundError(f"order {order_id} not found")
+    session = await db.get(SessionModel, order.session_id)
+    if session is not None and session.status != SessionStatus.active:
+        raise ConflictError(f"session {order.session_id} is not active")
 
     db.add(
         AuditLog(
