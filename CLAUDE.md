@@ -80,8 +80,8 @@ docs/
    Open segment = no end, billed per minute. Every extension is a new segment.
 3. **Switching to open time while a package is still running:** the open segment starts
    at the package's end, not at the moment of the click. Otherwise the guest pays twice.
-4. **Grace period** (default 3 min, configurable) applies only at session start, never
-   on extension. Leaving within the grace period cancels the session at no charge.
+4. **Grace period** (default 1 min per SPEC 3.2, configurable via `grace_minutes`) applies only at
+   session start, never on extension. Leaving within the grace period cancels the session at no charge.
 5. **Price snapshot on every segment and order.** Changing tariffs never rewrites history.
 6. **Open time is per-minute**; the total is rounded to a whole som.
 7. **Reports are per business day**, not per calendar date. A business day is opened and
