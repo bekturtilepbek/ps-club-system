@@ -85,10 +85,10 @@ function snapshot(consoles: HallConsoleResponse[]): HallSnapshotResponse {
 }
 
 function stubApi(hall: HallSnapshotResponse) {
-  const fetchMock = vi.fn(async (url: string, _init?: RequestInit) => {
+  const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     if (url === "/api/hall") return { ok: true, status: 200, json: async () => hall };
     if (url === "/api/settings") return { ok: true, status: 200, json: async () => ({ grace_minutes: 1, warn_minutes: 5 }) };
-    if (url === "/api/sessions/7/stop") return { ok: true, status: 200, json: async () => ({ id: 7, status: "finished", balance: 0 }) };
+    if (url === "/api/sessions/7/stop" && init?.method === "POST") return { ok: true, status: 200, json: async () => ({ id: 7, status: "finished", balance: 0 }) };
     if (url === "/api/tickets") return { ok: true, status: 200, json: async () => ({ id: 9 }) };
     if (url === "/api/tariffs" || url === "/api/products") return { ok: true, status: 200, json: async () => [] };
     return { ok: true, status: 200, json: async () => ({}) };
