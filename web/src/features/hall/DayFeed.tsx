@@ -1,5 +1,6 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { api } from "@/lib/api";
+import { api, FEED_LIMIT } from "@/lib/api";
+import { useSettledValue } from "@/lib/useSettledValue";
 import { formatClock } from "@/lib/bishkek";
 import { formatAmount } from "@/lib/format";
 import { describeFeedEvent } from "./feedModel";
@@ -11,8 +12,11 @@ interface DayFeedProps {
 }
 
 export function DayFeed({ businessDayId, snapshotAt }: DayFeedProps) {
+  // Snapshots can arrive many times a second during a busy minute; the feed is rebuilt from the
+  // database each time it is asked for, so ask once things have settled.
+  const settledAt = useSettledValue(snapshotAt, 400);
   const { data } = useQuery({
-    queryKey: ["business-day-feed", businessDayId, snapshotAt],
+    queryKey: ["business-day-feed", businessDayId, settledAt],
     queryFn: () => api.businessDayFeed(businessDayId),
     placeholderData: keepPreviousData,
   });
@@ -21,6 +25,10 @@ export function DayFeed({ businessDayId, snapshotAt }: DayFeedProps) {
   if (data.length === 0) return <p className="text-sm text-fg-faint">Пока ничего не произошло.</p>;
 
   return (
+    <>
+      {data.length >= FEED_LIMIT && (
+        <p className="mb-2 text-xs text-fg-faint">Показаны последние {FEED_LIMIT} событий; более ранние не отображаются.</p>
+      )}
     <ul aria-label="Лента дня" className="grid">
       {data.map((event, index) => {
         const line = describeFeedEvent(event);
@@ -45,5 +53,6 @@ export function DayFeed({ businessDayId, snapshotAt }: DayFeedProps) {
         );
       })}
     </ul>
+    </>
   );
 }

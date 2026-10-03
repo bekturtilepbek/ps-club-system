@@ -112,7 +112,7 @@ function stubApi(hall: HallSnapshotResponse | "pending") {
         }),
       };
     }
-    if (url.endsWith("/feed")) {
+    if (url.includes("/feed")) {
       return {
         ok: true,
         json: async () => [

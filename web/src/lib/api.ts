@@ -18,6 +18,9 @@ export type ProductResponse = components["schemas"]["ProductResponse"];
 export type OrderResponse = components["schemas"]["OrderResponse"];
 export type GameResponse = components["schemas"]["GameResponse"];
 
+/** The longest history the feed endpoint returns (core/api/routes/business_days.py). */
+export const FEED_LIMIT = 500;
+
 export class ApiError extends Error {
   status: number;
 
@@ -79,7 +82,7 @@ export const api = {
     request<BusinessDaySummaryResponse>(`/api/business-days/${businessDayId}/summary`),
   businessDayHistory: () => request<BusinessDayHistoryItem[]>("/api/business-days?limit=30"),
   businessDayFeed: (businessDayId: number) =>
-    request<FeedEventResponse[]>(`/api/business-days/${businessDayId}/feed`),
+    request<FeedEventResponse[]>(`/api/business-days/${businessDayId}/feed?limit=${FEED_LIMIT}`),
   startSession: (body: {
     console_id: number;
     kind: SessionKind;

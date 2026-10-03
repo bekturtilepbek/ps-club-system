@@ -4,6 +4,7 @@ import { api, type HallSnapshotResponse } from "@/lib/api";
 import { updateClockOffset } from "@/lib/clock";
 
 export const HALL_QUERY_KEY = ["hall"] as const;
+const SUMMARY_REFRESH_DELAY_MS = 300;
 
 function wsUrl(): string {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -43,9 +44,16 @@ export function useHallSnapshot() {
 
   // Any hall change (a payment is one) moves the till: refresh the day summaries whenever a
   // new snapshot lands, from the socket or from the poll.
+  // A busy minute pushes many snapshots in a row; the totals are rebuilt from the database on every
+  // request, so refresh them once things have settled rather than once per snapshot.
   const generatedAt = query.data?.generated_at;
   useEffect(() => {
-    if (generatedAt) void queryClient.invalidateQueries({ queryKey: ["business-day-summary"] });
+    if (!generatedAt) return;
+    const timer = setTimeout(
+      () => void queryClient.invalidateQueries({ queryKey: ["business-day-summary"] }),
+      SUMMARY_REFRESH_DELAY_MS,
+    );
+    return () => clearTimeout(timer);
   }, [generatedAt, queryClient]);
 
   useEffect(() => {
