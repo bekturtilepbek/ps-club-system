@@ -83,6 +83,9 @@ class DaySummary:
     free_minutes_total: int
     bar_sales_total: int
     has_active_sessions: bool
+    # Maintenance time (firmware updates, pad checks): reported on its own, never part of the
+    # hall's load, of the free hours or of the session count (SPEC 3.2).
+    service_minutes_total: int = 0
 
     @property
     def revenue_total(self) -> int:
@@ -125,18 +128,28 @@ async def summaries_for_days(
 
     summaries: dict[int, DaySummary] = {}
     for day in days:
-        minutes_total = free_minutes_total = bar_sales_total = 0
+        sessions_count = minutes_total = free_minutes_total = 0
+        service_minutes_total = bar_sales_total = 0
         has_active = False
         for session in sessions_by_day[day.id]:
             if session.status == SessionStatus.active:
                 has_active = True
+            # A visit is a game on a console. Walk-in bar tickets (no console) and service
+            # sessions are not visits: they show up only through their bar sales / service time.
+            if session.console_id is not None and session.kind != SessionKind.service:
+                sessions_count += 1
             session_minutes = 0
             for segment in session.segments:
                 end = segment.ends_at or now
-                session_minutes += int((end - segment.starts_at).total_seconds() // 60)
-            minutes_total += session_minutes
-            if session.kind != SessionKind.paid:
-                free_minutes_total += session_minutes
+                # Open time queued behind a still-running package starts in the future: until
+                # then it has run for no time at all, not for a negative time.
+                session_minutes += max(0, int((end - segment.starts_at).total_seconds() // 60))
+            if session.kind == SessionKind.service:
+                service_minutes_total += session_minutes
+            else:
+                minutes_total += session_minutes
+                if session.kind == SessionKind.free:
+                    free_minutes_total += session_minutes
             for order in session.orders:
                 bar_sales_total += order.qty * order.unit_price
 
@@ -146,11 +159,12 @@ async def summaries_for_days(
             cash_total=cash_total,
             transfer_total=paid[day.id][PaymentMethod.transfer],
             expected_cash=day.opening_cash + cash_total,
-            sessions_count=len(sessions_by_day[day.id]),
+            sessions_count=sessions_count,
             minutes_total=minutes_total,
             free_minutes_total=free_minutes_total,
             bar_sales_total=bar_sales_total,
             has_active_sessions=has_active,
+            service_minutes_total=service_minutes_total,
         )
     return summaries
 

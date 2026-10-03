@@ -261,7 +261,7 @@ async def test_day_summary_counts_sessions_minutes_and_bar_sales_excluding_cance
 
     summary = await day_summary(db_session, business_day_id=day.id, now=T + timedelta(hours=1))
 
-    assert summary.sessions_count == 2  # cancelled excluded
+    assert summary.sessions_count == 1  # cancelled excluded; a walk-in bar ticket is not a session
     assert summary.minutes_total == 60  # only the finished session's 1h package segment
     assert summary.bar_sales_total == 160
     assert summary.has_active_sessions is True
@@ -519,3 +519,122 @@ async def test_summaries_for_days_keeps_each_day_apart(db_session):
 
 async def test_summaries_for_days_of_nothing_is_empty(db_session):
     assert await summaries_for_days(db_session, days=[], now=T) == {}
+
+
+async def _console(db_session) -> Console:
+    zone = Zone(name="Зал", is_active=True)
+    db_session.add(zone)
+    await db_session.flush()
+    console = Console(zone_id=zone.id, name="PS5-1")
+    db_session.add(console)
+    await db_session.flush()
+    return console
+
+
+def _finished(day_id: int, console_id: int | None, kind: SessionKind, minutes: int, **extra):
+    session = Session(
+        console_id=console_id,
+        business_day_id=day_id,
+        kind=kind,
+        status=SessionStatus.finished,
+        started_at=T,
+        grace_until=T,
+        ended_at=T + timedelta(minutes=minutes),
+        **extra,
+    )
+    session.segments.append(
+        SessionSegment(
+            kind=SegmentKind.open,
+            starts_at=T,
+            ends_at=T + timedelta(minutes=minutes),
+            price_snapshot=0,
+            amount=0,
+        )
+    )
+    return session
+
+
+@pytest.mark.asyncio
+async def test_day_minutes_never_go_negative_while_open_time_is_queued_behind_a_package(db_session):
+    """Open time bought during a running package starts at the package's end, in the future:
+    until then it must add nothing, not subtract the time left until it starts."""
+    day = await open_business_day(db_session, opening_cash=0, now=T)
+    console = await _console(db_session)
+    running = Session(
+        console_id=console.id,
+        business_day_id=day.id,
+        kind=SessionKind.paid,
+        status=SessionStatus.active,
+        started_at=T,
+        grace_until=T,
+    )
+    running.segments.append(
+        SessionSegment(
+            kind=SegmentKind.package,
+            starts_at=T,
+            ends_at=T + timedelta(hours=1),
+            price_snapshot=150,
+            amount=150,
+        )
+    )
+    running.segments.append(
+        SessionSegment(
+            kind=SegmentKind.open,
+            starts_at=T + timedelta(hours=1),
+            ends_at=None,
+            price_snapshot=120,
+            amount=None,
+        )
+    )
+    db_session.add(running)
+    await db_session.commit()
+
+    summary = await day_summary(db_session, business_day_id=day.id, now=T + timedelta(minutes=10))
+
+    assert summary.minutes_total == 60  # the package; the queued open time adds nothing yet
+
+
+@pytest.mark.asyncio
+async def test_service_sessions_are_reported_apart_and_do_not_count_as_hall_load(db_session):
+    day = await open_business_day(db_session, opening_cash=0, now=T)
+    console = await _console(db_session)
+    db_session.add_all(
+        [
+            _finished(day.id, console.id, SessionKind.paid, 60),
+            _finished(day.id, console.id, SessionKind.free, 30, reason="друг"),
+            _finished(day.id, console.id, SessionKind.service, 120),
+        ]
+    )
+    await db_session.commit()
+
+    summary = await day_summary(db_session, business_day_id=day.id, now=T + timedelta(hours=3))
+
+    assert summary.sessions_count == 2  # paid + free; the firmware update is not a visit
+    assert summary.minutes_total == 90  # paid 60 + free 30, no service time
+    assert summary.free_minutes_total == 30  # free only
+    assert summary.service_minutes_total == 120
+
+
+@pytest.mark.asyncio
+async def test_walk_in_bar_tickets_are_not_sessions_but_their_sales_still_count(db_session):
+    day = await open_business_day(db_session, opening_cash=0, now=T)
+    product = Product(name="Кола", price=80, is_active=True)
+    db_session.add(product)
+    await db_session.flush()
+    ticket = Session(
+        console_id=None,
+        business_day_id=day.id,
+        kind=SessionKind.paid,
+        status=SessionStatus.finished,
+        started_at=T,
+        grace_until=None,
+        ended_at=T,
+    )
+    ticket.orders.append(Order(product_id=product.id, qty=3, unit_price=80, created_at=T))
+    db_session.add(ticket)
+    await db_session.commit()
+
+    summary = await day_summary(db_session, business_day_id=day.id, now=T + timedelta(hours=1))
+
+    assert summary.sessions_count == 0
+    assert summary.bar_sales_total == 240
