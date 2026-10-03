@@ -9,7 +9,14 @@
 #                      there are pruned after BACKUP_REMOTE_KEEP_DAYS (default 60).
 #   BACKUP_UPLOAD_CMD  any shell command, run with the dump's path as $1.
 # If the upload fails the daily marker is not written, so the next hourly run retries.
+#
+# BACKUP_ONCE=1 makes it do a single run and exit (status 1 if the dump failed): for a manual
+# backup before an update and for tests.
 set -u
+# Without pipefail the status of `pg_dump | gzip` is gzip's: a failed pg_dump still leaves a valid
+# 20-byte gzip of nothing, which was logged as "backup ok", counted as fresh by /api/health and
+# uploaded off the machine.
+set -o pipefail
 
 BACKUP_DIR="${BACKUP_DIR:-/backups}"
 INTERVAL="${BACKUP_INTERVAL_SECONDS:-3600}"
@@ -23,10 +30,12 @@ fi
 mkdir -p "$BACKUP_DIR"
 
 while true; do
+  run_ok=0
   stamp=$(date +%Y%m%d-%H%M%S)
   target="$BACKUP_DIR/psclub-$stamp.sql.gz"
   if pg_dump --no-owner | gzip > "$target.tmp" && [ -s "$target.tmp" ]; then
     mv "$target.tmp" "$target"
+    run_ok=1
     echo "backup ok: $target ($(wc -c < "$target") bytes)"
     find "$BACKUP_DIR" -name 'psclub-*.sql.gz' -mtime +"$KEEP_DAYS" -delete
 
@@ -43,6 +52,10 @@ while true; do
   else
     rm -f "$target.tmp"
     echo "backup FAILED at $stamp" >&2
+  fi
+  if [ -n "${BACKUP_ONCE:-}" ]; then
+    [ "$run_ok" = 1 ] && exit 0
+    exit 1
   fi
   sleep "$INTERVAL"
 done

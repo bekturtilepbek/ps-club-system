@@ -183,7 +183,7 @@ bucket должен быть приватным.
 
 Всё на сервере, в `~/ps-club-system`. Если в релизе есть миграция базы, сначала снимите дамп:
 
-    docker compose -f docker-compose.prod.yml exec -T backup sh -c 'pg_dump --no-owner | gzip > /backups/psclub-before-update.sql.gz'
+    docker compose -f docker-compose.prod.yml exec -T backup sh -c 'set -o pipefail; pg_dump --no-owner | gzip > /backups/psclub-before-update.sql.gz'
 
 Потом обновление:
 
