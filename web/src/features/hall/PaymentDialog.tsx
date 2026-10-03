@@ -52,6 +52,8 @@ export function PaymentDialog({
 }: PaymentDialogProps) {
   const [confirmingClose, setConfirmingClose] = useState(false);
   const [settledNow, setSettledNow] = useState(false);
+  // An amount above the balance is usually a typo (5000 for 500) and a payment cannot be undone.
+  const [confirmingOver, setConfirmingOver] = useState(false);
   const [amount, setAmount] = useState(String(balance));
   const [method, setMethod] = useState<PaymentMethod>("transfer");
   const queryClient = useQueryClient();
@@ -62,6 +64,7 @@ export function PaymentDialog({
       queryClient.invalidateQueries({ queryKey: HALL_QUERY_KEY });
       onPaid(paidAmount);
       setAmount("");
+      setConfirmingOver(false);
       // Don't wait for the hall refetch to show the "paid" step.
       if (paidAmount >= balance) setSettledNow(true);
     },
@@ -72,6 +75,7 @@ export function PaymentDialog({
   const isValidAmount = amount.trim() !== "" && Number.isFinite(amountValue) && amountValue > 0;
 
   const paidInFull = onStop !== undefined && (balance <= 0 || settledNow);
+  const isOver = isValidAmount && amountValue > balance;
 
   const handleOpenChange = (next: boolean) => {
     if (!next && confirmCloseWithBalance && balance > 0) {
@@ -153,13 +157,22 @@ export function PaymentDialog({
               inputMode="numeric"
               className="num h-12 text-xl"
               value={amount}
-              onChange={(event) => setAmount(event.target.value)}
+              onChange={(event) => {
+                setAmount(event.target.value);
+                setConfirmingOver(false);
+              }}
             />
             <div className="mt-2 flex flex-wrap gap-2">
               <ChipButton onClick={() => setAmount(String(balance))}>Всё: {formatAmount(balance)}</ChipButton>
               <ChipButton onClick={() => setAmount(String(Math.floor(balance / 2)))}>Половина</ChipButton>
             </div>
           </div>
+          {confirmingOver && isOver && (
+            <p role="alert" className="text-sm text-status-circle">
+              Вы вносите {formatSom(amountValue)} при остатке {formatSom(Math.max(0, balance))}: это больше остатка на{" "}
+              {formatSom(amountValue - Math.max(0, balance))}. Внесённый платёж нельзя отменить. Точно такая сумма?
+            </p>
+          )}
           {payMutation.isError && (
             <p role="alert" className="text-sm text-status-circle">
               Не удалось провести оплату. Попробуйте ещё раз.
@@ -167,9 +180,31 @@ export function PaymentDialog({
           )}
         </SheetBody>
         <SheetFooter>
-          <Button size="lg" onClick={() => payMutation.mutate(amountValue)} disabled={!isValidAmount || payMutation.isPending}>
-            Внести{isValidAmount ? ` ${formatSom(amountValue)}` : ""}
-          </Button>
+          {confirmingOver && isOver ? (
+            <>
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => {
+                  setAmount(String(Math.max(0, balance)));
+                  setConfirmingOver(false);
+                }}
+              >
+                Исправить
+              </Button>
+              <Button size="lg" onClick={() => payMutation.mutate(amountValue)} disabled={payMutation.isPending}>
+                Да, внести {formatSom(amountValue)}
+              </Button>
+            </>
+          ) : (
+            <Button
+              size="lg"
+              onClick={() => (isOver ? setConfirmingOver(true) : payMutation.mutate(amountValue))}
+              disabled={!isValidAmount || payMutation.isPending}
+            >
+              Внести{isValidAmount ? ` ${formatSom(amountValue)}` : ""}
+            </Button>
+          )}
         </SheetFooter>
           </>
         )}
