@@ -141,6 +141,10 @@ async def summaries_for_days(
             session_minutes = 0
             for segment in session.segments:
                 end = segment.ends_at or now
+                if session.ended_at is not None:
+                    # Stopped early: the package stays fully priced, but the hall was in use only
+                    # until the guests left.
+                    end = min(end, session.ended_at)
                 # Open time queued behind a still-running package starts in the future: until
                 # then it has run for no time at all, not for a negative time.
                 session_minutes += max(0, int((end - segment.starts_at).total_seconds() // 60))

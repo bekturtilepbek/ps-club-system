@@ -638,3 +638,37 @@ async def test_walk_in_bar_tickets_are_not_sessions_but_their_sales_still_count(
 
     assert summary.sessions_count == 0
     assert summary.bar_sales_total == 240
+
+
+@pytest.mark.asyncio
+async def test_hours_played_count_the_time_actually_played_not_the_package_that_was_sold(
+    db_session,
+):
+    """A 3-hour package stopped after 20 minutes is paid in full, but the hall was used for 20
+    minutes: that is what the day's hours (and the load figures built on them) must show."""
+    day = await open_business_day(db_session, opening_cash=0, now=T)
+    console = await _console(db_session)
+    stopped_early = Session(
+        console_id=console.id,
+        business_day_id=day.id,
+        kind=SessionKind.paid,
+        status=SessionStatus.finished,
+        started_at=T,
+        grace_until=T,
+        ended_at=T + timedelta(minutes=20),
+    )
+    stopped_early.segments.append(
+        SessionSegment(
+            kind=SegmentKind.package,
+            starts_at=T,
+            ends_at=T + timedelta(hours=3),
+            price_snapshot=420,
+            amount=420,
+        )
+    )
+    db_session.add(stopped_early)
+    await db_session.commit()
+
+    summary = await day_summary(db_session, business_day_id=day.id, now=T + timedelta(hours=5))
+
+    assert summary.minutes_total == 20
