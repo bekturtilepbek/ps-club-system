@@ -1,10 +1,18 @@
 # Production stack. Standalone: run it WITHOUT the dev override, e.g.
 #   docker compose -f docker-compose.prod.yml --env-file .env up -d --build
 # (docker-compose.override.yml is only auto-loaded when no -f is given.)
+# Docker keeps container logs forever by default; on a small VPS that slowly eats the disk.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
+    logging: *default-logging
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-psclub}
       POSTGRES_USER: ${POSTGRES_USER:-psclub}
@@ -22,6 +30,7 @@ services:
       context: .
       dockerfile: docker/core.Dockerfile
     restart: unless-stopped
+    logging: *default-logging
     command: sh -c "uv run alembic upgrade head && uv run uvicorn core.api.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips='*'"
     env_file: .env
     environment:
@@ -50,6 +59,7 @@ services:
       context: .
       dockerfile: docker/core.Dockerfile
     restart: unless-stopped
+    logging: *default-logging
     command: uv run python -m core.worker.main
     env_file: .env
     environment:
@@ -63,6 +73,7 @@ services:
       context: .
       dockerfile: docker/core.Dockerfile
     restart: unless-stopped
+    logging: *default-logging
     command: uv run python -m bot.main
     env_file: .env
     environment:
@@ -76,6 +87,7 @@ services:
       context: .
       dockerfile: docker/backup.Dockerfile # postgres:16 (same major as db) + rclone
     restart: unless-stopped
+    logging: *default-logging
     entrypoint: ["/bin/sh", "/backup.sh"]
     environment:
       PGHOST: db
@@ -106,6 +118,7 @@ services:
       context: .
       dockerfile: docker/web.prod.Dockerfile
     restart: unless-stopped
+    logging: *default-logging
     # No published port: only Caddy reaches nginx, so every request passes the TLS layer.
     depends_on:
       api:
@@ -114,6 +127,7 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    logging: *default-logging
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS:-:80}
     ports:
