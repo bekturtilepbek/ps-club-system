@@ -61,6 +61,9 @@ async def start_session(
     now: datetime,
     game_id: int | None = None,
 ) -> SessionModel:
+    if kind == SessionKind.free and not reason:
+        raise ValidationError("free session requires a reason")
+
     console = await db.get(Console, console_id)
     if console is None or not console.is_active:
         raise NotFoundError(f"console {console_id} not found or inactive")
@@ -73,9 +76,6 @@ async def start_session(
     )
     if occupied.scalars().first() is not None:
         raise ConflictError(f"console {console_id} already has an active session")
-
-    if kind == SessionKind.free and not reason:
-        raise ValidationError("free session requires a reason")
 
     if game_id is not None:
         game = await db.get(Game, game_id)

@@ -2,11 +2,12 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from core.api.limits import MAX_MONEY
 from core.db.models import PaymentMethod
 
 
 class PaymentRequest(BaseModel):
-    amount: int = Field(gt=0)
+    amount: int = Field(gt=0, le=MAX_MONEY)
     method: PaymentMethod
 
 

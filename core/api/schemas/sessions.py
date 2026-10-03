@@ -1,23 +1,30 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from core.api.limits import INT32_MAX, MAX_COMMENT_LENGTH, MAX_REASON_LENGTH
 from core.api.schemas.bar import OrderResponse
 from core.db.models import SegmentKind, SessionKind, SessionStatus
 from core.db.models import Session as SessionModel
 
 
 class SessionStartRequest(BaseModel):
-    console_id: int
+    console_id: int = Field(ge=1, le=INT32_MAX)
     kind: SessionKind = SessionKind.paid
-    tariff_id: int | None = None
-    reason: str | None = None
-    comment: str | None = None
-    game_id: int | None = None
+    tariff_id: int | None = Field(default=None, ge=1, le=INT32_MAX)
+    reason: str | None = Field(default=None, max_length=MAX_REASON_LENGTH)
+    comment: str | None = Field(default=None, max_length=MAX_COMMENT_LENGTH)
+    game_id: int | None = Field(default=None, ge=1, le=INT32_MAX)
+
+    @field_validator("reason", "comment")
+    @classmethod
+    def _blank_is_none(cls, value: str | None) -> str | None:
+        """A reason made of spaces is no reason: a free session must say why it is free."""
+        return (value.strip() or None) if value is not None else None
 
 
 class SessionExtendRequest(BaseModel):
-    tariff_id: int
+    tariff_id: int = Field(ge=1, le=INT32_MAX)
 
 
 class SegmentResponse(BaseModel):

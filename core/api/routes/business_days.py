@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core import telegram
 from core.api.clock import now as _now
 from core.api.deps import require_auth
+from core.api.limits import EntityId
 from core.api.schemas.business_days import (
     BusinessDayCloseRequest,
     BusinessDayHistoryItem,
@@ -60,7 +61,7 @@ async def current_day(db: AsyncSession = Depends(get_session)):  # noqa: B008
 
 @router.post("/{business_day_id}/close", response_model=BusinessDayResponse)
 async def close_day(
-    business_day_id: int,
+    business_day_id: EntityId,
     body: BusinessDayCloseRequest,
     db: AsyncSession = Depends(get_session),  # noqa: B008
 ):
@@ -76,7 +77,7 @@ async def close_day(
 
 @router.get("/{business_day_id}/summary", response_model=BusinessDaySummaryResponse)
 async def business_day_summary(
-    business_day_id: int,
+    business_day_id: EntityId,
     db: AsyncSession = Depends(get_session),  # noqa: B008
 ):
     return await business_days.day_summary(db, business_day_id=business_day_id, now=_now())
@@ -84,7 +85,7 @@ async def business_day_summary(
 
 @router.get("/{business_day_id}/feed", response_model=list[FeedEventResponse])
 async def business_day_feed(
-    business_day_id: int,
+    business_day_id: EntityId,
     limit: int = Query(200, ge=1, le=500),
     db: AsyncSession = Depends(get_session),  # noqa: B008
 ):

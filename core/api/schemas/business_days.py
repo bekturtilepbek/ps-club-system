@@ -1,14 +1,16 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+from core.api.limits import MAX_MONEY
 
 
 class BusinessDayOpenRequest(BaseModel):
-    opening_cash: int
+    opening_cash: int = Field(ge=0, le=MAX_MONEY)
 
 
 class BusinessDayCloseRequest(BaseModel):
-    counted_cash: int
+    counted_cash: int = Field(ge=0, le=MAX_MONEY)
 
 
 class BusinessDayResponse(BaseModel):

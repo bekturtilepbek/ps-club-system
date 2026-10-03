@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.api.clock import now as _now
 from core.api.deps import require_auth
+from core.api.limits import EntityId
 from core.api.schemas.bar import OrderRequest, OrderResponse
 from core.api.schemas.payments import PaymentRequest, PaymentResponse
 from core.api.schemas.sessions import (
@@ -48,7 +49,7 @@ async def start(body: SessionStartRequest, db: AsyncSession = Depends(get_sessio
 
 
 @router.get("/{session_id}", response_model=SessionResponse)
-async def get(session_id: int, db: AsyncSession = Depends(get_session)):  # noqa: B008
+async def get(session_id: EntityId, db: AsyncSession = Depends(get_session)):  # noqa: B008
     now = _now()
     session = await db.get(SessionModel, session_id)
     if session is None:
@@ -58,7 +59,7 @@ async def get(session_id: int, db: AsyncSession = Depends(get_session)):  # noqa
 
 @router.post("/{session_id}/extend", response_model=SessionResponse)
 async def extend(
-    session_id: int,
+    session_id: EntityId,
     body: SessionExtendRequest,
     db: AsyncSession = Depends(get_session),  # noqa: B008
 ):
@@ -70,21 +71,21 @@ async def extend(
 
 
 @router.post("/{session_id}/stop", response_model=SessionResponse)
-async def stop(session_id: int, db: AsyncSession = Depends(get_session)):  # noqa: B008
+async def stop(session_id: EntityId, db: AsyncSession = Depends(get_session)):  # noqa: B008
     now = _now()
     session = await sessions_service.stop_session(db, session_id=session_id, now=now)
     return await session_to_response(db, session, now)
 
 
 @router.post("/{session_id}/cancel", response_model=SessionResponse)
-async def cancel(session_id: int, db: AsyncSession = Depends(get_session)):  # noqa: B008
+async def cancel(session_id: EntityId, db: AsyncSession = Depends(get_session)):  # noqa: B008
     now = _now()
     session = await sessions_service.cancel_session(db, session_id=session_id, now=now)
     return await session_to_response(db, session, now)
 
 
 @router.post("/{session_id}/payments", response_model=PaymentResponse)
-async def pay(session_id: int, body: PaymentRequest, db: AsyncSession = Depends(get_session)):  # noqa: B008
+async def pay(session_id: EntityId, body: PaymentRequest, db: AsyncSession = Depends(get_session)):  # noqa: B008
     now = _now()
     return await payments_service.add_payment(
         db,
@@ -97,7 +98,7 @@ async def pay(session_id: int, body: PaymentRequest, db: AsyncSession = Depends(
 
 @router.post("/{session_id}/orders", response_model=OrderResponse)
 async def add_order(
-    session_id: int,
+    session_id: EntityId,
     body: OrderRequest,
     db: AsyncSession = Depends(get_session),  # noqa: B008
 ):
