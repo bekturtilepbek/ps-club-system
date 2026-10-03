@@ -24,8 +24,13 @@ async def test_build_hall_status_text_lists_a_busy_console_and_a_free_one(db_ses
 
     await business_days.open_business_day(db_session, opening_cash=0, now=T)
     await sessions.start_session(
-        db_session, console_id=busy.id, kind=SessionKind.paid, tariff_id=tariff.id,
-        reason=None, comment=None, now=T,
+        db_session,
+        console_id=busy.id,
+        kind=SessionKind.paid,
+        tariff_id=tariff.id,
+        reason=None,
+        comment=None,
+        now=T,
     )
 
     text = await build_hall_status_text(db_session, T + timedelta(minutes=10))

@@ -21,13 +21,23 @@ def test_format_hours_minutes():
 
 def test_format_day_summary_includes_every_breakdown_line():
     day = BusinessDay(
-        id=1, opened_at=T, closed_at=T + timedelta(hours=10),
-        opening_cash=5000, expected_cash=5300, counted_cash=5300,
+        id=1,
+        opened_at=T,
+        closed_at=T + timedelta(hours=10),
+        opening_cash=5000,
+        expected_cash=5300,
+        counted_cash=5300,
     )
     summary = DaySummary(
-        opening_cash=5000, cash_total=300, transfer_total=200,
-        expected_cash=5300, sessions_count=3, minutes_total=150, free_minutes_total=30,
-        bar_sales_total=160, has_active_sessions=False,
+        opening_cash=5000,
+        cash_total=300,
+        transfer_total=200,
+        expected_cash=5300,
+        sessions_count=3,
+        minutes_total=150,
+        free_minutes_total=30,
+        bar_sales_total=160,
+        has_active_sessions=False,
     )
 
     text = format_day_summary(day, summary)
@@ -58,12 +68,20 @@ def test_format_day_summary_shows_bishkek_local_time_not_db_utc_tzinfo():
         id=1,
         opened_at=datetime(2026, 9, 25, 4, 0, tzinfo=UTC),
         closed_at=datetime(2026, 9, 25, 14, 0, tzinfo=UTC),
-        opening_cash=5000, expected_cash=5300, counted_cash=5300,
+        opening_cash=5000,
+        expected_cash=5300,
+        counted_cash=5300,
     )
     summary = DaySummary(
-        opening_cash=5000, cash_total=300, transfer_total=200,
-        expected_cash=5300, sessions_count=3, minutes_total=150, free_minutes_total=30,
-        bar_sales_total=160, has_active_sessions=False,
+        opening_cash=5000,
+        cash_total=300,
+        transfer_total=200,
+        expected_cash=5300,
+        sessions_count=3,
+        minutes_total=150,
+        free_minutes_total=30,
+        bar_sales_total=160,
+        has_active_sessions=False,
     )
 
     text = format_day_summary(day, summary)
@@ -85,18 +103,31 @@ def test_format_unclosed_day_reminder_shows_bishkek_local_time_not_db_utc_tzinfo
 
 def test_format_hall_status_lists_busy_and_free_consoles_and_tickets():
     session = SessionModel(
-        id=7, console_id=1, business_day_id=1, kind=SessionKind.paid,
-        status=SessionStatus.active, started_at=T, grace_until=T,
+        id=7,
+        console_id=1,
+        business_day_id=1,
+        kind=SessionKind.paid,
+        status=SessionStatus.active,
+        started_at=T,
+        grace_until=T,
     )
     session.segments = [
         SessionSegment(
-            kind=SegmentKind.package, starts_at=T, ends_at=T + timedelta(minutes=34),
-            price_snapshot=150, amount=150,
+            kind=SegmentKind.package,
+            starts_at=T,
+            ends_at=T + timedelta(minutes=34),
+            price_snapshot=150,
+            amount=150,
         )
     ]
     ticket_session = SessionModel(
-        id=20, console_id=None, business_day_id=1, kind=SessionKind.paid,
-        status=SessionStatus.active, started_at=T, grace_until=T,
+        id=20,
+        console_id=None,
+        business_day_id=1,
+        kind=SessionKind.paid,
+        status=SessionStatus.active,
+        started_at=T,
+        grace_until=T,
     )
     ticket_session.segments = []
     snapshot = HallSnapshot(
@@ -105,12 +136,24 @@ def test_format_hall_status_lists_busy_and_free_consoles_and_tickets():
         business_day_id=1,
         consoles=[
             ConsoleHallView(
-                id=1, zone_id=1, name="PS5-1", is_active=True,
-                session=session, charge_total=150, paid_total=0, balance=150,
+                id=1,
+                zone_id=1,
+                name="PS5-1",
+                is_active=True,
+                session=session,
+                charge_total=150,
+                paid_total=0,
+                balance=150,
             ),
             ConsoleHallView(
-                id=2, zone_id=1, name="PS5-2", is_active=True,
-                session=None, charge_total=0, paid_total=0, balance=0,
+                id=2,
+                zone_id=1,
+                name="PS5-2",
+                is_active=True,
+                session=None,
+                charge_total=0,
+                paid_total=0,
+                balance=0,
             ),
         ],
         tickets=[

@@ -101,7 +101,8 @@ async def day_feed(db: AsyncSession, *, business_day_id: int, limit: int = 200) 
             )
         )
 
-    ended = await db.execute(select(SessionModel).where(
+    ended = await db.execute(
+        select(SessionModel).where(
             SessionModel.business_day_id == day.id, SessionModel.ended_at.is_not(None)
         )
     )

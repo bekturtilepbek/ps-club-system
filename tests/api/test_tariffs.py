@@ -13,8 +13,12 @@ async def _seed_tariffs(db):
     db.add(Tariff(zone_id=zone.id, kind=TariffKind.open, name="Открытое время", hourly_rate=120))
     db.add(
         Tariff(
-            zone_id=zone.id, kind=TariffKind.package, name="Старый", duration_min=30,
-            price=100, is_active=False,
+            zone_id=zone.id,
+            kind=TariffKind.package,
+            name="Старый",
+            duration_min=30,
+            price=100,
+            is_active=False,
         )
     )
 

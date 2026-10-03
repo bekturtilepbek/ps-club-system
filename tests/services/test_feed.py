@@ -47,18 +47,29 @@ async def test_feed_tells_the_day_newest_first(db_session):
     day = await open_business_day(db_session, opening_cash=0, now=T)
 
     session = await start_session(
-        db_session, console_id=console.id, kind=SessionKind.paid, tariff_id=three_hours.id,
-        reason=None, comment=None, now=T + timedelta(minutes=1),
+        db_session,
+        console_id=console.id,
+        kind=SessionKind.paid,
+        tariff_id=three_hours.id,
+        reason=None,
+        comment=None,
+        now=T + timedelta(minutes=1),
     )
     await add_order(
-        db_session, session_id=session.id, product_id=cola.id, qty=2,
+        db_session,
+        session_id=session.id,
+        product_id=cola.id,
+        qty=2,
         now=T + timedelta(minutes=30),
     )
     await extend_session(
         db_session, session_id=session.id, tariff_id=one_hour.id, now=T + timedelta(hours=2)
     )
     await add_payment(
-        db_session, session_id=session.id, amount=670, method=PaymentMethod.transfer,
+        db_session,
+        session_id=session.id,
+        amount=670,
+        method=PaymentMethod.transfer,
         now=T + timedelta(hours=3),
     )
     await stop_session(db_session, session_id=session.id, now=T + timedelta(hours=4))
@@ -85,8 +96,13 @@ async def test_feed_leaves_out_other_days(db_session):
     console, three_hours, _, _ = await _hall(db_session)
     first = await open_business_day(db_session, opening_cash=0, now=T)
     session = await start_session(
-        db_session, console_id=console.id, kind=SessionKind.paid, tariff_id=three_hours.id,
-        reason=None, comment=None, now=T + timedelta(minutes=1),
+        db_session,
+        console_id=console.id,
+        kind=SessionKind.paid,
+        tariff_id=three_hours.id,
+        reason=None,
+        comment=None,
+        now=T + timedelta(minutes=1),
     )
     await stop_session(db_session, session_id=session.id, now=T + timedelta(hours=1))
     await close_business_day(
@@ -106,8 +122,13 @@ async def test_feed_follows_the_session_day_not_the_clock(db_session):
     console, three_hours, one_hour, cola = await _hall(db_session)
     day_a = await open_business_day(db_session, opening_cash=0, now=T)
     session = await start_session(
-        db_session, console_id=console.id, kind=SessionKind.paid, tariff_id=three_hours.id,
-        reason=None, comment=None, now=T + timedelta(minutes=1),
+        db_session,
+        console_id=console.id,
+        kind=SessionKind.paid,
+        tariff_id=three_hours.id,
+        reason=None,
+        comment=None,
+        now=T + timedelta(minutes=1),
     )
     await extend_session(
         db_session, session_id=session.id, tariff_id=one_hour.id, now=T + timedelta(hours=1)
@@ -154,7 +175,10 @@ async def test_walk_in_ticket_lists_orders_and_payments_but_no_start(db_session)
         db_session, session_id=ticket.id, product_id=cola.id, qty=1, now=T + timedelta(minutes=2)
     )
     await add_payment(
-        db_session, session_id=ticket.id, amount=60, method=PaymentMethod.cash,
+        db_session,
+        session_id=ticket.id,
+        amount=60,
+        method=PaymentMethod.cash,
         now=T + timedelta(minutes=3),
     )
 
@@ -169,8 +193,13 @@ async def test_events_at_the_same_moment_keep_a_stable_order(db_session):
     day = await open_business_day(db_session, opening_cash=0, now=T)
     at = T + timedelta(minutes=5)
     session = await start_session(
-        db_session, console_id=console.id, kind=SessionKind.paid, tariff_id=three_hours.id,
-        reason=None, comment=None, now=at,
+        db_session,
+        console_id=console.id,
+        kind=SessionKind.paid,
+        tariff_id=three_hours.id,
+        reason=None,
+        comment=None,
+        now=at,
     )
     await add_order(db_session, session_id=session.id, product_id=cola.id, qty=1, now=at)
     await add_payment(

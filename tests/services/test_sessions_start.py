@@ -51,8 +51,13 @@ async def test_start_paid_package_session_shifts_end_by_grace(db_session):
     console_id, package_id, _ = await _setup(db_session)
 
     session = await start_session(
-        db_session, console_id=console_id, kind=SessionKind.paid, tariff_id=package_id,
-        reason=None, comment=None, now=T,
+        db_session,
+        console_id=console_id,
+        kind=SessionKind.paid,
+        tariff_id=package_id,
+        reason=None,
+        comment=None,
+        now=T,
     )
 
     assert session.status == SessionStatus.active
@@ -71,8 +76,13 @@ async def test_start_open_session_billing_starts_after_grace(db_session):
     console_id, _, open_id = await _setup(db_session)
 
     session = await start_session(
-        db_session, console_id=console_id, kind=SessionKind.paid, tariff_id=open_id,
-        reason=None, comment=None, now=T,
+        db_session,
+        console_id=console_id,
+        kind=SessionKind.paid,
+        tariff_id=open_id,
+        reason=None,
+        comment=None,
+        now=T,
     )
 
     segment = session.segments[0]
@@ -89,8 +99,13 @@ async def test_start_free_session_requires_a_reason(db_session):
 
     with pytest.raises(ValidationError):
         await start_session(
-            db_session, console_id=console_id, kind=SessionKind.free, tariff_id=None,
-            reason=None, comment=None, now=T,
+            db_session,
+            console_id=console_id,
+            kind=SessionKind.free,
+            tariff_id=None,
+            reason=None,
+            comment=None,
+            now=T,
         )
 
 
@@ -103,8 +118,13 @@ async def test_start_free_session_writes_an_audit_log_entry(db_session):
     console_id, _, _ = await _setup(db_session)
 
     session = await start_session(
-        db_session, console_id=console_id, kind=SessionKind.free, tariff_id=None,
-        reason="друг владельца", comment=None, now=T,
+        db_session,
+        console_id=console_id,
+        kind=SessionKind.free,
+        tariff_id=None,
+        reason="друг владельца",
+        comment=None,
+        now=T,
     )
 
     result = await db_session.execute(select(AuditLog).where(AuditLog.entity_id == session.id))
@@ -118,14 +138,24 @@ async def test_start_free_session_writes_an_audit_log_entry(db_session):
 async def test_start_session_on_occupied_console_is_a_conflict(db_session):
     console_id, package_id, _ = await _setup(db_session)
     await start_session(
-        db_session, console_id=console_id, kind=SessionKind.paid, tariff_id=package_id,
-        reason=None, comment=None, now=T,
+        db_session,
+        console_id=console_id,
+        kind=SessionKind.paid,
+        tariff_id=package_id,
+        reason=None,
+        comment=None,
+        now=T,
     )
 
     with pytest.raises(ConflictError):
         await start_session(
-            db_session, console_id=console_id, kind=SessionKind.paid, tariff_id=package_id,
-            reason=None, comment=None, now=T,
+            db_session,
+            console_id=console_id,
+            kind=SessionKind.paid,
+            tariff_id=package_id,
+            reason=None,
+            comment=None,
+            now=T,
         )
 
 
@@ -135,8 +165,13 @@ async def test_start_session_without_an_open_business_day_is_a_conflict(db_sessi
 
     with pytest.raises(ConflictError):
         await start_session(
-            db_session, console_id=console_id, kind=SessionKind.paid, tariff_id=package_id,
-            reason=None, comment=None, now=T,
+            db_session,
+            console_id=console_id,
+            kind=SessionKind.paid,
+            tariff_id=package_id,
+            reason=None,
+            comment=None,
+            now=T,
         )
 
 
@@ -146,8 +181,13 @@ async def test_start_session_with_unknown_tariff_is_not_found(db_session):
 
     with pytest.raises(NotFoundError):
         await start_session(
-            db_session, console_id=console_id, kind=SessionKind.paid, tariff_id=999,
-            reason=None, comment=None, now=T,
+            db_session,
+            console_id=console_id,
+            kind=SessionKind.paid,
+            tariff_id=999,
+            reason=None,
+            comment=None,
+            now=T,
         )
 
 

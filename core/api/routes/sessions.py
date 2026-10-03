@@ -97,7 +97,9 @@ async def pay(session_id: int, body: PaymentRequest, db: AsyncSession = Depends(
 
 @router.post("/{session_id}/orders", response_model=OrderResponse)
 async def add_order(
-    session_id: int, body: OrderRequest, db: AsyncSession = Depends(get_session)  # noqa: B008
+    session_id: int,
+    body: OrderRequest,
+    db: AsyncSession = Depends(get_session),  # noqa: B008
 ):
     now = _now()
     return await bar_service.add_order(

@@ -7,9 +7,7 @@ from core.api.schemas.bar import ProductResponse
 from core.db.session import get_session
 from core.services import bar as bar_service
 
-products_router = APIRouter(
-    prefix="/products", tags=["bar"], dependencies=[Depends(require_auth)]
-)
+products_router = APIRouter(prefix="/products", tags=["bar"], dependencies=[Depends(require_auth)])
 orders_router = APIRouter(prefix="/orders", tags=["bar"], dependencies=[Depends(require_auth)])
 
 

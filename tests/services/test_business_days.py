@@ -121,10 +121,16 @@ async def test_close_business_day_with_active_session_is_a_conflict(db_session):
     console = Console(zone_id=zone.id, name="PS5-1")
     db_session.add(console)
     await db_session.flush()
-    db_session.add(Session(
-        console_id=console.id, business_day_id=day.id, kind=SessionKind.paid,
-        status=SessionStatus.active, started_at=T, grace_until=T,
-    ))
+    db_session.add(
+        Session(
+            console_id=console.id,
+            business_day_id=day.id,
+            kind=SessionKind.paid,
+            status=SessionStatus.active,
+            started_at=T,
+            grace_until=T,
+        )
+    )
     await db_session.commit()
 
     with pytest.raises(ConflictError):
@@ -163,16 +169,25 @@ async def test_day_summary_breaks_down_payments_by_method(db_session):
     db_session.add_all(
         [
             Payment(
-                session_id=session_id, business_day_id=day.id, amount=300,
-                method=PaymentMethod.cash, created_at=T,
+                session_id=session_id,
+                business_day_id=day.id,
+                amount=300,
+                method=PaymentMethod.cash,
+                created_at=T,
             ),
             Payment(
-                session_id=session_id, business_day_id=day.id, amount=200,
-                method=PaymentMethod.transfer, created_at=T,
+                session_id=session_id,
+                business_day_id=day.id,
+                amount=200,
+                method=PaymentMethod.transfer,
+                created_at=T,
             ),
             Payment(
-                session_id=session_id, business_day_id=day.id, amount=100,
-                method=PaymentMethod.transfer, created_at=T,
+                session_id=session_id,
+                business_day_id=day.id,
+                amount=100,
+                method=PaymentMethod.transfer,
+                created_at=T,
             ),
         ]
     )
@@ -202,27 +217,44 @@ async def test_day_summary_counts_sessions_minutes_and_bar_sales_excluding_cance
     await db_session.flush()
 
     finished = Session(
-        console_id=console.id, business_day_id=day.id, kind=SessionKind.paid,
-        status=SessionStatus.finished, started_at=T, grace_until=T, ended_at=T + timedelta(hours=1),
+        console_id=console.id,
+        business_day_id=day.id,
+        kind=SessionKind.paid,
+        status=SessionStatus.finished,
+        started_at=T,
+        grace_until=T,
+        ended_at=T + timedelta(hours=1),
     )
     finished.segments.append(
         SessionSegment(
-            kind=SegmentKind.package, starts_at=T, ends_at=T + timedelta(hours=1),
-            price_snapshot=150, amount=150,
+            kind=SegmentKind.package,
+            starts_at=T,
+            ends_at=T + timedelta(hours=1),
+            price_snapshot=150,
+            amount=150,
         )
     )
     finished.orders.append(Order(product_id=product.id, qty=2, unit_price=80, created_at=T))
     db_session.add(finished)
 
     active = Session(
-        console_id=None, business_day_id=day.id, kind=SessionKind.paid,
-        status=SessionStatus.active, started_at=T, grace_until=None,
+        console_id=None,
+        business_day_id=day.id,
+        kind=SessionKind.paid,
+        status=SessionStatus.active,
+        started_at=T,
+        grace_until=None,
     )
     db_session.add(active)
 
     cancelled = Session(
-        console_id=None, business_day_id=day.id, kind=SessionKind.paid,
-        status=SessionStatus.cancelled, started_at=T, grace_until=None, ended_at=T,
+        console_id=None,
+        business_day_id=day.id,
+        kind=SessionKind.paid,
+        status=SessionStatus.cancelled,
+        started_at=T,
+        grace_until=None,
+        ended_at=T,
     )
     db_session.add(cancelled)
     await db_session.commit()
@@ -246,13 +278,20 @@ async def test_day_summary_bills_an_open_still_running_segment_up_to_now(db_sess
     await db_session.flush()
 
     active = Session(
-        console_id=console.id, business_day_id=day.id, kind=SessionKind.paid,
-        status=SessionStatus.active, started_at=T, grace_until=T,
+        console_id=console.id,
+        business_day_id=day.id,
+        kind=SessionKind.paid,
+        status=SessionStatus.active,
+        started_at=T,
+        grace_until=T,
     )
     active.segments.append(
         SessionSegment(
-            kind=SegmentKind.open, starts_at=T, ends_at=None,
-            price_snapshot=100, amount=None,
+            kind=SegmentKind.open,
+            starts_at=T,
+            ends_at=None,
+            price_snapshot=100,
+            amount=None,
         )
     )
     db_session.add(active)
@@ -291,26 +330,42 @@ async def test_day_summary_breaks_out_free_and_service_minutes(db_session):
     await db_session.flush()
 
     paid = Session(
-        console_id=console.id, business_day_id=day.id, kind=SessionKind.paid,
-        status=SessionStatus.finished, started_at=T, grace_until=T, ended_at=T + timedelta(hours=1),
+        console_id=console.id,
+        business_day_id=day.id,
+        kind=SessionKind.paid,
+        status=SessionStatus.finished,
+        started_at=T,
+        grace_until=T,
+        ended_at=T + timedelta(hours=1),
     )
     paid.segments.append(
         SessionSegment(
-            kind=SegmentKind.package, starts_at=T, ends_at=T + timedelta(hours=1),
-            price_snapshot=150, amount=150,
+            kind=SegmentKind.package,
+            starts_at=T,
+            ends_at=T + timedelta(hours=1),
+            price_snapshot=150,
+            amount=150,
         )
     )
     db_session.add(paid)
 
     free = Session(
-        console_id=None, business_day_id=day.id, kind=SessionKind.free, reason="друг",
-        status=SessionStatus.finished, started_at=T, grace_until=T,
+        console_id=None,
+        business_day_id=day.id,
+        kind=SessionKind.free,
+        reason="друг",
+        status=SessionStatus.finished,
+        started_at=T,
+        grace_until=T,
         ended_at=T + timedelta(minutes=30),
     )
     free.segments.append(
         SessionSegment(
-            kind=SegmentKind.open, starts_at=T, ends_at=T + timedelta(minutes=30),
-            price_snapshot=0, amount=0,
+            kind=SegmentKind.open,
+            starts_at=T,
+            ends_at=T + timedelta(minutes=30),
+            price_snapshot=0,
+            amount=0,
         )
     )
     db_session.add(free)
@@ -335,9 +390,7 @@ async def test_claim_unclosed_day_reminder_is_none_before_the_threshold(db_sessi
     # too soon.
     day = await open_business_day(db_session, opening_cash=5000, now=T)
 
-    result = await claim_unclosed_day_reminder(
-        db_session, now=T + timedelta(hours=13, minutes=59)
-    )
+    result = await claim_unclosed_day_reminder(db_session, now=T + timedelta(hours=13, minutes=59))
     assert result is None
     await db_session.refresh(day)
     assert day.last_reminder_at is None
@@ -381,9 +434,7 @@ async def test_claim_unclosed_day_reminder_respects_configured_threshold(db_sess
 
     # planned_close (+13h, 05:00 Bishkek next day) + 10min configured
     # threshold -> due_at = +13h10min.
-    too_soon = await claim_unclosed_day_reminder(
-        db_session, now=T + timedelta(hours=13, minutes=9)
-    )
+    too_soon = await claim_unclosed_day_reminder(db_session, now=T + timedelta(hours=13, minutes=9))
     assert too_soon is None
 
     due = await claim_unclosed_day_reminder(db_session, now=T + timedelta(hours=13, minutes=10))
@@ -407,9 +458,7 @@ async def test_claim_unclosed_day_reminder_uses_bishkek_time_not_the_db_utc_tzin
 
     due_at_utc = datetime(2026, 9, 26, 0, 0, tzinfo=UTC)  # Bishkek 06:00 next day
 
-    too_soon = await claim_unclosed_day_reminder(
-        db_session, now=due_at_utc - timedelta(minutes=1)
-    )
+    too_soon = await claim_unclosed_day_reminder(db_session, now=due_at_utc - timedelta(minutes=1))
     assert too_soon is None
 
     fired = await claim_unclosed_day_reminder(db_session, now=due_at_utc)
@@ -459,9 +508,7 @@ async def test_summaries_for_days_keeps_each_day_apart(db_session):
     now = T + timedelta(days=1, hours=2)
     summaries = await summaries_for_days(db_session, days=[first, second], now=now)
 
-    assert summaries[first.id] == await day_summary(
-        db_session, business_day_id=first.id, now=now
-    )
+    assert summaries[first.id] == await day_summary(db_session, business_day_id=first.id, now=now)
     first_summary = summaries[first.id]
     assert (first_summary.cash_total, first_summary.transfer_total) == (300, 200)
     assert summaries[first.id].sessions_count == 1

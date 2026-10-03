@@ -76,7 +76,8 @@ async def close_day(
 
 @router.get("/{business_day_id}/summary", response_model=BusinessDaySummaryResponse)
 async def business_day_summary(
-    business_day_id: int, db: AsyncSession = Depends(get_session)  # noqa: B008
+    business_day_id: int,
+    db: AsyncSession = Depends(get_session),  # noqa: B008
 ):
     return await business_days.day_summary(db, business_day_id=business_day_id, now=_now())
 
@@ -92,7 +93,8 @@ async def business_day_feed(
 
 @router.get("", response_model=list[BusinessDayHistoryItem])
 async def list_days(
-    limit: int = Query(30, ge=1, le=365), db: AsyncSession = Depends(get_session)  # noqa: B008
+    limit: int = Query(30, ge=1, le=365),
+    db: AsyncSession = Depends(get_session),  # noqa: B008
 ):
     days = await business_days.list_business_days(db, limit=limit)
     summaries = await business_days.summaries_for_days(db, days=days, now=_now())
