@@ -4,6 +4,18 @@
 #                            itself (ports 80 and 443 must be reachable from the internet)
 {$SITE_ADDRESS::80} {
 	encode gzip
+
+	# Browser-side hardening for every response (till pages, API and /admin alike).
+	# frame-ancestors/X-Frame-Options: nobody may embed the till in another site (clickjacking).
+	# HSTS is deliberately short (one week); raise it once the site has run on HTTPS for a while.
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Content-Security-Policy "frame-ancestors 'none'"
+		Referrer-Policy no-referrer
+		Strict-Transport-Security "max-age=604800"
+		-Server
+	}
 	reverse_proxy web:80 {
 		# Always the address Caddy saw, never a client-supplied header: the API's login
 		# throttle keys on this IP (core/auth/throttle.py).
