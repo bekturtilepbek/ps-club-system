@@ -14,7 +14,9 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def _run_backup(tmp_path: Path, fake_pg_dump: str) -> tuple[subprocess.CompletedProcess | None, Path]:
+def _run_backup(
+    tmp_path: Path, fake_pg_dump: str
+) -> tuple[subprocess.CompletedProcess | None, Path]:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     dump_dir = tmp_path / "backups"
