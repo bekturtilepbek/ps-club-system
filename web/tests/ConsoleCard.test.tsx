@@ -94,8 +94,14 @@ describe("ConsoleCard", () => {
     expect(screen.queryByRole("button", { name: "Отменить без оплаты" })).toBeNull();
   });
 
+  it("offers no free cancel once the guest has paid anything (the API refuses it too)", () => {
+    renderCard(busy({ graceLeftMs: 90_000, balance: 0 }));
+    expect(screen.getByText("01:30")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Отменить без оплаты" })).toBeNull();
+  });
+
   it("cancels for free during the grace period", () => {
-    const handlers = renderCard(busy({ graceLeftMs: 90_000 }));
+    const handlers = renderCard(busy({ graceLeftMs: 90_000, balance: 300 }));
     expect(screen.getByText("01:30")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Отменить без оплаты" }));
     expect(handlers.onCancel).toHaveBeenCalled();

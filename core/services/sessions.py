@@ -9,6 +9,7 @@ from core.db.models import (
     Console,
     Game,
     Order,
+    Payment,
     SegmentKind,
     SessionKind,
     SessionSegment,
@@ -276,11 +277,19 @@ async def cancel_session(db: AsyncSession, *, session_id: int, now: datetime) ->
         # Owner decision (docs/OWNER_QUESTIONS.md, question 6): once a guest has taken bar
         # items the session is a normal one - stop it and settle, or remove the items first.
         raise ConflictError("session has bar items; stop it instead of cancelling")
+    has_payments = await db.scalar(
+        select(Payment.id).where(Payment.session_id == session_id).limit(1)
+    )
+    if has_payments is not None:
+        # A payment already sits in the day's cash/transfer totals; cancelling would leave that
+        # money counted although the guest got it back. Stop and settle the bill instead.
+        raise ConflictError("session has payments; stop it instead of cancelling")
 
     for segment in session.segments:
         segment.amount = 0
         if segment.kind == SegmentKind.open and segment.ends_at is None:
-            segment.ends_at = now
+            # Open time only starts when the grace window ends: never end it before it began.
+            segment.ends_at = max(now, segment.starts_at)
 
     session.status = SessionStatus.cancelled
     session.ended_at = now

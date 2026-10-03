@@ -206,9 +206,9 @@ function CardStrip({
 
   const graceUntilMs = session.grace_until ? Date.parse(session.grace_until) : null;
   if (session.kind === "paid" && graceUntilMs !== null && graceUntilMs > nowMs) {
-    // Once a guest has taken bar items the session can only be stopped and paid (owner
-    // decision, OWNER_QUESTIONS.md q6) - the API refuses to cancel it too.
-    const canCancel = session.orders.length === 0;
+    // Once a guest has taken bar items (owner decision, OWNER_QUESTIONS.md q6) or paid anything
+    // the session can only be stopped and settled - the API refuses to cancel it too.
+    const canCancel = session.orders.length === 0 && consoleView.paid_total === 0;
     return (
       <div className={cn(base, "bg-surface-2 text-fg-muted")}>
         <span className="flex-1">

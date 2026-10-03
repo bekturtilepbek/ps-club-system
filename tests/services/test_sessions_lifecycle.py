@@ -369,3 +369,70 @@ async def test_cancel_after_grace_window_is_a_conflict(db_session):
 
     with pytest.raises(ConflictError):
         await cancel_session(db_session, session_id=session.id, now=T + timedelta(minutes=10))
+
+
+@pytest.mark.asyncio
+async def test_cancel_after_a_payment_is_a_conflict_and_changes_nothing(db_session):
+    """A prepayment stays in the till's cash/revenue; cancelling would leave money in the
+    day's totals that the guest has already got back. Stop and settle instead."""
+    from core.db.models import PaymentMethod
+    from core.services.payments import add_payment
+
+    console_id, package_id, _ = await _setup(db_session)
+    session = await start_session(
+        db_session,
+        console_id=console_id,
+        kind=SessionKind.paid,
+        tariff_id=package_id,
+        reason=None,
+        comment=None,
+        now=T,
+    )
+    await add_payment(
+        db_session,
+        session_id=session.id,
+        amount=150,
+        method=PaymentMethod.cash,
+        now=T + timedelta(seconds=10),
+    )
+
+    with pytest.raises(ConflictError, match="payment"):
+        await cancel_session(db_session, session_id=session.id, now=T + timedelta(seconds=30))
+
+    await db_session.refresh(session)
+    assert session.status == SessionStatus.active
+    assert session.segments[0].amount == 150
+    entries = (
+        (await db_session.execute(select(AuditLog).where(AuditLog.entity_id == session.id)))
+        .scalars()
+        .all()
+    )
+    assert not any(e.action == "cancel" for e in entries)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", [SessionKind.paid, SessionKind.free])
+async def test_cancelling_open_time_inside_grace_never_ends_a_segment_before_it_starts(
+    db_session, kind
+):
+    """Open time starts when the grace window ends, so cancelling inside the window must not
+    stamp ends_at earlier than starts_at (stop_session already clamps it)."""
+    console_id, _, open_id = await _setup(db_session)
+    session = await start_session(
+        db_session,
+        console_id=console_id,
+        kind=kind,
+        tariff_id=open_id if kind == SessionKind.paid else None,
+        reason="friends" if kind == SessionKind.free else None,
+        comment=None,
+        now=T,
+    )
+
+    cancelled = await cancel_session(
+        db_session, session_id=session.id, now=T + timedelta(seconds=20)
+    )
+
+    segment = cancelled.segments[0]
+    assert segment.ends_at is not None
+    assert segment.ends_at >= segment.starts_at
+    assert segment.amount == 0
