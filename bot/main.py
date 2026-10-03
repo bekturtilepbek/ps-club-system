@@ -21,7 +21,7 @@ dp.message.filter(OwnerOnlyFilter())
 
 @dp.message(Command("start"))
 async def start_handler(message: Message) -> None:
-    await message.answer("PS Club bot is running.")
+    await message.answer("PS-клуб: бот работает. Команда /hall покажет, что сейчас в зале.")
 
 
 @dp.message(Command("hall"))
