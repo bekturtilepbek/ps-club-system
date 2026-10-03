@@ -27,6 +27,11 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-psclub}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-psclub}
       BACKUP_DIR: /backups
+      # Both fall back to development defaults that are public in the repository: with the default
+      # SESSION_SECRET anyone can forge a login cookie. Make `up` fail loudly (before it replaces
+      # a running container) instead of quietly serving the site with them.
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env (openssl rand -hex 32)}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:?run scripts/set-admin-password.sh to set the admin password}
     volumes:
       - ${BACKUP_HOST_DIR:-./backups}:/backups:ro
     depends_on:
