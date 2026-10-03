@@ -400,8 +400,8 @@ export function HallPage() {
             <DialogHeader>
               <DialogTitle>Остановить {pendingStop.name}?</DialogTitle>
               <DialogDescription>
-                Оплаченное время ещё не вышло: осталось {formatShortMinutes(Math.max(1, Math.ceil(pendingStop.remainingMs / 60_000)))}.
-                Если остановить сейчас, гости его потеряют, а вернуть сессию нельзя.
+                Время пакета ещё не вышло: осталось {formatShortMinutes(Math.max(1, Math.ceil(pendingStop.remainingMs / 60_000)))}.
+                Если остановить сейчас, гости его потеряют, пакет всё равно останется в счёте целиком, а вернуть сессию нельзя.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
