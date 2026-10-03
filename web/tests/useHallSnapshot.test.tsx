@@ -86,7 +86,7 @@ describe("useHallSnapshot", () => {
     await waitFor(() => expect(result.current.connected).toBe(true));
   });
 
-  it("polls every 5 s while disconnected and only every 60 s as a safety net once connected", async () => {
+  it("polls every 5 s while disconnected and only every 20 s as a safety net once connected", async () => {
     vi.useFakeTimers();
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -105,7 +105,7 @@ describe("useHallSnapshot", () => {
 
     // Connected: no fast poll any more...
     act(() => FakeWebSocket.instances[0].emitOpen());
-    await act(() => vi.advanceTimersByTimeAsync(59_000));
+    await act(() => vi.advanceTimersByTimeAsync(19_000));
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
     // ...but a slow safety refetch still happens, in case pushes silently stopped.

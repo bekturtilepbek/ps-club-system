@@ -38,7 +38,7 @@ export function useHallSnapshot() {
     // Fast poll while the socket is down. While it is up, still refetch slowly as a
     // safety net: the socket can stay open even if the server's LISTEN connection to
     // Postgres died, and then no pushes would ever arrive.
-    refetchInterval: connected ? 60_000 : 5000,
+    refetchInterval: connected ? 20_000 : 5000,
   });
 
   // Any hall change (a payment is one) moves the till: refresh the day summaries whenever a
@@ -84,5 +84,7 @@ export function useHallSnapshot() {
     };
   }, [queryClient]);
 
-  return { data: query.data, connected };
+  // The last refresh failed: the server is unreachable (or answering with errors), so whatever is
+  // on screen may be out of date and actions will not go through.
+  return { data: query.data, connected, offline: query.isError };
 }

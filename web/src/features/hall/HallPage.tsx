@@ -47,7 +47,7 @@ type DialogState =
 
 export function HallPage() {
   const { logout } = useAuth();
-  const { data: hall } = useHallSnapshot();
+  const { data: hall, offline } = useHallSnapshot();
   const settingsQuery = useQuery({ queryKey: ["settings"], queryFn: api.settings });
   const { stop, cancel, stopping } = useSessionActions();
   const queryClient = useQueryClient();
@@ -64,6 +64,12 @@ export function HallPage() {
     const interval = setInterval(() => setNowMs(serverNow()), 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // "Не удалось выполнить действие" belongs to the outage that caused it: once the server answers
+  // again it is stale and would otherwise sit on the screen until the next action.
+  useEffect(() => {
+    if (!offline) setActionError(null);
+  }, [offline]);
 
   const warnMinutes = settingsQuery.data?.warn_minutes ?? DEFAULT_WARN_MINUTES;
   const consoles = hall?.consoles ?? [];
@@ -136,6 +142,16 @@ export function HallPage() {
         onCloseDay={() => setDialog({ kind: "close-day" })}
         onLogout={() => logout().catch(() => {})}
       />
+
+      {offline && (
+        <div
+          role="status"
+          className="border-b border-status-circle/40 bg-status-circle/10 px-4 py-2 text-sm text-fg sm:px-6"
+        >
+          <b className="font-semibold text-status-circle">Нет связи с сервером.</b> Таймеры идут, но на экране может быть
+          устаревшая информация, а действия пока не пройдут.
+        </div>
+      )}
 
       <div className={showRail ? "grid grid-cols-[minmax(0,1fr)_340px]" : undefined}>
         <main className="px-4 pb-10 pt-[18px] short:pt-2.5 sm:px-6">
