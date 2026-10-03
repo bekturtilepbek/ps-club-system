@@ -339,3 +339,112 @@ async def test_renaming_a_game_to_its_own_name_is_fine_and_hiding_works(client, 
     db.expire_all()
     stored = await db.get(Game, game_id)
     assert (stored.name, stored.is_active) == ("UFC5", False)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("fields", "message"),
+    [
+        ({"name": "Минус", "price": "-100"}, "отрицательной"),
+        ({"name": "Огромный", "price": "99999999999"}, "слишком"),
+        ({"name": "Кола", "price": "80"}, "уже есть"),
+        (
+            {"name": "  кола  ", "price": "80"},
+            "уже есть",
+        ),  # case and stray spaces do not make it new
+    ],
+)
+async def test_product_form_refuses_a_bad_price_or_a_duplicate_name(client, db, fields, message):
+    db.add(Product(name="Кола", price=80, is_active=True))
+    await db.commit()
+
+    response = await client.post(
+        "/admin/product/create",
+        data={"category": "Напитки", "is_active": "y", **fields},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 400
+    assert message in response.text
+    assert len((await db.execute(select(Product))).scalars().all()) == 1
+
+
+@pytest.mark.asyncio
+async def test_editing_a_product_without_renaming_it_is_not_a_duplicate(client, db):
+    product = Product(name="Кола", price=80, is_active=True)
+    db.add(product)
+    await db.commit()
+    product_id = product.id
+
+    response = await client.post(
+        f"/admin/product/edit/{product_id}",
+        data={"name": "Кола", "category": "Напитки", "price": "90", "is_active": "y"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 302
+    db.expire_all()
+    assert (await db.get(Product, product_id)).price == 90
+
+
+@pytest.mark.asyncio
+async def test_console_form_refuses_a_duplicate_name(client, db):
+    zone = await _zone(db)
+    db.add(Console(zone_id=zone.id, name="PS5-1"))
+    await db.commit()
+
+    response = await client.post(
+        "/admin/console/create",
+        data={"zone": zone.id, "name": "ps5-1", "is_active": "y"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 400
+    assert "уже есть" in response.text
+    assert len((await db.execute(select(Console))).scalars().all()) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("fields", "message"),
+    [
+        ({"kind": "package", "duration_min": "60", "price": "300", "name": "1 час"}, "уже есть"),
+        ({"kind": "package", "duration_min": "60", "price": "99999999999"}, "слишком"),
+        ({"kind": "package", "duration_min": "100000", "price": "300"}, "суток"),
+        ({"kind": "open", "hourly_rate": "99999999999"}, "слишком"),
+    ],
+)
+async def test_tariff_form_refuses_absurd_values_and_duplicate_names(client, db, fields, message):
+    zone = await _zone(db)
+    db.add(
+        Tariff(zone_id=zone.id, kind=TariffKind.package, name="1 час", duration_min=60, price=180)
+    )
+    await db.commit()
+    form = {"zone": zone.id, "name": "Новый", "is_active": "y", **fields}
+
+    response = await client.post("/admin/tariff/create", data=form, follow_redirects=False)
+
+    assert response.status_code == 400
+    assert message in response.text
+    assert len((await db.execute(select(Tariff))).scalars().all()) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("key", "value", "message"),
+    [
+        ("grace_minutes", "61", "не больше"),
+        ("warn_minutes", "121", "не больше"),
+        ("day_reminder_threshold_minutes", "1441", "не больше"),
+        ("day_reminder_interval_minutes", "1441", "не больше"),
+        ("owner_chat_id", "99999999999999999999", "слишком"),
+    ],
+)
+async def test_setting_form_refuses_values_that_would_misbehave(client, db, key, value, message):
+    response = await client.post(
+        "/admin/setting/create", data={"key": key, "value": value}, follow_redirects=False
+    )
+
+    assert response.status_code == 400
+    assert message in response.text
+    assert (await db.get(Setting, key)) is None

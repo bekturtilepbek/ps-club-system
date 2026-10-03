@@ -12,6 +12,7 @@ from sqlalchemy import func, select
 from starlette.responses import RedirectResponse
 from wtforms import Form, SelectField, StringField
 
+from core.api.limits import MAX_MONEY
 from core.auth.password import verify_password
 from core.auth.throttle import login_throttle
 from core.config import settings
@@ -43,6 +44,29 @@ async def _write_audit_log(action: str, entity: str, entity_id: Any, details: di
 
 def _yes_no(model: Any, attribute: str) -> str:
     return "да" if getattr(model, attribute) else "нет"
+
+
+def _normalized_name(value: Any) -> str:
+    """Names are compared and stored without stray spaces ("  Кола  " is "Кола")."""
+    return " ".join((value or "").split())
+
+
+async def _refuse_duplicate_name(model: Any, name: str, current_id: int | None, what: str) -> None:
+    """Two consoles called "PS5-1" (or two "Кола") are indistinguishable on the hall screen, in the
+    bar and in every report, and nothing can be deleted afterwards - so refuse them up front."""
+    same_name = select(model.id).where(func.lower(model.name) == name.lower())
+    if current_id is not None:
+        same_name = same_name.where(model.id != current_id)
+    async with async_session_factory() as session:
+        clash = await session.scalar(same_name)
+    if clash is not None:
+        raise ValueError(f"{what} «{name}» уже есть в списке.")
+
+
+def _check_money(value: int | None, what: str) -> None:
+    if value is not None and value > MAX_MONEY:
+        limit = f"{MAX_MONEY:,}".replace(",", " ")
+        raise ValueError(f"{what} слишком большая: не больше {limit} сом.")
 
 
 class DefaultsOnNewForm(Form):
@@ -110,6 +134,15 @@ class ConsoleAdmin(OwnerView, model=Console):
         },
     }
 
+    async def on_model_change(
+        self, data: dict, model: Any, is_created: bool, request: Request
+    ) -> None:
+        name = _normalized_name(data.get("name"))
+        if not name:
+            raise ValueError("Укажите название консоли.")
+        await _refuse_duplicate_name(Console, name, model.id, "Консоль")
+        data["name"] = name
+
 
 class TariffAdmin(OwnerView, model=Tariff):
     name = "Тариф"
@@ -170,6 +203,15 @@ class TariffAdmin(OwnerView, model=Tariff):
     ) -> None:
         kind = TariffKind(_enum_value(data.get("kind")))
         duration, price, rate = data.get("duration_min"), data.get("price"), data.get("hourly_rate")
+        name = _normalized_name(data.get("name"))
+        if not name:
+            raise ValueError("Укажите название тарифа.")
+        await _refuse_duplicate_name(Tariff, name, model.id, "Тариф")
+        data["name"] = name
+        if duration is not None and duration > 24 * 60:
+            raise ValueError("Пакет не может быть длиннее суток (1440 минут).")
+        _check_money(price, "Цена пакета")
+        _check_money(rate, "Ставка")
         if kind == TariffKind.package:
             if not duration or duration <= 0:
                 raise ValueError("Для пакета укажите длительность в минутах, например 60.")
@@ -244,6 +286,20 @@ class ProductAdmin(OwnerView, model=Product):
         },
     }
 
+    async def on_model_change(
+        self, data: dict, model: Any, is_created: bool, request: Request
+    ) -> None:
+        name = _normalized_name(data.get("name"))
+        if not name:
+            raise ValueError("Укажите название товара.")
+        price = data.get("price")
+        if price is None or price < 0:
+            raise ValueError("Цена не может быть отрицательной: укажите сумму в сомах.")
+        _check_money(price, "Цена")
+        await _refuse_duplicate_name(Product, name, model.id, "Товар")
+        data["name"] = name
+        data["category"] = _normalized_name(data.get("category")) or None
+
 
 class GameAdmin(OwnerView, model=Game):
     name = "Игра"
@@ -269,16 +325,10 @@ class GameAdmin(OwnerView, model=Game):
     async def on_model_change(
         self, data: dict, model: Any, is_created: bool, request: Request
     ) -> None:
-        name = " ".join((data.get("name") or "").split())
+        name = _normalized_name(data.get("name"))
         if not name:
             raise ValueError("Укажите название игры.")
-        same_name = select(Game.id).where(func.lower(Game.name) == name.lower())
-        if model.id is not None:
-            same_name = same_name.where(Game.id != model.id)
-        async with async_session_factory() as session:
-            clash = await session.scalar(same_name)
-        if clash is not None:
-            raise ValueError(f"Игра «{name}» уже есть в списке.")
+        await _refuse_duplicate_name(Game, name, model.id, "Игра")
         data["name"] = name
 
 

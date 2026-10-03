@@ -14,6 +14,7 @@ DEFAULT_PLANNED_OPEN = "10:00"
 DEFAULT_PLANNED_CLOSE = "05:00"
 DEFAULT_DAY_REMINDER_THRESHOLD_MINUTES = 60
 DEFAULT_DAY_REMINDER_INTERVAL_MINUTES = 60
+MAX_CHAT_ID = 10**16  # Telegram ids fit in 52 bits; anything bigger is a typo
 
 
 async def get_setting(db: AsyncSession, key: str) -> str | None:
@@ -114,6 +115,9 @@ class SettingSpec:
     hint: str
     kind: Literal["minutes", "time", "chat_id"]
     default: str | None
+    # Upper bound for "minutes" settings: 100000 minutes of "time to pick a game" would make
+    # every session free for 69 days, and nothing in the club needs more than a day.
+    maximum: int | None = None
 
 
 SETTING_SPECS: tuple[SettingSpec, ...] = (
@@ -124,6 +128,7 @@ SETTING_SPECS: tuple[SettingSpec, ...] = (
         "отменяется бесплатно. Для пакета конец сдвигается на это время.",
         "minutes",
         str(DEFAULT_GRACE_MINUTES),
+        maximum=60,
     ),
     SettingSpec(
         "warn_minutes",
@@ -131,6 +136,7 @@ SETTING_SPECS: tuple[SettingSpec, ...] = (
         "За сколько минут до конца пакета карточка консоли подсвечивается как «скоро закончится».",
         "minutes",
         str(DEFAULT_WARN_MINUTES),
+        maximum=120,
     ),
     SettingSpec(
         "planned_open",
@@ -161,6 +167,7 @@ SETTING_SPECS: tuple[SettingSpec, ...] = (
         "Через сколько минут после планового закрытия бот впервые напомнит закрыть день.",
         "minutes",
         str(DEFAULT_DAY_REMINDER_THRESHOLD_MINUTES),
+        maximum=24 * 60,
     ),
     SettingSpec(
         "day_reminder_interval_minutes",
@@ -168,6 +175,7 @@ SETTING_SPECS: tuple[SettingSpec, ...] = (
         "Как часто бот повторяет напоминание, пока день не закрыт.",
         "minutes",
         str(DEFAULT_DAY_REMINDER_INTERVAL_MINUTES),
+        maximum=24 * 60,
     ),
 )
 
@@ -192,13 +200,18 @@ def validate_setting_value(key: str, value: str) -> str:
         return f"{hours:02d}:{minutes:02d}"
     if spec.kind == "chat_id":
         try:
-            return str(int(text))
+            chat_id = int(text)
         except ValueError:
             raise ValueError("chat_id — это число, например 123456789.") from None
+        if abs(chat_id) >= MAX_CHAT_ID:
+            raise ValueError("Это число слишком большое для chat_id Telegram.")
+        return str(chat_id)
     try:
         minutes_value = int(text)
     except ValueError:
         raise ValueError("Нужно целое число минут, например 3.") from None
     if minutes_value < 0:
         raise ValueError("Число минут не может быть отрицательным.")
+    if spec.maximum is not None and minutes_value > spec.maximum:
+        raise ValueError(f"Число минут должно быть не больше {spec.maximum}.")
     return str(minutes_value)
