@@ -191,4 +191,55 @@ describe("computeCardTiming", () => {
     // 30 min at 2 som/min (120/h) = 60, plus 2 colas at 80 = 160 → 220 total.
     expect(timing.chargeTotal).toBe(220);
   });
+
+  describe("open time bought while the package is still running (it starts at the package's end)", () => {
+    function withQueuedOpenTime(): HallConsoleResponse {
+      const console = consoleWithSession(); // package 10:03 - 11:03, already priced at 150
+      console.session!.segments.push({
+        id: 2,
+        tariff_id: 2,
+        kind: "open",
+        starts_at: "2026-01-01T11:03:00+06:00",
+        ends_at: null,
+        price_snapshot: 180,
+        amount: null,
+      } as never);
+      return console;
+    }
+
+    it("keeps counting down the package that has been paid for", () => {
+      const now = new Date("2026-01-01T10:30:00+06:00").getTime();
+
+      const timing = computeCardTiming(withQueuedOpenTime(), now, WARN_MINUTES);
+
+      expect(timing.status).toBe("package_running");
+      expect(timing.remainingMs).toBe(33 * 60_000);
+      expect(timing.queuedOpenRate).toBe(180);
+      expect(timing.segment?.kind).toBe("package");
+    });
+
+    it("warns in the last minutes of the package exactly as it would without the open time", () => {
+      const now = new Date("2026-01-01T10:59:00+06:00").getTime();
+
+      expect(computeCardTiming(withQueuedOpenTime(), now, WARN_MINUTES).status).toBe("package_warn");
+    });
+
+    it("bills nothing for the open time before it starts", () => {
+      const now = new Date("2026-01-01T10:30:00+06:00").getTime();
+
+      const timing = computeCardTiming(withQueuedOpenTime(), now, WARN_MINUTES);
+
+      expect(timing.chargeTotal).toBe(150);
+    });
+
+    it("turns into running open time the moment the package ends", () => {
+      const now = new Date("2026-01-01T11:03:30+06:00").getTime();
+
+      const timing = computeCardTiming(withQueuedOpenTime(), now, WARN_MINUTES);
+
+      expect(timing.status).toBe("open_running");
+      expect(timing.elapsedMs).toBe(30_000);
+      expect(timing.queuedOpenRate).toBeNull();
+    });
+  });
 });

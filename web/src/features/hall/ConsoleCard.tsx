@@ -32,7 +32,8 @@ export function ConsoleCard(props: ConsoleCardProps) {
 
   const visual = STATUS_VISUALS[timing.status];
   const session = consoleView.session;
-  const lastSegment = session?.segments[session.segments.length - 1];
+  // The segment the timer is about: while open time waits for the package to end, that is the package.
+  const lastSegment = timing.segment ?? session?.segments[session.segments.length - 1];
   const idle = timing.status === "free" || timing.status === "maintenance";
 
   // Buttons sit inside the clickable card: keep their clicks from also opening the details.
@@ -123,6 +124,12 @@ function caption(timing: CardTiming, consoleView: HallConsoleResponse, last: Seg
       return last?.ends_at ? (
         <>
           осталось · до <b>{formatClock(Date.parse(last.ends_at))}</b>
+          {timing.queuedOpenRate != null && (
+            <>
+              {" "}
+              · затем открытое время, <b>{formatAmount(timing.queuedOpenRate)} сом/ч</b>
+            </>
+          )}
         </>
       ) : null;
     case "package_overtime":

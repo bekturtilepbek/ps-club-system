@@ -128,4 +128,23 @@ describe("ConsoleCard", () => {
       return element?.textContent === "с 23:57 · простой 43 мин";
     })).toBeInTheDocument();
   });
+
+  it("keeps the package countdown and announces the open time that follows it", () => {
+    const base = busy({ endsInMs: 40 * 60_000 });
+    base.session!.segments.push({
+      id: 2,
+      tariff_id: 2,
+      kind: "open",
+      starts_at: new Date(NOW + 40 * 60_000).toISOString(),
+      ends_at: null,
+      price_snapshot: 180,
+      amount: null,
+    });
+
+    renderCard(base);
+
+    expect(screen.getByText("40:00")).toBeInTheDocument(); // the package's remaining time, not 00:00
+    expect(screen.getByText(/затем открытое время/)).toBeInTheDocument();
+    expect(screen.getByText(/180 сом\/ч/)).toBeInTheDocument();
+  });
 });
