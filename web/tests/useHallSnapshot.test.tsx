@@ -178,3 +178,32 @@ describe("useHallSnapshot", () => {
     expect(Math.abs(serverNow() - serverMs)).toBeLessThan(2000);
   });
 });
+
+describe("useHallSnapshot in a hidden window", () => {
+  afterEach(() => {
+    FakeWebSocket.instances = [];
+    vi.unstubAllGlobals();
+  });
+
+  it("keeps polling while the browser window is covered or minimised", async () => {
+    // The till window is often hidden behind another program; by default TanStack Query stops its
+    // interval polling then, so a lost connection or a changed hall would go unnoticed until the
+    // window comes back.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ generated_at: new Date().toISOString(), business_day_open: false, consoles: [] }),
+      }),
+    );
+    vi.stubGlobal("WebSocket", FakeWebSocket as unknown as typeof WebSocket);
+    const queryClient = new QueryClient();
+    renderHook(() => useHallSnapshot(), {
+      wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
+    });
+
+    const query = queryClient.getQueryCache().find({ queryKey: ["hall"] });
+
+    expect(query?.observers[0].options.refetchIntervalInBackground).toBe(true);
+  });
+});

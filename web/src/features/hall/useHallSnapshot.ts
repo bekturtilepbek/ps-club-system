@@ -40,6 +40,9 @@ export function useHallSnapshot() {
     // safety net: the socket can stay open even if the server's LISTEN connection to
     // Postgres died, and then no pushes would ever arrive.
     refetchInterval: connected ? 20_000 : 5000,
+    // The till window is often covered by another program. By default polling stops while the
+    // window is hidden, so a lost connection or a changed hall would go unnoticed until it returns.
+    refetchIntervalInBackground: true,
   });
 
   // Any hall change (a payment is one) moves the till: refresh the day summaries whenever a
