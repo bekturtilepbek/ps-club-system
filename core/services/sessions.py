@@ -155,6 +155,19 @@ async def _last_segment(db: AsyncSession, session_id: int) -> SessionSegment | N
     return result.scalars().first()
 
 
+async def _lock_session(db: AsyncSession, session_id: int) -> SessionModel | None:
+    """The session row, locked until this transaction ends.
+
+    extend/stop/cancel read the session's segments and then write new ones. Without the lock
+    two requests for the same session (two tills, a tablet, a double tap) both read the same
+    state: parallel extensions got the same start time and billed the same hour several times,
+    and parallel stops/cancels all "succeeded" and wrote duplicate audit rows. With it the
+    second request waits, then sees the first one's result (and, for stop/cancel, a session
+    that is no longer active).
+    """
+    return await db.get(SessionModel, session_id, with_for_update=True)
+
+
 def _snapshot(segment: SessionSegment) -> domain_segments.ActiveSegment:
     return domain_segments.ActiveSegment(
         kind=segment.kind.value, starts_at=segment.starts_at, ends_at=segment.ends_at
@@ -164,7 +177,7 @@ def _snapshot(segment: SessionSegment) -> domain_segments.ActiveSegment:
 async def extend_session(
     db: AsyncSession, *, session_id: int, tariff_id: int, now: datetime
 ) -> SessionModel:
-    session = await db.get(SessionModel, session_id)
+    session = await _lock_session(db, session_id)
     if session is None:
         raise NotFoundError(f"session {session_id} not found")
     if session.status != SessionStatus.active:
@@ -193,7 +206,7 @@ async def extend_session(
 
 
 async def stop_session(db: AsyncSession, *, session_id: int, now: datetime) -> SessionModel:
-    session = await db.get(SessionModel, session_id)
+    session = await _lock_session(db, session_id)
     if session is None:
         raise NotFoundError(f"session {session_id} not found")
     if session.status != SessionStatus.active:
@@ -251,7 +264,7 @@ async def stop_session(db: AsyncSession, *, session_id: int, now: datetime) -> S
 
 
 async def cancel_session(db: AsyncSession, *, session_id: int, now: datetime) -> SessionModel:
-    session = await db.get(SessionModel, session_id)
+    session = await _lock_session(db, session_id)
     if session is None:
         raise NotFoundError(f"session {session_id} not found")
     if session.status != SessionStatus.active:
