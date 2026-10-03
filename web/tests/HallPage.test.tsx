@@ -212,6 +212,7 @@ describe("HallPage", () => {
 
     await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Стоп" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Остановить" }));
 
     await waitFor(() =>
       expect(screen.getByText("Не удалось выполнить действие. Попробуйте ещё раз.")).toBeInTheDocument(),
@@ -279,6 +280,7 @@ describe("HallPage", () => {
           hall = snapshot([paidConsole(1, 7, 0)]); // the refetch after the payment sees it settled
           return { ok: true, json: async () => ({ id: 1 }) };
         }
+        if (url === "/api/tariffs" || url === "/api/products") return { ok: true, json: async () => [] };
         if (url === "/api/sessions/7/stop") {
           hall = snapshot([freeConsole(1)]);
           return { ok: true, json: async () => ({ id: 7, status: "finished", balance: 0 }) };
@@ -316,6 +318,7 @@ describe("HallPage", () => {
       const fetchMock = vi.fn(async (url: string) => {
         if (url === "/api/hall") return { ok: true, json: async () => hall };
         if (url === "/api/settings") return { ok: true, json: async () => ({ grace_minutes: 3, warn_minutes: 5 }) };
+        if (url === "/api/tariffs" || url === "/api/products") return { ok: true, json: async () => [] };
         if (url === "/api/sessions/7/stop") {
           hall = snapshot([freeConsole(1)]);
           return { ok: true, json: async () => ({ id: 7, status: "finished", balance: stopBalance }) };
@@ -334,6 +337,7 @@ describe("HallPage", () => {
       await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
       fireEvent.click(screen.getByRole("article", { name: "PS5-1" }));
       fireEvent.click(await screen.findByRole("button", { name: "Завершить сессию" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Остановить" }));
 
       await waitFor(() => expect(screen.getByText("Оплата · остаток 150 сом")).toBeInTheDocument());
       await waitFor(() => expect(screen.getByText("Свободна")).toBeInTheDocument());
@@ -350,6 +354,7 @@ describe("HallPage", () => {
       await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
       fireEvent.click(screen.getByRole("article", { name: "PS5-1" }));
       fireEvent.click(await screen.findByRole("button", { name: "Завершить сессию" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Остановить" }));
       await waitFor(() => expect(screen.getByText("Оплата · остаток 150 сом")).toBeInTheDocument());
 
       fireEvent.change(screen.getByLabelText("Сумма"), { target: { value: "100" } });
@@ -379,6 +384,7 @@ describe("HallPage", () => {
       await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
       fireEvent.click(screen.getByRole("article", { name: "PS5-1" }));
       fireEvent.click(await screen.findByRole("button", { name: "Завершить сессию" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Остановить" }));
       await waitFor(() => expect(screen.getByText("Свободна")).toBeInTheDocument());
       expect(screen.queryByRole("dialog")).toBeNull();
 
@@ -396,6 +402,7 @@ describe("HallPage", () => {
       await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
       fireEvent.click(screen.getByRole("article", { name: "PS5-1" }));
       fireEvent.click(await screen.findByRole("button", { name: "Завершить сессию" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Остановить" }));
 
       await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => url === "/api/sessions/7/stop")).toBe(true));
       await waitFor(() => expect(screen.getByText("Свободна")).toBeInTheDocument());
@@ -578,6 +585,7 @@ describe("HallPage", () => {
       const fetchMock = vi.fn(async (url: string) => {
         if (url === "/api/hall") return { ok: true, json: async () => hall };
         if (url === "/api/settings") return { ok: true, json: async () => ({ grace_minutes: 3, warn_minutes: 5 }) };
+        if (url === "/api/tariffs" || url === "/api/products") return { ok: true, json: async () => [] };
         if (url === "/api/sessions/7/stop") {
           hall = snapshot([freeConsole(1)]);
           return { ok: true, json: async () => ({ id: 7, status: "finished", balance: 0 }) };
@@ -639,6 +647,7 @@ describe("HallPage", () => {
       const fetchMock = vi.fn(async (url: string) => {
         if (url === "/api/hall") return { ok: true, json: async () => hall };
         if (url === "/api/settings") return { ok: true, json: async () => ({ grace_minutes: 3, warn_minutes: 5 }) };
+        if (url === "/api/tariffs" || url === "/api/products") return { ok: true, json: async () => [] };
         if (url === "/api/sessions/7/stop") {
           hall = snapshot([freeConsole(1)]);
           return { ok: true, json: async () => ({ id: 7, status: "finished", balance: 150 }) };

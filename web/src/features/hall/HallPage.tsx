@@ -1,10 +1,11 @@
 import { type CSSProperties, useCallback, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetBody, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { api } from "@/lib/api";
 import { serverNow } from "@/lib/clock";
-import { capitalize, formatAmount } from "@/lib/format";
+import { capitalize, formatAmount, formatShortMinutes } from "@/lib/format";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { useAuth } from "@/features/auth/useAuth";
 import { BarDialog } from "./BarDialog";
@@ -53,6 +54,8 @@ export function HallPage() {
   const queryClient = useQueryClient();
   const [dialog, setDialog] = useState<DialogState>({ kind: "none" });
   const [actionError, setActionError] = useState<string | null>(null);
+  // Stopping cannot be undone: ask first when the guests have paid for time that is still ahead.
+  const [pendingStop, setPendingStop] = useState<{ sessionId: number; name: string; remainingMs: number } | null>(null);
   const [view, setView] = useState<"hall" | "history">("hall");
   const [nowMs, setNowMs] = useState(serverNow);
   const wide = useMediaQuery("(min-width: 1680px)");
@@ -107,6 +110,9 @@ export function HallPage() {
   const extendTarget = dialog.kind === "extend" ? findSession(dialog.sessionId) : undefined;
   const payTarget = dialog.kind === "pay" ? findSession(dialog.sessionId) : undefined;
   const payConsole = payTarget ? consoles.find((c) => c.session?.id === payTarget.id) : undefined;
+  // The snapshot is only pushed on a change, so for running open time its balance can be minutes old;
+  // the card computes what is owed right now, and that is what the guest has to be asked for.
+  const payTiming = payConsole ? computeCardTiming(payConsole, nowMs, warnMinutes) : undefined;
   const barTarget = dialog.kind === "bar" ? findSession(dialog.sessionId) : undefined;
 
   function runSessionAction(action: () => Promise<unknown>) {
@@ -123,6 +129,17 @@ export function HallPage() {
         setDialog(returnTo === "close-day" ? { kind: "close-day" } : { kind: "none" });
       }
     });
+  }
+
+  function requestStop(consoleView: HallConsoleResponse) {
+    const session = consoleView.session;
+    if (!session) return;
+    const timing = computeCardTiming(consoleView, nowMs, warnMinutes);
+    if (timing.status === "package_running" || timing.status === "package_warn") {
+      setPendingStop({ sessionId: session.id, name: consoleView.name, remainingMs: timing.remainingMs ?? 0 });
+    } else {
+      finishSession(session.id);
+    }
   }
 
   const openTicketMutation = useMutation({
@@ -176,7 +193,11 @@ export function HallPage() {
               )}
               <div className="ml-auto flex flex-wrap gap-2 max-sm:ml-0 max-sm:w-full max-sm:[&>button]:flex-1">
                 {hall?.business_day_open && (
-                  <Button variant="outline" onClick={() => runSessionAction(() => openTicketMutation.mutateAsync())}>
+                  <Button
+                    variant="outline"
+                    disabled={openTicketMutation.isPending}
+                    onClick={() => runSessionAction(() => openTicketMutation.mutateAsync())}
+                  >
                     + Продажа без игры
                   </Button>
                 )}
@@ -223,7 +244,7 @@ export function HallPage() {
                       onOpen={() => openConsole(consoleView)}
                       onStart={() => setDialog({ kind: "start", consoleId: consoleView.id })}
                       onExtend={() => session && setDialog({ kind: "extend", sessionId: session.id })}
-                      onStop={() => session && finishSession(session.id)}
+                      onStop={() => requestStop(consoleView)}
                       onCancel={() =>
                         session &&
                         runSessionAction(async () => {
@@ -305,7 +326,7 @@ export function HallPage() {
           onPay={() => setDialog({ kind: "pay", sessionId: detailsConsole.session!.id })}
           onExtend={() => setDialog({ kind: "extend", sessionId: detailsConsole.session!.id })}
           onBar={() => setDialog({ kind: "bar", sessionId: detailsConsole.session!.id })}
-          onStop={() => finishSession(detailsConsole.session!.id)}
+          onStop={() => requestStop(detailsConsole)}
         />
       )}
       {extendTarget && (
@@ -322,13 +343,13 @@ export function HallPage() {
         <PaymentDialog
           open
           sessionId={payTarget.id}
-          balance={payTarget.balance}
+          balance={payTiming ? payTiming.balance : payTarget.balance}
           targetName={payConsole?.name ?? `Чек №${payTarget.id}`}
           onOpenChange={(open) => !open && closeDialog()}
           onPaid={() => {}}
           onStop={() => finishSession(payTarget.id)}
           stopLabel={payConsole ? `Остановить ${payConsole.name}` : `Завершить чек №${payTarget.id}`}
-          stopFirst={payConsole === undefined || computeCardTiming(payConsole, nowMs, warnMinutes).status === "package_overtime"}
+          stopFirst={payTiming === undefined || payTiming.status === "package_overtime"}
         />
       )}
       {barTarget && (
@@ -372,6 +393,33 @@ export function HallPage() {
             </SheetBody>
           </SheetContent>
         </Sheet>
+      )}
+      {pendingStop && (
+        <Dialog open onOpenChange={(open) => !open && setPendingStop(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Остановить {pendingStop.name}?</DialogTitle>
+              <DialogDescription>
+                Оплаченное время ещё не вышло: осталось {formatShortMinutes(Math.max(1, Math.ceil(pendingStop.remainingMs / 60_000)))}.
+                Если остановить сейчас, гости его потеряют, а вернуть сессию нельзя.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setPendingStop(null)}>
+                Не останавливать
+              </Button>
+              <Button
+                onClick={() => {
+                  const { sessionId } = pendingStop;
+                  setPendingStop(null);
+                  finishSession(sessionId);
+                }}
+              >
+                Остановить
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
       {dialog.kind === "close-day" && hall && hall.business_day_id != null && (
         <CloseBusinessDayDialog
