@@ -24,7 +24,6 @@ from core.db.models import (
 from core.db.models import Session as SessionModel
 from core.domain import analytics as domain
 
-MAX_RANGE_DAYS = 3660
 BAR_ROWS_LIMIT = 20
 
 

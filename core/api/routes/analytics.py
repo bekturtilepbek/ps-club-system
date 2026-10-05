@@ -26,8 +26,6 @@ def period(
 ) -> tuple[date, date]:
     if date_to < date_from:
         raise HTTPException(status_code=422, detail="'to' must not be before 'from'")
-    if (date_to - date_from).days > analytics.MAX_RANGE_DAYS:
-        raise HTTPException(status_code=422, detail="the range is too long")
     return date_from, date_to
 
 

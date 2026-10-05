@@ -1,14 +1,8 @@
-from datetime import date, timedelta
-
 import pytest
 
 from tests.api.test_full_cycle import _seed_reference_data
 
-# A year back to tomorrow: within the length limit, clamped by the server to [first day, today].
-RANGE = {
-    "from": (date.today() - timedelta(days=365)).isoformat(),
-    "to": (date.today() + timedelta(days=1)).isoformat(),
-}
+RANGE = {"from": "2026-01-01", "to": "2099-01-01"}  # clamped by the server to [first day, today]
 
 
 @pytest.mark.asyncio
@@ -27,11 +21,18 @@ async def test_a_reversed_range_is_rejected(client):
 
 
 @pytest.mark.asyncio
-async def test_an_absurdly_long_range_is_rejected(client):
-    response = await client.get(
-        "/api/analytics/summary", params={"from": "1900-01-01", "to": "2099-01-01"}
-    )
-    assert response.status_code == 422
+async def test_a_huge_range_is_clamped_to_the_data_span(client):
+    await client.post("/api/business-days/open", json={"opening_cash": 0})
+    huge = {"from": "1900-01-01", "to": "2099-01-01"}
+
+    summary = await client.get("/api/analytics/summary", params=huge)
+    assert summary.status_code == 200
+
+    revenue = await client.get("/api/analytics/revenue", params={**huge, "group": "day"})
+    assert revenue.status_code == 200
+    body = revenue.json()
+    assert len(body["points"]) == 1
+    assert body["date_from"] == body["date_to"] == body["points"][0]["period_start"]
 
 
 @pytest.mark.asyncio
