@@ -132,7 +132,7 @@ export function AnalyticsPage({ onBack }: { onBack: () => void }) {
                 columns={[
                   { key: "name", label: "Игра" },
                   { key: "sessions", label: "Сессий", align: "right" },
-                  { key: "revenue", label: "Выручка", align: "right" },
+                  { key: "revenue", label: "Начислено", align: "right" },
                 ]}
                 rows={(games.data?.rows ?? []).map((row) => ({
                   name: row.name ?? "Не указана",

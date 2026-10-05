@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { type ReactElement, cloneElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AnalyticsPage } from "@/features/analytics/AnalyticsPage";
@@ -40,7 +40,7 @@ function stubApi(empty = false, failPath?: string) {
     const body: Record<string, unknown> = {
       "/api/analytics/summary": {
         ...range, includes_open_day: false, current: totals(empty ? 0 : 1000, empty), previous: totals(800),
-        changes: { revenue_total: empty ? null : 25, paid_sessions_count: null, avg_check: null, bar_per_session: null, free_minutes: null, bar_sales_total: null },
+        changes: { revenue_total: empty ? null : 25, paid_sessions_count: null, avg_check: null, bar_per_session: null, free_minutes: empty ? null : -5, bar_sales_total: empty ? null : 10 },
       },
       "/api/analytics/revenue": { ...range, points: empty ? [] : [{ period_start: "2026-09-14", cash_total: 700, transfer_total: 300 }] },
       "/api/analytics/load": {
@@ -82,6 +82,26 @@ describe("AnalyticsPage", () => {
     expect(screen.getByText("FC 26")).toBeInTheDocument();
     expect(screen.getByText("Не указана")).toBeInTheDocument();
     expect(screen.getByText("+25%")).toBeInTheDocument();
+  });
+
+  it("shows a change chip on the bar card and keeps the free-hours chip neutral", async () => {
+    stubApi();
+    renderPage();
+    const barChip = await screen.findByText("+10%");
+    expect(barChip.parentElement).toHaveClass("text-status-triangle");
+    const freeChip = screen.getByText("−5%").parentElement;
+    expect(freeChip).toHaveClass("text-fg-muted");
+    expect(freeChip).not.toHaveClass("text-status-circle");
+    expect(freeChip).toHaveTextContent("▼");
+  });
+
+  it("calls the game money column an accrual and the bar one revenue", async () => {
+    stubApi();
+    renderPage();
+    await screen.findByText("FC 26");
+    expect(screen.getByRole("columnheader", { name: "Начислено" })).toBeInTheDocument();
+    const barTable = screen.getByText("Кола").closest("table") as HTMLElement;
+    expect(within(barTable).getByRole("columnheader", { name: "Выручка" })).toBeInTheDocument();
   });
 
   it("asks for a different range when a preset is chosen", async () => {

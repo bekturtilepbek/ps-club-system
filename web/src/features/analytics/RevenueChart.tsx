@@ -16,6 +16,7 @@ const TICK = { fill: "hsl(var(--fg-muted))", fontSize: 12 };
 
 export function RevenueChart({ points, group }: { points: RevenuePoint[]; group: Group }) {
   const data = points.map((point) => ({
+    key: point.period_start,
     label: formatPeriodLabel(point.period_start, group),
     cash: point.cash_total,
     transfer: point.transfer_total,
@@ -53,7 +54,7 @@ export function RevenueChart({ points, group }: { points: RevenuePoint[]; group:
           </thead>
           <tbody>
             {data.map((row) => (
-              <tr key={row.label} className="border-t border-line">
+              <tr key={row.key} className="border-t border-line">
                 <td className="py-1.5 pr-2">{row.label}</td>
                 <td className="num px-2 py-1.5 text-right">{formatAmount(row.cash)}</td>
                 <td className="num px-2 py-1.5 text-right">{formatAmount(row.transfer)}</td>

@@ -5,7 +5,20 @@ import { changeTone, formatChange } from "./analyticsModel";
 
 type ChangeKey = keyof AnalyticsSummaryResponse["changes"];
 
-function Card({ label, value, lines, change }: { label: string; value: string; lines?: string[]; change?: number | null }) {
+function Card({
+  label,
+  value,
+  lines,
+  change,
+  neutral = false,
+}: {
+  label: string;
+  value: string;
+  lines?: string[];
+  change?: number | null;
+  /** More or less of this is not simply good or bad: show the arrow without a colour verdict. */
+  neutral?: boolean;
+}) {
   const tone = change === undefined ? null : changeTone(change);
   return (
     <div className="rounded-2xl border border-line bg-surface p-4">
@@ -20,9 +33,9 @@ function Card({ label, value, lines, change }: { label: string; value: string; l
         <div
           className={cn(
             "mt-1 text-[13px] font-medium",
-            tone === "up" && "text-status-triangle",
-            tone === "down" && "text-status-circle",
-            tone === "flat" && "text-fg-muted",
+            !neutral && tone === "up" && "text-status-triangle",
+            !neutral && tone === "down" && "text-status-circle",
+            (neutral || tone === "flat") && "text-fg-muted",
           )}
         >
           {tone === "up" && <span aria-hidden="true">▲ </span>}
@@ -60,8 +73,8 @@ export function SummaryCards({ data }: { data: AnalyticsSummaryResponse }) {
           ]}
           change={change("avg_check")}
         />
-        <Card label="Бесплатные часы" value={formatHoursMinutes(current.free_minutes)} change={change("free_minutes")} />
-        <Card label="Бар" value={formatSom(current.bar_sales_total)} />
+        <Card label="Бесплатные часы" value={formatHoursMinutes(current.free_minutes)} change={change("free_minutes")} neutral />
+        <Card label="Бар" value={formatSom(current.bar_sales_total)} change={change("bar_sales_total")} />
       </div>
       {data.includes_open_day && (
         <p className="text-[13px] text-fg-muted">Сегодняшний день ещё открыт, цифры предварительные</p>

@@ -1,4 +1,4 @@
-import { type CSSProperties, useCallback, useEffect, useState } from "react";
+import { type CSSProperties, Suspense, lazy, useCallback, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -7,7 +7,6 @@ import { api } from "@/lib/api";
 import { serverNow } from "@/lib/clock";
 import { capitalize, formatAmount, formatShortMinutes } from "@/lib/format";
 import { useMediaQuery } from "@/lib/useMediaQuery";
-import { AnalyticsPage } from "@/features/analytics/AnalyticsPage";
 import { useAuth } from "@/features/auth/useAuth";
 import { BarDialog } from "./BarDialog";
 import { BusinessDayGuard } from "./BusinessDayGuard";
@@ -46,6 +45,11 @@ type DialogState =
   | { kind: "settle"; sessionId: number; balance: number; returnTo?: "close-day" }
   | { kind: "close-day" }
   | { kind: "feed" };
+
+// The charts library is heavy and the operator rarely opens analytics: keep it out of the first bundle.
+const AnalyticsPage = lazy(() =>
+  import("@/features/analytics/AnalyticsPage").then((m) => ({ default: m.AnalyticsPage })),
+);
 
 export function HallPage() {
   const { logout } = useAuth();
@@ -227,7 +231,9 @@ export function HallPage() {
           {view === "history" ? (
             <HistoryPage onBack={() => setView("hall")} />
           ) : view === "analytics" ? (
-            <AnalyticsPage onBack={() => setView("hall")} />
+            <Suspense fallback={<div>Загрузка…</div>}>
+              <AnalyticsPage onBack={() => setView("hall")} />
+            </Suspense>
           ) : hall === undefined ? (
             <div>Загрузка…</div>
           ) : (
