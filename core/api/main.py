@@ -6,6 +6,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from core.api.admin import register_admin
 from core.api.errors import register_exception_handlers
+from core.api.routes.analytics import router as analytics_router
 from core.api.routes.auth import router as auth_router
 from core.api.routes.bar import orders_router, products_router
 from core.api.routes.business_days import router as business_days_router
@@ -72,6 +73,7 @@ def create_app() -> FastAPI:
     app.include_router(tariffs_router, prefix="/api")
     app.include_router(games_router, prefix="/api")
     app.include_router(business_days_router, prefix="/api")
+    app.include_router(analytics_router, prefix="/api")
     app.include_router(sessions_router, prefix="/api")
     app.include_router(tickets_router, prefix="/api")
     app.include_router(products_router, prefix="/api")
