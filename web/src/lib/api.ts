@@ -17,6 +17,13 @@ export type PaymentMethod = components["schemas"]["PaymentMethod"];
 export type ProductResponse = components["schemas"]["ProductResponse"];
 export type OrderResponse = components["schemas"]["OrderResponse"];
 export type GameResponse = components["schemas"]["GameResponse"];
+export type AnalyticsSummaryResponse = components["schemas"]["AnalyticsSummaryResponse"];
+export type PeriodTotalsResponse = components["schemas"]["PeriodTotalsResponse"];
+export type AnalyticsRevenueResponse = components["schemas"]["AnalyticsRevenueResponse"];
+export type AnalyticsLoadResponse = components["schemas"]["AnalyticsLoadResponse"];
+export type LoadCellResponse = components["schemas"]["LoadCellResponse"];
+export type AnalyticsBarResponse = components["schemas"]["AnalyticsBarResponse"];
+export type AnalyticsGamesResponse = components["schemas"]["AnalyticsGamesResponse"];
 
 /** The longest history the feed endpoint returns (core/api/routes/business_days.py). */
 export const FEED_LIMIT = 500;
@@ -54,6 +61,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
+}
+
+type AnalyticsRange = { from: string; to: string };
+
+function analyticsQuery(range: AnalyticsRange, extra?: Record<string, string>): string {
+  return new URLSearchParams({ from: range.from, to: range.to, ...extra }).toString();
 }
 
 export const api = {
@@ -113,4 +126,14 @@ export const api = {
     }),
   removeOrder: (orderId: number) => request(`/api/orders/${orderId}`, { method: "DELETE" }),
   openTicket: () => request<SessionResponse>("/api/tickets", { method: "POST" }),
+  analyticsSummary: (range: AnalyticsRange) =>
+    request<AnalyticsSummaryResponse>(`/api/analytics/summary?${analyticsQuery(range)}`),
+  analyticsRevenue: (range: AnalyticsRange, group: "day" | "week" | "month") =>
+    request<AnalyticsRevenueResponse>(`/api/analytics/revenue?${analyticsQuery(range, { group })}`),
+  analyticsLoad: (range: AnalyticsRange) =>
+    request<AnalyticsLoadResponse>(`/api/analytics/load?${analyticsQuery(range)}`),
+  analyticsBar: (range: AnalyticsRange) =>
+    request<AnalyticsBarResponse>(`/api/analytics/bar?${analyticsQuery(range)}`),
+  analyticsGames: (range: AnalyticsRange) =>
+    request<AnalyticsGamesResponse>(`/api/analytics/games?${analyticsQuery(range)}`),
 };
