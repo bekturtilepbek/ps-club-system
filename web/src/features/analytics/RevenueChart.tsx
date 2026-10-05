@@ -6,6 +6,12 @@ import type { Group } from "./periods";
 
 type RevenuePoint = AnalyticsRevenueResponse["points"][number];
 
+const TOOLTIP = {
+  contentStyle: { background: "hsl(var(--surface))", border: "1px solid hsl(var(--line))", borderRadius: 8 },
+  labelStyle: { color: "hsl(var(--fg))" },
+  itemStyle: { color: "hsl(var(--fg))" },
+};
+
 const TICK = { fill: "hsl(var(--fg-muted))", fontSize: 12 };
 
 export function RevenueChart({ points, group }: { points: RevenuePoint[]; group: Group }) {
@@ -23,7 +29,12 @@ export function RevenueChart({ points, group }: { points: RevenuePoint[]; group:
             <CartesianGrid stroke="hsl(var(--line))" vertical={false} />
             <XAxis dataKey="label" tick={TICK} stroke="hsl(var(--line))" />
             <YAxis tick={TICK} stroke="hsl(var(--line))" tickFormatter={(value: number) => formatAmount(value)} />
-            <Tooltip formatter={(value: number) => formatSom(value)} />
+            <Tooltip
+              contentStyle={TOOLTIP.contentStyle}
+              labelStyle={TOOLTIP.labelStyle}
+              itemStyle={TOOLTIP.itemStyle}
+              formatter={(value: number) => formatSom(value)}
+            />
             <Legend />
             <Bar dataKey="cash" name="Наличные" stackId="revenue" fill="hsl(var(--cross))" />
             <Bar dataKey="transfer" name="Перевод" stackId="revenue" fill="hsl(var(--triangle))" />

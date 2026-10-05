@@ -14,17 +14,18 @@ const PRESETS: { value: Exclude<PeriodPreset, "custom">; label: string }[] = [
 interface PeriodBarProps {
   preset: PeriodPreset;
   onPreset: (preset: PeriodPreset) => void;
-  custom: DateRange;
-  onCustom: (range: DateRange) => void;
+  /** The range currently in effect, whether it comes from a preset or from the date inputs. */
+  range: DateRange;
+  onRange: (range: DateRange) => void;
+  rangeError?: boolean;
   group: Group;
   onGroup: (group: Group) => void;
 }
 
-export function PeriodBar({ preset, onPreset, custom, onCustom, group, onGroup }: PeriodBarProps) {
+export function PeriodBar({ preset, onPreset, range, onRange, rangeError = false, group, onGroup }: PeriodBarProps) {
   function changeDate(field: keyof DateRange, value: string) {
     if (!value) return;
-    onCustom({ ...custom, [field]: value });
-    onPreset("custom");
+    onRange({ ...range, [field]: value });
   }
 
   return (
@@ -47,14 +48,16 @@ export function PeriodBar({ preset, onPreset, custom, onCustom, group, onGroup }
           type="date"
           aria-label="С даты"
           className="w-auto"
-          value={custom.from}
+          max={range.to}
+          value={range.from}
           onChange={(event) => changeDate("from", event.target.value)}
         />
         <Input
           type="date"
           aria-label="По дату"
           className="w-auto"
-          value={custom.to}
+          min={range.from}
+          value={range.to}
           onChange={(event) => changeDate("to", event.target.value)}
         />
         <SegmentedControl<Group>
@@ -68,6 +71,11 @@ export function PeriodBar({ preset, onPreset, custom, onCustom, group, onGroup }
           ]}
         />
       </div>
+      {rangeError && (
+        <p role="alert" className="text-sm text-status-circle">
+          Дата «с» позже даты «по»
+        </p>
+      )}
     </div>
   );
 }

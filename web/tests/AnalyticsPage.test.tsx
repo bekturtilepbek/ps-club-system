@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { type ReactElement, cloneElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AnalyticsPage } from "@/features/analytics/AnalyticsPage";
+import { rangeForPreset } from "@/features/analytics/periods";
 
 // jsdom has no ResizeObserver or layout, so ResponsiveContainer cannot measure; give it a fixed size.
 vi.mock("recharts", async (importOriginal) => {
@@ -29,11 +30,12 @@ function cells(busyAt?: { weekday: number; hour: number }) {
   });
 }
 
-function stubApi(empty = false) {
+function stubApi(empty = false, failPath?: string) {
   const requested: string[] = [];
   const fetchMock = vi.fn(async (url: string) => {
     requested.push(url);
     const path = url.split("?")[0];
+    if (path === failPath) return { ok: false, status: 500, statusText: "boom", json: async () => ({ detail: "boom" }) };
     const range = { date_from: "2026-09-01", date_to: "2026-09-30" };
     const body: Record<string, unknown> = {
       "/api/analytics/summary": {
@@ -97,6 +99,45 @@ describe("AnalyticsPage", () => {
     await screen.findByText(/самое загруженное/i);
     fireEvent.click(screen.getByRole("button", { name: "По неделям" }));
     await waitFor(() => expect(requested.some((url) => url.includes("group=week"))).toBe(true));
+  });
+
+  it("keeps the preset's other bound when only one date is edited", async () => {
+    const requested = stubApi();
+    renderPage();
+    await screen.findByText(/самое загруженное/i);
+    fireEvent.click(screen.getByRole("button", { name: "Прошлый месяц" }));
+    const presetTo = rangeForPreset("prevMonth", Date.now()).to;
+    await waitFor(() => expect(requested.some((url) => url.includes(`to=${presetTo}`))).toBe(true));
+    requested.length = 0;
+    fireEvent.change(screen.getByLabelText("С даты"), { target: { value: "2026-01-05" } });
+    await waitFor(() =>
+      expect(requested.some((url) => url.includes("from=2026-01-05") && url.includes(`to=${presetTo}`))).toBe(true),
+    );
+  });
+
+  it("does not request a range whose start is after its end", async () => {
+    const requested = stubApi();
+    renderPage();
+    await screen.findByText(/самое загруженное/i);
+    requested.length = 0;
+    fireEvent.change(screen.getByLabelText("С даты"), { target: { value: "2999-12-31" } });
+    expect(await screen.findByRole("alert")).toHaveTextContent("Дата «с» позже даты «по»");
+    expect(requested.some((url) => url.includes("from=2999-12-31"))).toBe(false);
+    expect(screen.getByText(/самое загруженное/i)).toBeInTheDocument();
+  });
+
+  it("offers the hourly numbers in a collapsed table", async () => {
+    stubApi();
+    renderPage();
+    expect(await screen.findByText("Цифры по часам")).toBeInTheDocument();
+  });
+
+  it("shows a section error instead of the empty text when the bar request fails", async () => {
+    stubApi(false, "/api/analytics/bar");
+    renderPage();
+    expect(await screen.findByText("Не удалось загрузить бар")).toBeInTheDocument();
+    expect(screen.queryByText("Продаж бара за период нет")).not.toBeInTheDocument();
+    expect(screen.getByText("FC 26")).toBeInTheDocument();
   });
 
   it("says so instead of drawing empty charts when the period has no data", async () => {
