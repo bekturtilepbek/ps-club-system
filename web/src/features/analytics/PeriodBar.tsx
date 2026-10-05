@@ -29,7 +29,7 @@ export function PeriodBar({ preset, onPreset, range, onRange, rangeError = false
   }
 
   return (
-    <div className="grid gap-3">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
       <div className="flex flex-wrap gap-2">
         {PRESETS.map((item) => (
           <Button
@@ -60,6 +60,8 @@ export function PeriodBar({ preset, onPreset, range, onRange, rangeError = false
           value={range.to}
           onChange={(event) => changeDate("to", event.target.value)}
         />
+        {/* Breathing room for the labels, scoped here so other segmented controls are unchanged. */}
+        <div className="[&_button]:px-3">
         <SegmentedControl<Group>
           ariaLabel="Группировка"
           value={group}
@@ -70,6 +72,7 @@ export function PeriodBar({ preset, onPreset, range, onRange, rangeError = false
             { value: "month", label: "По месяцам" },
           ]}
         />
+        </div>
       </div>
       {rangeError && (
         <p role="alert" className="text-sm text-status-circle">

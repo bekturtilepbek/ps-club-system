@@ -18,9 +18,10 @@ export function HourlyChart({ hourly }: { hourly: AnalyticsLoadResponse["hourly"
         <ResponsiveContainer width="100%" height={240}>
           <BarChart data={data}>
             <CartesianGrid stroke="hsl(var(--line))" vertical={false} />
-            <XAxis dataKey="hour" tick={TICK} stroke="hsl(var(--line))" tickFormatter={(hour: number) => `${hour}:00`} interval="preserveStartEnd" />
+            <XAxis dataKey="hour" tick={TICK} stroke="hsl(var(--line))" tickFormatter={(hour: number) => `${hour}:00`} ticks={[0, 3, 6, 9, 12, 15, 18, 21]} interval={0} />
             <YAxis domain={[0, 100]} tick={TICK} stroke="hsl(var(--line))" tickFormatter={(value: number) => `${value}%`} />
             <Tooltip
+              separator=": "
               contentStyle={TOOLTIP.contentStyle}
               labelStyle={TOOLTIP.labelStyle}
               itemStyle={TOOLTIP.itemStyle}

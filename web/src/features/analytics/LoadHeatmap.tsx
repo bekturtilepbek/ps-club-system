@@ -26,8 +26,9 @@ export function LoadHeatmap({ data }: { data: AnalyticsLoadResponse }) {
         <div className="grid min-w-[640px] gap-1" style={{ gridTemplateColumns: "32px repeat(24, minmax(0, 1fr))" }}>
           <div />
           {HOURS.map((hour) => (
-            <div key={hour} className={`text-center text-[11px] text-fg-muted ${hour % 2 === 1 ? "max-md:hidden" : ""}`}>
-              {hour}
+            // Never display:none a grid cell: it would leave auto-placement and shift every row.
+            <div key={hour} className="text-center text-[11px] text-fg-muted">
+              <span className={hour % 2 === 1 ? "max-md:invisible" : undefined}>{hour}</span>
             </div>
           ))}
           {byWeekday.map((row, weekday) => (

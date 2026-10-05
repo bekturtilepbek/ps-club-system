@@ -95,7 +95,7 @@ export function AnalyticsPage({ onBack }: { onBack: () => void }) {
       {empty && <p className="mt-4 text-sm text-fg-muted">Нет данных за период</p>}
 
       {summary.data && !empty && (
-        <div className="mt-4 grid gap-4">
+        <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-4">
           <SummaryCards data={summary.data} />
           <SectionState loading={revenue.isLoading} error={revenue.isError ? "Не удалось загрузить выручку" : null}>
             {revenue.data && <RevenueChart points={revenue.data.points} group={group} />}
@@ -108,7 +108,7 @@ export function AnalyticsPage({ onBack }: { onBack: () => void }) {
               </>
             )}
           </SectionState>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2">
             <SectionState loading={bar.isLoading} error={bar.isError ? "Не удалось загрузить бар" : null}>
               <RankTable
                 title="Бар"

@@ -28,9 +28,10 @@ export function RevenueChart({ points, group }: { points: RevenuePoint[]; group:
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={data}>
             <CartesianGrid stroke="hsl(var(--line))" vertical={false} />
-            <XAxis dataKey="label" tick={TICK} stroke="hsl(var(--line))" />
+            <XAxis dataKey="label" tick={TICK} stroke="hsl(var(--line))" interval="preserveStartEnd" minTickGap={16} />
             <YAxis tick={TICK} stroke="hsl(var(--line))" tickFormatter={(value: number) => formatAmount(value)} />
             <Tooltip
+              separator=": "
               contentStyle={TOOLTIP.contentStyle}
               labelStyle={TOOLTIP.labelStyle}
               itemStyle={TOOLTIP.itemStyle}

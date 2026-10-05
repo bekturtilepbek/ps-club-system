@@ -104,6 +104,23 @@ describe("AnalyticsPage", () => {
     expect(within(barTable).getByRole("columnheader", { name: "Выручка" })).toBeInTheDocument();
   });
 
+  it("keeps the heatmap grid intact: 25 cells per row and no display:none cells", async () => {
+    stubApi();
+    const { container } = renderPage();
+    await screen.findByText(/самое загруженное/i);
+    const grid = container.querySelector<HTMLElement>('[style*="grid-template-columns"]')!;
+    expect(grid.children).toHaveLength(25 + 7); // corner + 24 hour labels, then 7 weekday rows
+    for (const row of Array.from(grid.children).slice(25)) expect(row.children).toHaveLength(25); // label + 24 cells
+    expect(container.querySelector(".max-md\\:hidden")).toBeNull();
+  });
+
+  it("renders a comparison chip only for metrics that have one", async () => {
+    stubApi();
+    renderPage();
+    await screen.findByText("+25%");
+    expect(screen.getAllByText(/к прошлому периоду/)).toHaveLength(3); // revenue, free hours, bar
+  });
+
   it("asks for a different range when a preset is chosen", async () => {
     const requested = stubApi();
     renderPage();

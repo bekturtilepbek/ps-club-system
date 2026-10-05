@@ -29,7 +29,7 @@ function Card({
           {line}
         </div>
       ))}
-      {change !== undefined && (
+      {change !== undefined && change !== null && (
         <div
           className={cn(
             "mt-1 text-[13px] font-medium",
@@ -52,7 +52,7 @@ export function SummaryCards({ data }: { data: AnalyticsSummaryResponse }) {
   const { current, changes } = data;
   const change = (key: ChangeKey) => changes[key] ?? null;
   return (
-    <div className="grid gap-3">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
       <div className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:grid-cols-5">
         <Card
           label="Выручка"

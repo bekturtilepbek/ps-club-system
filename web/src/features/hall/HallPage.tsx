@@ -1,5 +1,6 @@
 import { type CSSProperties, Suspense, lazy, useCallback, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetBody, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -231,9 +232,11 @@ export function HallPage() {
           {view === "history" ? (
             <HistoryPage onBack={() => setView("hall")} />
           ) : view === "analytics" ? (
-            <Suspense fallback={<div>Загрузка…</div>}>
-              <AnalyticsPage onBack={() => setView("hall")} />
-            </Suspense>
+            <ErrorBoundary onBack={() => setView("hall")}>
+              <Suspense fallback={<div>Загрузка…</div>}>
+                <AnalyticsPage onBack={() => setView("hall")} />
+              </Suspense>
+            </ErrorBoundary>
           ) : hall === undefined ? (
             <div>Загрузка…</div>
           ) : (
