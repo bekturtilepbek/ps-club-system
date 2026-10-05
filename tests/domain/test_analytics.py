@@ -107,8 +107,7 @@ def test_quietest_and_busiest_ignore_hours_the_club_was_never_open():
     quietest, busiest = quietest_and_busiest(cells)
     assert busiest == LoadCell(weekday=0, hour=10, busy_minutes=60, load_percent=100.0)
     # Hour 03:00 has no activity anywhere, so it must not be reported as "the quietest time".
-    assert quietest is not None and quietest.hour in (10, 11)
-    assert quietest.load_percent == 0.0  # e.g. Tuesday 10:00, an open hour with nobody in it
+    assert quietest == LoadCell(weekday=1, hour=10, busy_minutes=0, load_percent=0.0)
 
 
 def test_quietest_and_busiest_are_none_without_any_activity():
@@ -167,3 +166,22 @@ def test_average_rounds_to_whole_som_and_handles_zero():
     assert average(1000, 3) == 333
     assert average(1001, 2) == 501  # half rounds up, like every other som total
     assert average(0, 0) is None
+
+
+def test_effective_intervals_clips_a_running_package_to_now():
+    segments = [(at(14, 10), at(14, 12))]
+    assert effective_intervals(segments, ended_at=None, now=at(14, 10, 30)) == [
+        (at(14, 10), at(14, 10, 30))
+    ]
+
+
+def test_effective_intervals_drops_a_queued_package_that_has_not_started():
+    segments = [(at(14, 12), at(14, 13))]
+    assert effective_intervals(segments, ended_at=None, now=at(14, 11)) == []
+
+
+def test_effective_intervals_keeps_a_finished_segment_whole():
+    segments = [(at(14, 10), at(14, 11))]
+    assert effective_intervals(segments, ended_at=None, now=at(14, 20)) == [
+        (at(14, 10), at(14, 11))
+    ]

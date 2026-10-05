@@ -24,11 +24,12 @@ def effective_intervals(
     """The time a session really occupied the hall, segment by segment.
 
     A package stopped early stays fully priced, but the console was in use only until the guests
-    left. An open segment runs until now. One queued behind a running package starts in the
+    left. Nothing counts beyond now: an open segment runs until now, a package still running is cut
+    at now. One queued behind a running package starts in the
     future and has run for no time yet, so it is dropped rather than counted as negative."""
     result: list[Interval] = []
     for starts_at, ends_at in segments:
-        end = ends_at or now
+        end = min(ends_at or now, now)
         if ended_at is not None:
             end = min(end, ended_at)
         if end > starts_at:
@@ -43,6 +44,7 @@ def interval_minutes(intervals: Iterable[Interval]) -> int:
 def add_to_slots(slots: Slots, start: datetime, end: datetime, tz: ZoneInfo) -> None:
     """Spread [start, end) over the club's clock hours. Asia/Bishkek has no DST, so adding a
     timedelta to a local datetime is wall-clock arithmetic and hours are always 3600 s."""
+    # start and end must be tz-aware.
     cursor = start.astimezone(tz)
     stop = end.astimezone(tz)
     while cursor < stop:
@@ -74,6 +76,7 @@ class LoadCell:
 def _percent(busy_seconds: int, capacity_seconds: int) -> float:
     if capacity_seconds <= 0:
         return 0.0
+    # The cap hides overlapping intervals by design.
     return min(100.0, round(busy_seconds / capacity_seconds * 100, 1))
 
 
