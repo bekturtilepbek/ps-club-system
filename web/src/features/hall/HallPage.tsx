@@ -15,6 +15,7 @@ import { ConsoleCard } from "./ConsoleCard";
 import { DayFeed } from "./DayFeed";
 import { ExtendSessionDialog } from "./ExtendSessionDialog";
 import { HallHelp } from "./HallHelp";
+import { AnalyticsPage } from "@/features/analytics/AnalyticsPage";
 import { HistoryPage } from "./HistoryPage";
 import { PaymentDialog } from "./PaymentDialog";
 import { SessionSheet } from "./SessionSheet";
@@ -56,7 +57,7 @@ export function HallPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   // Stopping cannot be undone: ask first when the guests have paid for time that is still ahead.
   const [pendingStop, setPendingStop] = useState<{ sessionId: number; name: string; remainingMs: number } | null>(null);
-  const [view, setView] = useState<"hall" | "history">("hall");
+  const [view, setView] = useState<"hall" | "history" | "analytics">("hall");
   const [nowMs, setNowMs] = useState(serverNow);
   const wide = useMediaQuery("(min-width: 1680px)");
   const dayId = hall?.business_day_open ? hall.business_day_id : null;
@@ -206,6 +207,9 @@ export function HallPage() {
                     Лента дня
                   </Button>
                 )}
+                <Button variant="ghost" onClick={() => setView("analytics")}>
+                  Аналитика
+                </Button>
                 <Button variant="ghost" onClick={() => setView("history")}>
                   История дней
                 </Button>
@@ -222,6 +226,8 @@ export function HallPage() {
 
           {view === "history" ? (
             <HistoryPage onBack={() => setView("hall")} />
+          ) : view === "analytics" ? (
+            <AnalyticsPage onBack={() => setView("hall")} />
           ) : hall === undefined ? (
             <div>Загрузка…</div>
           ) : (
