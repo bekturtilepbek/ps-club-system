@@ -89,18 +89,26 @@ class GameRow:
     revenue: int
 
 
+async def first_business_date(db: AsyncSession) -> date | None:
+    """Local date of the earliest business day, None while there is none."""
+    earliest = (await db.execute(select(func.min(BusinessDay.opened_at)))).scalar_one()
+    if earliest is None:
+        return None
+    # Postgres returns timestamptz tagged UTC: read the date on the club's clock.
+    return earliest.astimezone(_tz()).date()
+
+
 async def resolve_range(
     db: AsyncSession, *, date_from: date, date_to: date, today: date
 ) -> tuple[date, date]:
     """Clamp the requested range to [first business day, today]; an empty result collapses to one
     day. This is what makes "all time" a request with a very early `from`."""
-    earliest = (await db.execute(select(func.min(BusinessDay.opened_at)))).scalar_one()
+    first_date = await first_business_date(db)
     effective_to = min(date_to, today)
-    if earliest is None:
+    if first_date is None:
         # No business day yet: there is nothing to span, collapse to a single day.
         return effective_to, effective_to
-    # Postgres returns timestamptz tagged UTC: read the date on the club's clock.
-    effective_from = max(date_from, earliest.astimezone(_tz()).date())
+    effective_from = max(date_from, first_date)
     if effective_from > effective_to:
         effective_from = effective_to
     return effective_from, effective_to
@@ -201,6 +209,11 @@ async def summary(
     prev_from, prev_to = domain.previous_period(date_from, date_to)
     previous = await _period_totals(db, await _days_in_range(db, prev_from, prev_to), now)
 
+    # A previous period reaching back before the first business day covers fewer real days, so
+    # any percent against it would be inflated: show no comparison at all.
+    first_date = await first_business_date(db)
+    comparable = first_date is not None and prev_from >= first_date
+
     changes = {
         "revenue_total": domain.change_percent(current.revenue_total, previous.revenue_total),
         "paid_sessions_count": domain.change_percent(
@@ -211,6 +224,8 @@ async def summary(
         "free_minutes": domain.change_percent(current.free_minutes, previous.free_minutes),
         "bar_sales_total": domain.change_percent(current.bar_sales_total, previous.bar_sales_total),
     }
+    if not comparable:
+        changes = dict.fromkeys(changes)
     return SummaryResult(
         date_from=date_from,
         date_to=date_to,
@@ -268,15 +283,15 @@ async def load(
         for start, end in _intervals(session, now):
             domain.add_to_slots(slots, start, end, tz)
 
-    occurrences = domain.weekday_occurrences(date_from, date_to)
-    cells = domain.build_load_cells(slots, occurrences, consoles_count)
+    capacity = domain.slot_capacity(date_from, date_to, now, tz)
+    cells = domain.build_load_cells(slots, capacity, consoles_count)
     quietest, busiest = domain.quietest_and_busiest(cells)
     return LoadResult(
         date_from=date_from,
         date_to=date_to,
         consoles_count=consoles_count,
         cells=cells,
-        hourly=domain.hourly_load(slots, occurrences, consoles_count),
+        hourly=domain.hourly_load(slots, capacity, consoles_count),
         quietest=quietest,
         busiest=busiest,
     )

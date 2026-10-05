@@ -2,7 +2,7 @@
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Literal
 from zoneinfo import ZoneInfo
@@ -55,14 +55,25 @@ def add_to_slots(slots: Slots, start: datetime, end: datetime, tz: ZoneInfo) -> 
         cursor = piece_end
 
 
-def weekday_occurrences(date_from: date, date_to: date) -> list[int]:
-    """How many Mondays, Tuesdays, ... the calendar range contains (index 0 = Monday)."""
-    counts = [0] * 7
+Capacity = dict[tuple[int, int], int]  # (weekday, hour) -> elapsed seconds per console
+
+
+def slot_capacity(date_from: date, date_to: date, now: datetime, tz: ZoneInfo) -> Capacity:
+    """Seconds per console that each (weekday, hour) has really offered in the range: only the part
+    of every wall-clock hour that lies before now counts, so the hours of today that have not
+    happened yet are not "empty", they are not there. Asia/Bishkek has no DST (hours are 3600 s)."""
+    limit = now.astimezone(tz)
+    capacity: Capacity = {}
     day = date_from
     while day <= date_to:
-        counts[day.weekday()] += 1
+        for hour in range(24):
+            start = datetime.combine(day, time(hour), tzinfo=tz)
+            elapsed = int((min(start + timedelta(hours=1), limit) - start).total_seconds())
+            if elapsed > 0:
+                key = (day.weekday(), hour)
+                capacity[key] = capacity.get(key, 0) + elapsed
         day += timedelta(days=1)
-    return counts
+    return capacity
 
 
 @dataclass(frozen=True)
@@ -70,6 +81,7 @@ class LoadCell:
     weekday: int
     hour: int
     busy_minutes: int
+    capacity_minutes: int
     load_percent: float
 
 
@@ -80,33 +92,32 @@ def _percent(busy_seconds: int, capacity_seconds: int) -> float:
     return min(100.0, round(busy_seconds / capacity_seconds * 100, 1))
 
 
-def build_load_cells(slots: Slots, occurrences: list[int], consoles_count: int) -> list[LoadCell]:
-    """168 cells. Capacity of a cell = how many such weekday-hours the range holds x consoles."""
+def build_load_cells(slots: Slots, capacity: Capacity, consoles_count: int) -> list[LoadCell]:
+    """168 cells. Capacity of a cell = the elapsed seconds of that weekday-hour x consoles."""
     cells: list[LoadCell] = []
     for weekday in range(7):
         for hour in range(24):
             busy = slots.get((weekday, hour), 0)
-            capacity = occurrences[weekday] * consoles_count * 3600
+            capacity_seconds = capacity.get((weekday, hour), 0) * consoles_count
             cells.append(
                 LoadCell(
                     weekday=weekday,
                     hour=hour,
                     busy_minutes=round(busy / 60),
-                    load_percent=_percent(busy, capacity),
+                    capacity_minutes=round(capacity_seconds / 60),
+                    load_percent=_percent(busy, capacity_seconds),
                 )
             )
     return cells
 
 
-def hourly_load(
-    slots: Slots, occurrences: list[int], consoles_count: int
-) -> list[tuple[int, float]]:
+def hourly_load(slots: Slots, capacity: Capacity, consoles_count: int) -> list[tuple[int, float]]:
     """Average load of each clock hour over all weekdays of the range."""
     result: list[tuple[int, float]] = []
     for hour in range(24):
         busy = sum(slots.get((weekday, hour), 0) for weekday in range(7))
-        capacity = sum(occurrences) * consoles_count * 3600
-        result.append((hour, _percent(busy, capacity)))
+        capacity_seconds = sum(capacity.get((weekday, hour), 0) for weekday in range(7))
+        result.append((hour, _percent(busy, capacity_seconds * consoles_count)))
     return result
 
 
@@ -114,7 +125,8 @@ def quietest_and_busiest(cells: list[LoadCell]) -> tuple[LoadCell | None, LoadCe
     """Only hours in which the club had any activity are candidates: 04:00 is not "the quietest
     time", it is closed. Ties go to the earliest weekday, then the earliest hour."""
     active_hours = {cell.hour for cell in cells if cell.busy_minutes > 0}
-    candidates = [cell for cell in cells if cell.hour in active_hours]
+    # A cell whose hour has not happened yet in the range has nothing to rank.
+    candidates = [cell for cell in cells if cell.hour in active_hours and cell.capacity_minutes > 0]
     if not candidates:
         return None, None
     quietest = min(candidates, key=lambda c: (c.load_percent, c.weekday, c.hour))

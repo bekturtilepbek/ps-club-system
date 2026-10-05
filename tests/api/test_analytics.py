@@ -21,6 +21,14 @@ async def test_a_reversed_range_is_rejected(client):
 
 
 @pytest.mark.asyncio
+async def test_an_absurdly_early_end_date_is_rejected_not_a_500(client):
+    response = await client.get(
+        "/api/analytics/summary", params={"from": "0001-01-01", "to": "0001-01-01"}
+    )
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_a_huge_range_is_clamped_to_the_data_span(client):
     await client.post("/api/business-days/open", json={"opening_cash": 0})
     huge = {"from": "1900-01-01", "to": "2099-01-01"}

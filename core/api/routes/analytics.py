@@ -17,6 +17,9 @@ from core.db.session import get_session
 from core.domain.analytics import Group
 from core.services import analytics
 
+# Earlier dates overflow datetime arithmetic downstream; "from" stays free for "all time".
+MIN_DATE = date(2000, 1, 1)
+
 router = APIRouter(prefix="/analytics", tags=["analytics"], dependencies=[Depends(require_auth)])
 
 
@@ -24,6 +27,8 @@ def period(
     date_from: date = Query(alias="from"),  # noqa: B008
     date_to: date = Query(alias="to"),  # noqa: B008
 ) -> tuple[date, date]:
+    if date_to < MIN_DATE:
+        raise HTTPException(status_code=422, detail="'to' must not be before 2000-01-01")
     if date_to < date_from:
         raise HTTPException(status_code=422, detail="'to' must not be before 'from'")
     return date_from, date_to

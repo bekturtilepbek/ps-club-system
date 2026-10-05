@@ -235,6 +235,7 @@ async def test_summary_bar_per_session_counts_only_sessions_with_bar(db_session)
 @pytest.mark.asyncio
 async def test_summary_compares_with_the_previous_period_and_ignores_cancelled(db_session):
     console_a, _ = await make_hall(db_session)
+    await make_day(db_session, at(1, 10))  # the first day, so the previous period is complete
     prev_day = await make_day(db_session, at(7, 10))
     this_day = await make_day(db_session, at(14, 10))
     old = await make_session(
@@ -265,6 +266,62 @@ async def test_summary_compares_with_the_previous_period_and_ignores_cancelled(d
     assert result.previous.revenue_total == 100
     assert result.changes["revenue_total"] == 50.0
     assert result.changes["free_minutes"] is None  # both zero: nothing to compare
+
+
+@pytest.mark.asyncio
+async def test_summary_hides_changes_when_the_previous_period_starts_before_the_first_day(
+    db_session,
+):
+    console_a, _ = await make_hall(db_session)
+    first = await make_day(db_session, at(5, 10))
+    this_day = await make_day(db_session, at(14, 10))
+    old = await make_session(
+        db_session, day_id=first, console_id=console_a, start=at(5, 11), minutes=60, amount=100
+    )
+    new = await make_session(
+        db_session, day_id=this_day, console_id=console_a, start=at(14, 11), minutes=60, amount=150
+    )
+    await pay(db_session, old, 100, PaymentMethod.cash, at(5, 12))
+    await pay(db_session, new, 150, PaymentMethod.cash, at(14, 12))
+    await db_session.commit()
+
+    # Previous = 09-01..09-07 starts before the first business day (09-05): not comparable.
+    result = await analytics.summary(
+        db_session, date_from=date(2026, 9, 8), date_to=date(2026, 9, 14), today=TODAY, now=NOW
+    )
+    assert all(value is None for value in result.changes.values())
+    assert result.current.revenue_total == 150
+    assert result.previous.revenue_total == 100  # still returned as computed
+
+    # Previous = 09-10..09-14 starts after the first day: comparable.
+    result = await analytics.summary(
+        db_session, date_from=date(2026, 9, 15), date_to=date(2026, 9, 19), today=TODAY, now=NOW
+    )
+    assert result.previous.revenue_total == 150  # 09-10..09-14
+    assert result.changes["revenue_total"] == -100.0
+
+
+@pytest.mark.asyncio
+async def test_a_day_opened_after_midnight_counts_on_its_club_date(db_session):
+    console_a, _ = await make_hall(db_session)
+    # 01:00 Bishkek on the 14th is still the 13th in UTC.
+    day_id = await make_day(db_session, at(14, 1))
+    session = await make_session(
+        db_session, day_id=day_id, console_id=console_a, start=at(14, 1, 30), minutes=60, amount=80
+    )
+    await pay(db_session, session, 80, PaymentMethod.cash, at(14, 2))
+    await db_session.commit()
+
+    _, _, points = await analytics.revenue_series(
+        db_session, date_from=date(2026, 9, 12), date_to=date(2026, 9, 15), group="day", today=TODAY
+    )
+    assert {p.period_start: p.cash_total for p in points}[date(2026, 9, 14)] == 80
+    assert points[0].period_start == date(2026, 9, 14)  # clamped to the first day on the club clock
+
+    result = await analytics.summary(
+        db_session, date_from=date(2026, 9, 14), date_to=date(2026, 9, 14), today=TODAY, now=NOW
+    )
+    assert result.current.revenue_total == 80
 
 
 @pytest.mark.asyncio
@@ -363,6 +420,34 @@ async def test_load_uses_real_clock_hours_and_excludes_service(db_session):
     assert cell[(0, 21)].busy_minutes == 0  # the service session is not load
     assert cell[(0, 23)].load_percent == round(30 / (2 * 60) * 100, 1)
     assert result.busiest is not None
+
+
+@pytest.mark.asyncio
+async def test_load_ignores_hours_of_today_that_have_not_happened_yet(db_session):
+    console_a, _ = await make_hall(db_session, consoles=2)
+    now = at(14, 14, 30)  # Monday
+    day_id = await make_day(db_session, at(14, 9), closed=False)
+    await make_session(
+        db_session, day_id=day_id, console_id=console_a, start=at(14, 10), minutes=60, amount=100
+    )
+    await db_session.commit()
+
+    result = await analytics.load(
+        db_session,
+        date_from=date(2026, 9, 14),
+        date_to=date(2026, 9, 14),
+        today=date(2026, 9, 14),
+        now=now,
+    )
+    cell = {(c.weekday, c.hour): c for c in result.cells}
+    assert cell[(0, 22)].load_percent == 0.0
+    assert cell[(0, 22)].capacity_minutes == 0
+    assert cell[(0, 10)].load_percent == 50.0
+    assert result.quietest is not None and (result.quietest.weekday, result.quietest.hour) != (
+        0,
+        22,
+    )
+    assert (result.quietest.weekday, result.quietest.hour) == (0, 10)
 
 
 @pytest.mark.asyncio

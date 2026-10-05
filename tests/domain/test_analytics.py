@@ -15,7 +15,7 @@ from core.domain.analytics import (
     interval_minutes,
     previous_period,
     quietest_and_busiest,
-    weekday_occurrences,
+    slot_capacity,
 )
 
 TZ = ZoneInfo("Asia/Bishkek")
@@ -73,45 +73,78 @@ def test_add_to_slots_reads_the_club_clock_not_utc():
     assert slots == {(1, 0): 30 * 60}
 
 
-def test_weekday_occurrences_counts_each_weekday_in_the_range():
-    # Mon 14 .. Sun 20 is exactly one of each; adding Mon 21 makes two Mondays.
-    assert weekday_occurrences(date(2026, 9, 14), date(2026, 9, 20)) == [1] * 7
-    assert weekday_occurrences(date(2026, 9, 14), date(2026, 9, 21)) == [2, 1, 1, 1, 1, 1, 1]
+FULL = {(w, h): 3600 for w in range(7) for h in range(24)}  # a week that has fully elapsed
+
+
+def test_slot_capacity_counts_only_the_time_that_has_elapsed():
+    # One Monday, "now" is 14:30: hours 0..13 are whole, 14 is half, the rest has not happened.
+    capacity = slot_capacity(date(2026, 9, 14), date(2026, 9, 14), at(14, 14, 30), TZ)
+    assert all(capacity[(0, hour)] == 3600 for hour in range(14))
+    assert capacity[(0, 14)] == 1800
+    assert all(capacity.get((0, hour), 0) == 0 for hour in range(15, 24))
+
+
+def test_slot_capacity_of_seven_past_days_is_a_full_hour_per_slot():
+    capacity = slot_capacity(date(2026, 9, 7), date(2026, 9, 13), at(20, 12), TZ)
+    assert len(capacity) == 168
+    assert set(capacity.values()) == {3600}
+
+
+def test_slot_capacity_sums_repeated_weekdays():
+    capacity = slot_capacity(date(2026, 9, 14), date(2026, 9, 21), at(30, 12), TZ)
+    assert capacity[(0, 10)] == 7200
+    assert capacity[(1, 10)] == 3600
 
 
 def test_build_load_cells_percent_is_busy_over_capacity():
     slots = {(0, 10): 3600}  # one console busy a full Monday 10:00 hour
-    cells = build_load_cells(slots, [1] * 7, consoles_count=4)
+    cells = build_load_cells(slots, FULL, consoles_count=4)
     assert len(cells) == 168
     cell = next(c for c in cells if c.weekday == 0 and c.hour == 10)
     assert cell.busy_minutes == 60
+    assert cell.capacity_minutes == 240
     assert cell.load_percent == 25.0  # 60 of 4 consoles * 60 minutes
     assert next(c for c in cells if c.weekday == 3 and c.hour == 3).load_percent == 0.0
 
 
 def test_build_load_cells_caps_at_100_and_survives_zero_capacity():
-    assert build_load_cells({(0, 10): 99999}, [1] * 7, 1)[10].load_percent == 100.0
-    assert all(c.load_percent == 0.0 for c in build_load_cells({(0, 10): 60}, [1] * 7, 0))
+    assert build_load_cells({(0, 10): 99999}, FULL, 1)[10].load_percent == 100.0
+    assert all(c.load_percent == 0.0 for c in build_load_cells({(0, 10): 60}, FULL, 0))
+    assert all(c.load_percent == 0.0 for c in build_load_cells({(0, 10): 60}, {}, 2))
 
 
 def test_hourly_load_averages_all_weekdays():
     slots = {(0, 10): 3600, (1, 10): 3600}  # 2 of the 7 Monday..Sunday 10:00 hours, 1 console
-    hourly = dict(hourly_load(slots, [1] * 7, consoles_count=1))
+    hourly = dict(hourly_load(slots, FULL, consoles_count=1))
     assert len(hourly) == 24
     assert hourly[10] == round(2 / 7 * 100, 1)
     assert hourly[3] == 0.0
 
 
 def test_quietest_and_busiest_ignore_hours_the_club_was_never_open():
-    cells = build_load_cells({(0, 10): 3600, (0, 11): 1800}, [1] * 7, consoles_count=1)
+    cells = build_load_cells({(0, 10): 3600, (0, 11): 1800}, FULL, consoles_count=1)
     quietest, busiest = quietest_and_busiest(cells)
-    assert busiest == LoadCell(weekday=0, hour=10, busy_minutes=60, load_percent=100.0)
+    assert busiest == LoadCell(
+        weekday=0, hour=10, busy_minutes=60, capacity_minutes=60, load_percent=100.0
+    )
     # Hour 03:00 has no activity anywhere, so it must not be reported as "the quietest time".
-    assert quietest == LoadCell(weekday=1, hour=10, busy_minutes=0, load_percent=0.0)
+    assert quietest == LoadCell(
+        weekday=1, hour=10, busy_minutes=0, capacity_minutes=60, load_percent=0.0
+    )
+
+
+def test_quietest_and_busiest_never_pick_a_cell_with_no_elapsed_time():
+    # Monday 10:00 is active; Monday 22:00 has not happened yet (capacity 0), Tuesday is complete.
+    capacity = {k: v for k, v in FULL.items() if k != (0, 22)}
+    cells = build_load_cells({(0, 10): 3600, (0, 22): 0, (2, 22): 600}, capacity, 1)
+    quietest, _ = quietest_and_busiest(cells)
+    assert quietest is not None
+    assert (quietest.weekday, quietest.hour) != (0, 22)
+    assert quietest.capacity_minutes > 0
 
 
 def test_quietest_and_busiest_are_none_without_any_activity():
-    assert quietest_and_busiest(build_load_cells({}, [1] * 7, 3)) == (None, None)
+    assert quietest_and_busiest(build_load_cells({}, FULL, 3)) == (None, None)
 
 
 def test_previous_period_is_the_same_length_right_before():
