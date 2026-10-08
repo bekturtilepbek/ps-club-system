@@ -4,8 +4,8 @@
 
 Asks for the admin password (typed hidden; never stored). Safe to run again: whatever
 already exists is skipped. It goes through the same /admin forms a person would use, so the
-validation and the audit log apply. It does NOT open a business day and does not touch the
-bar menu, planned hours or the Telegram settings - do those in /admin.
+validation and the audit log apply. It does NOT open a business day and does not touch
+planned hours or the Telegram settings - do those in /admin.
 """
 
 import getpass
@@ -24,6 +24,55 @@ TARIFFS = [
     ("Открытое время", "open", None, None, 180),
 ]
 GAMES = ["FC27", "FC26", "Mortal Kombat 1", "UFC5", "UFC6", "GTA5"]
+
+
+def _sizes(brand: str, prices: dict[str, int]) -> list[tuple[str, int]]:
+    return [(f"{brand} {size}", price) for size, price in prices.items()]
+
+
+_COLA_PRICES = {"0,5": 65, "1": 100, "1,5": 140, "2": 180}
+# (category, [(name, price), ...]) - the bar shows one tab per category, in this order.
+MENU = [
+    (
+        "Напитки",
+        [
+            *_sizes("Coca-Cola", _COLA_PRICES),
+            *_sizes("Fanta", _COLA_PRICES),
+            *_sizes("Sprite", _COLA_PRICES),
+            *_sizes("Piko", {"0,5": 95, "1": 160}),
+            ("Asu 1", 70),
+            ("Gorilla", 90),
+            ("Nitro", 80),
+            *_sizes("Fuse Tea", {"0,5": 65, "1": 100}),
+            ("Maxi Чай 1", 120),
+            ("Garden 1", 120),
+            ("Султан Чай Чёрный 1", 60),
+            ("Султан Чай Зелёный 1", 60),
+            ("Легенда 1", 50),
+            ("Piala Ice Tea 1,25", 100),
+        ],
+    ),
+    (
+        "Закуски",
+        [
+            ("Kav&Kev (кетчуп, майонез)", 110),
+            ("Тойбосс (кетчуп, майонез)", 110),
+            ("Kav&Kev (другие вкусы)", 120),
+            ("Тойбосс (другие вкусы)", 120),
+            ("Snickers малый", 80),
+            ("Snickers большой", 100),
+            ("Twix малый", 80),
+            ("Twix большой", 100),
+            ("Bounty малый", 80),
+            ("Bounty большой", 110),
+            ("Mars малый", 80),
+            ("M&M's малый", 90),
+            ("M&M's большой", 150),
+            ("Skittles", 80),
+            ("Milky Way малый", 45),
+        ],
+    ),
+]
 SETTINGS = {"grace_minutes": "1"}  # time to pick a game, minutes
 
 
@@ -91,11 +140,24 @@ def main() -> int:
             else:
                 create("game", name, {"name": name, "is_active": "y"})
 
+        print("bar products:")
+        have = {p["name"].lower() for p in client.get("/api/products").json()}
+        for category, items in MENU:
+            for name, price in items:
+                if name.lower() in have:
+                    print(f"  exists  {name}")
+                    continue
+                create(
+                    "product",
+                    f"{category}: {name}",
+                    {"name": name, "category": category, "price": price, "is_active": "y"},
+                )
+
         print("settings:")
         for key, value in SETTINGS.items():
             create("setting", f"{key} = {value}", {"key": key, "value": value})
 
-    print("Done. Next in /admin: bar products, planned hours, owner_chat_id; then open the day.")
+    print("Done. Next in /admin: planned hours, owner_chat_id; then open the day.")
     return 0
 
 
