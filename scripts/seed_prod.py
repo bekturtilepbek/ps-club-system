@@ -27,7 +27,7 @@ GAMES = ["FC27", "FC26", "Mortal Kombat 1", "UFC5", "UFC6", "GTA5"]
 
 
 def _sizes(brand: str, prices: dict[str, int]) -> list[tuple[str, int]]:
-    return [(f"{brand} {size}", price) for size, price in prices.items()]
+    return [(f"{brand} {size} л", price) for size, price in prices.items()]
 
 
 _COLA_PRICES = {"0,5": 65, "1": 100, "1,5": 140, "2": 180}
@@ -40,16 +40,18 @@ MENU = [
             *_sizes("Fanta", _COLA_PRICES),
             *_sizes("Sprite", _COLA_PRICES),
             *_sizes("Piko", {"0,5": 95, "1": 160}),
-            ("Asu 1", 70),
+            ("Pepsi 1 л", 100),
+            ("Asu 1 л", 70),
             ("Gorilla", 90),
             ("Nitro", 80),
             *_sizes("Fuse Tea", {"0,5": 65, "1": 100}),
-            ("Maxi Чай 1", 120),
-            ("Garden 1", 120),
-            ("Султан Чай Чёрный 1", 60),
-            ("Султан Чай Зелёный 1", 60),
-            ("Легенда 1", 50),
-            ("Piala Ice Tea 1,25", 100),
+            ("Lipton Tea 1 л", 100),
+            ("Maxi Чай 1 л", 120),
+            ("Garden 1 л", 120),
+            ("Султан Чай Чёрный 1 л", 60),
+            ("Султан Чай Зелёный 1 л", 60),
+            ("Легенда 1 л", 50),
+            ("Piala Ice Tea 1,25 л", 100),
         ],
     ),
     (
