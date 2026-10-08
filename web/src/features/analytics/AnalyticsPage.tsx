@@ -2,7 +2,7 @@ import { type ReactNode, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
-import { formatAmount } from "@/lib/format";
+import { formatSom } from "@/lib/format";
 import { HourlyChart } from "./HourlyChart";
 import { LoadHeatmap } from "./LoadHeatmap";
 import { PeriodBar } from "./PeriodBar";
@@ -121,7 +121,7 @@ export function AnalyticsPage({ onBack }: { onBack: () => void }) {
                 rows={(bar.data?.rows ?? []).map((row) => ({
                   name: row.name,
                   qty: row.qty,
-                  revenue: formatAmount(row.revenue),
+                  revenue: formatSom(row.revenue),
                 }))}
               />
             </SectionState>
@@ -137,7 +137,7 @@ export function AnalyticsPage({ onBack }: { onBack: () => void }) {
                 rows={(games.data?.rows ?? []).map((row) => ({
                   name: row.name ?? "Не указана",
                   sessions: row.sessions,
-                  revenue: formatAmount(row.revenue),
+                  revenue: formatSom(row.revenue),
                 }))}
               />
             </SectionState>

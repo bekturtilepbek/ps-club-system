@@ -189,7 +189,7 @@ describe("HallPage", () => {
     const queryClient = renderHall();
 
     await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: "Принять 300" }));
+    fireEvent.click(screen.getByRole("button", { name: "Принять 300 сом" }));
     await waitFor(() => expect(screen.getByText("Оплата · остаток 300 сом")).toBeInTheDocument());
 
     // A split payment lands; the next snapshot carries the reduced balance.
@@ -238,15 +238,15 @@ describe("HallPage", () => {
     renderHall();
 
     const till = await screen.findByRole("region", { name: "Касса дня" });
-    await waitFor(() => expect(within(till).getByText("5 830")).toBeInTheDocument());
-    expect(within(till).getByText("600")).toBeInTheDocument();
+    await waitFor(() => expect(within(till).getByText("5 830 сом")).toBeInTheDocument());
+    expect(within(till).getByText("600 сом")).toBeInTheDocument();
     expect(within(till).getByText("Выручка за день")).toBeInTheDocument();
-    expect(within(till).getByText("4 430")).toBeInTheDocument();
+    expect(within(till).getByText("4 430 сом")).toBeInTheDocument();
     // the headline is split into its two parts, and the drawer figure is explained
-    expect(within(till).getByText("3 830")).toBeInTheDocument(); // cash taken
+    expect(within(till).getByText("3 830 сом")).toBeInTheDocument(); // cash taken
     expect(within(till).getByText("Должно быть в кассе")).toBeInTheDocument();
-    expect(within(till).getByText("2 000 на начало + 3 830 наличные")).toBeInTheDocument();
-    expect(within(till).getByText("23 сессии · 31 ч 40 мин · бар 690")).toBeInTheDocument();
+    expect(within(till).getByText("2 000 сом на начало + 3 830 сом наличные")).toBeInTheDocument();
+    expect(within(till).getByText("23 сессии · 31 ч 40 мин · бар 690 сом")).toBeInTheDocument();
   });
 
   it("opens the day feed from the hall", async () => {
@@ -296,7 +296,7 @@ describe("HallPage", () => {
       renderHall();
 
       await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
-      fireEvent.click(screen.getByRole("button", { name: "Принять 300" }));
+      fireEvent.click(screen.getByRole("button", { name: "Принять 300 сом" }));
       await waitFor(() => expect(screen.getByText("Оплата · остаток 300 сом")).toBeInTheDocument());
       fireEvent.click(screen.getByRole("button", { name: /^Внести/ }));
 
@@ -415,7 +415,7 @@ describe("HallPage", () => {
     const queryClient = renderHall();
 
     await waitFor(() => expect(screen.getByText("PS5-1")).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: "Принять 300" }));
+    fireEvent.click(screen.getByRole("button", { name: "Принять 300 сом" }));
     await waitFor(() => expect(screen.getByText("Оплата · остаток 300 сом")).toBeInTheDocument());
 
     act(() => {
@@ -455,7 +455,7 @@ describe("HallPage", () => {
     fireEvent.click(screen.getByRole("article", { name: "PS5-1" }));
     const sheet = await screen.findByRole("dialog", { name: "PS5-1" });
     expect(within(sheet).getByText("Отрезки")).toBeInTheDocument();
-    fireEvent.click(within(sheet).getByRole("button", { name: "Принять 300" }));
+    fireEvent.click(within(sheet).getByRole("button", { name: "Принять 300 сом" }));
     await waitFor(() => expect(screen.getByText("Оплата · остаток 300 сом")).toBeInTheDocument());
   });
 
@@ -525,7 +525,7 @@ describe("HallPage", () => {
       renderHall();
 
       await waitFor(() => expect(screen.getByText("№9")).toBeInTheDocument());
-      fireEvent.click(screen.getByRole("button", { name: "Принять 150" }));
+      fireEvent.click(screen.getByRole("button", { name: "Принять 150 сом" }));
 
       await waitFor(() => expect(screen.getByText("Оплата · остаток 150 сом")).toBeInTheDocument());
     });

@@ -120,7 +120,7 @@ describe("CloseBusinessDayDialog", () => {
 
     await waitFor(() => expect(screen.getByText("Должно быть в кассе")).toBeInTheDocument());
     expect(screen.getByTestId("day-revenue")).toHaveTextContent("400 сом");
-    expect(screen.getByText("наличные 300 + переводы 100")).toBeInTheDocument();
+    expect(screen.getByText("наличные 300 сом + переводы 100 сом")).toBeInTheDocument();
     expect(screen.getByTestId("expected-cash")).toHaveTextContent("5 300 сом");
     expect(screen.getByText("Перевод").closest("label")).toHaveTextContent("100 сом");
     expect(screen.getByText("Сессий: 2")).toBeInTheDocument();

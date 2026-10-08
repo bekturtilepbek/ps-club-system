@@ -77,7 +77,7 @@ describe("ConsoleCard", () => {
   it("puts the money due on the primary button and keeps the click off the card", () => {
     const handlers = renderCard(busy({ balance: 300 }));
     expect(screen.getByText("1:00:00")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Принять 300" }));
+    fireEvent.click(screen.getByRole("button", { name: "Принять 300 сом" }));
     expect(handlers.onPay).toHaveBeenCalled();
     expect(handlers.onOpen).not.toHaveBeenCalled();
   });

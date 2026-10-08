@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { StateChip } from "@/components/ui/state-chip";
 import { api, type PaymentMethod } from "@/lib/api";
-import { formatAmount, formatSom } from "@/lib/format";
+import { formatSom } from "@/lib/format";
 import { HALL_QUERY_KEY } from "./useHallSnapshot";
 
 interface PaymentDialogProps {
@@ -139,7 +139,7 @@ export function PaymentDialog({
           <div className="flex items-baseline justify-between rounded-xl border border-line bg-bg px-3.5 py-3">
             <span className="text-[13.5px] text-fg-muted">К оплате</span>
             <span className="num text-[26px] font-bold">
-              {formatAmount(balance)}
+              {formatSom(balance)}
               <span className="ml-1 font-sans text-sm font-normal text-fg-muted">сом</span>
             </span>
           </div>
@@ -163,7 +163,7 @@ export function PaymentDialog({
               }}
             />
             <div className="mt-2 flex flex-wrap gap-2">
-              <ChipButton onClick={() => setAmount(String(balance))}>Всё: {formatAmount(balance)}</ChipButton>
+              <ChipButton onClick={() => setAmount(String(balance))}>Всё: {formatSom(balance)}</ChipButton>
               <ChipButton onClick={() => setAmount(String(Math.floor(balance / 2)))}>Половина</ChipButton>
             </div>
           </div>

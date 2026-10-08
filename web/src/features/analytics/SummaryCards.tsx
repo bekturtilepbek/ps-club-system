@@ -1,5 +1,5 @@
 import type { AnalyticsSummaryResponse } from "@/lib/api";
-import { formatAmount, formatHoursMinutes, formatSom } from "@/lib/format";
+import { formatHoursMinutes, formatSom } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { changeTone, formatChange } from "./analyticsModel";
 
@@ -58,7 +58,7 @@ export function SummaryCards({ data }: { data: AnalyticsSummaryResponse }) {
           label="Выручка"
           value={formatSom(current.revenue_total)}
           lines={[
-            `нал. ${formatAmount(current.cash_total)} · перевод ${formatAmount(current.transfer_total)}`,
+            `нал. ${formatSom(current.cash_total)} · перевод ${formatSom(current.transfer_total)}`,
           ]}
           change={change("revenue_total")}
         />
@@ -69,7 +69,7 @@ export function SummaryCards({ data }: { data: AnalyticsSummaryResponse }) {
           lines={[
             current.bar_per_session === null
               ? "бар на сессию: —"
-              : `бар на сессию: ${formatAmount(current.bar_per_session)}`,
+              : `бар на сессию: ${formatSom(current.bar_per_session)}`,
           ]}
           change={change("avg_check")}
         />

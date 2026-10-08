@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { api, type OrderResponse } from "@/lib/api";
-import { formatAmount, formatSom } from "@/lib/format";
+import { formatSom } from "@/lib/format";
 import { groupOrders, ordersTotal, productCategories, inCategory } from "./barLines";
 import { HALL_QUERY_KEY } from "./useHallSnapshot";
 
@@ -76,7 +76,7 @@ export function BarDialog({ open, sessionId, targetName, orders, onOpenChange }:
                   disabled={addMutation.isPending}
                 >
                   <span className="text-[13.5px] font-medium leading-tight">{product.name}</span>
-                  <span className="num text-sm font-bold text-fg-muted">{formatAmount(product.price)}</span>
+                  <span className="num text-sm font-bold text-fg-muted">{formatSom(product.price)}</span>
                   {qty > 0 && (
                     <span aria-hidden className="qty-badge">
                       {qty}
@@ -97,7 +97,7 @@ export function BarDialog({ open, sessionId, targetName, orders, onOpenChange }:
                 return (
                   <div
                     key={line.productId}
-                    className="grid grid-cols-[minmax(0,1fr)_auto_64px] items-center gap-2.5 border-b border-line py-2 text-sm last:border-b-0"
+                    className="grid grid-cols-[minmax(0,1fr)_auto_84px] items-center gap-2.5 border-b border-line py-2 text-sm last:border-b-0"
                   >
                     <span>{name}</span>
                     <span className="inline-flex items-center overflow-hidden rounded-[10px] border border-line">
@@ -121,7 +121,7 @@ export function BarDialog({ open, sessionId, targetName, orders, onOpenChange }:
                         +
                       </button>
                     </span>
-                    <span className="num text-right font-bold">{formatAmount(line.total)}</span>
+                    <span className="num text-right font-bold">{formatSom(line.total)}</span>
                   </div>
                 );
               })

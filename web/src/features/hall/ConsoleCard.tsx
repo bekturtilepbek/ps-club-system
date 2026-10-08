@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { StateChip } from "@/components/ui/state-chip";
 import type { HallConsoleResponse, SegmentResponse, SessionResponse } from "@/lib/api";
 import { formatClock } from "@/lib/bishkek";
-import { formatAmount, formatDuration, formatShortMinutes } from "@/lib/format";
+import { formatAmount, formatDuration, formatShortMinutes, formatSom } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { ordersTotal, summarizeOrders } from "./barLines";
 import { STATUS_VISUALS, packageBlocks } from "./cardModel";
@@ -239,7 +239,7 @@ function CardStrip({
     return (
       <div className={cn(base, "border border-line text-fg-muted")}>
         <span className="min-w-0 flex-1">Не оплачен бар: {summarizeOrders(session.orders, productName)}</span>
-        <span className="num font-bold text-fg">{formatAmount(Math.min(bar, timing.balance))}</span>
+        <span className="num font-bold text-fg">{formatSom(Math.min(bar, timing.balance))}</span>
       </div>
     );
   }
@@ -254,7 +254,7 @@ function CardBill({ timing, consoleView }: { timing: CardTiming; consoleView: Ha
     <span key={label} className={cn(emphasis === "due" && "font-semibold text-fg")}>
       {label}
       <b className={cn("num block text-base font-bold text-fg", emphasis === "ok" && "text-status-triangle")}>
-        {formatAmount(value)}
+        {formatSom(value)}
       </b>
     </span>
   );
@@ -311,7 +311,7 @@ function CardActions({
           <Button variant="outline" onClick={act(onBar)}>Бар</Button>
           {owes ? (
             <Button variant="state" className={primary} onClick={act(onPay)}>
-              Принять {formatAmount(timing.balance)}
+              Принять {formatSom(timing.balance)}
             </Button>
           ) : (
             <Button variant="outline" onClick={act(onStop)}>Стоп</Button>
@@ -343,7 +343,7 @@ function CardActions({
         <>
           <Button variant="outline" onClick={act(onBar)}>Бар</Button>
           <Button variant="state" className={primary} onClick={act(onStop)}>
-            Рассчитать · {formatAmount(timing.balance)}
+            Рассчитать · {formatSom(timing.balance)}
           </Button>
         </>
       );

@@ -4,7 +4,7 @@ import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader, SheetTitle } 
 import { StateChip } from "@/components/ui/state-chip";
 import { api, type HallConsoleResponse } from "@/lib/api";
 import { formatClock } from "@/lib/bishkek";
-import { formatAmount, formatSom } from "@/lib/format";
+import { formatSom } from "@/lib/format";
 import { ordersTotal, summarizeOrders } from "./barLines";
 import { STATUS_VISUALS } from "./cardModel";
 import { computeCardTiming } from "./remainingTime";
@@ -77,7 +77,7 @@ export function SessionSheet({
                     <b className="block font-medium">{row.title}</b>
                     {row.note && <span className="text-[13px] text-fg-muted">{row.note}</span>}
                   </span>
-                  <span className="num">{row.amount === null ? "—" : formatAmount(row.amount)}</span>
+                  <span className="num">{row.amount === null ? "—" : formatSom(row.amount)}</span>
                 </li>
               ))}
             </ol>
@@ -87,13 +87,13 @@ export function SessionSheet({
             <section>
               <h3 className="field-label">Счёт</h3>
               <dl className="rounded-xl border border-line bg-bg px-3.5 py-1.5">
-                <BillRow label="Время" value={formatAmount(timing.chargeTotal - bar)} />
+                <BillRow label="Время" value={formatSom(timing.chargeTotal - bar)} />
                 <BillRow
                   label="Бар"
                   note={bar > 0 ? summarizeOrders(session.orders, productName) : undefined}
-                  value={formatAmount(bar)}
+                  value={formatSom(bar)}
                 />
-                <BillRow label="Оплачено" value={formatAmount(consoleView.paid_total)} />
+                <BillRow label="Оплачено" value={formatSom(consoleView.paid_total)} />
                 <div className="flex items-baseline justify-between py-2.5">
                   <dt className="text-[13.5px] text-fg-muted">К оплате</dt>
                   <dd data-testid="bill-due" className="num text-[26px] font-bold">
@@ -117,7 +117,7 @@ export function SessionSheet({
           <Button variant={owes ? "outline" : "default"} onClick={onStop} disabled={stopping}>
             Завершить сессию
           </Button>
-          {owes && <Button onClick={onPay} disabled={stopping}>Принять {formatAmount(timing.balance)}</Button>}
+          {owes && <Button onClick={onPay} disabled={stopping}>Принять {formatSom(timing.balance)}</Button>}
         </SheetFooter>
       </SheetContent>
     </Sheet>

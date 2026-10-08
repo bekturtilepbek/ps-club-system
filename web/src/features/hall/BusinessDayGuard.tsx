@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { formatClock, formatDayLabel } from "@/lib/bishkek";
-import { formatAmount, formatSom } from "@/lib/format";
+import { formatSom } from "@/lib/format";
 import { HALL_QUERY_KEY } from "./useHallSnapshot";
 
 interface BusinessDayGuardProps {
@@ -80,7 +80,7 @@ export function BusinessDayGuard({ businessDayOpen, children }: BusinessDayGuard
                 onClick={() => setOpeningCash(String(lastClosed.opening_cash))}
                 className="h-10 rounded-full border border-line px-3 text-[13px] text-fg-muted hover:border-hover-line hover:text-fg"
               >
-                Как вчера на начало: {formatAmount(lastClosed.opening_cash)}
+                Как вчера на начало: {formatSom(lastClosed.opening_cash)}
               </button>
             </div>
           )}

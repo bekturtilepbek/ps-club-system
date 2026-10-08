@@ -128,7 +128,7 @@ describe("BusinessDayGuard", () => {
 
     expect(await screen.findByText(/прошлый закрыт 30\.09 в 04:51/)).toBeInTheDocument();
     // Accessible names keep the non-breaking thousands space, so match it with \s.
-    fireEvent.click(screen.getByRole("button", { name: /^Как вчера на начало: 2\s000$/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Как вчера на начало: 2\s000 сом$/ }));
     expect(screen.getByLabelText("Наличные на начало")).toHaveValue(2000);
     expect(screen.getByRole("button", { name: /^Открыть день · 2\s000 сом$/ })).toBeEnabled();
   });

@@ -58,8 +58,8 @@ describe("HistoryPage", () => {
     renderPage([DAY, { ...DAY, id: 5, opened_at: "2026-09-23T04:00:00Z", closed_at: "2026-09-23T20:00:00Z", counted_cash: 5300 }]);
     const totals = await screen.findByRole("region", { name: "Итого за период" });
     expect(within(totals).getByText("Выручка за период")).toBeInTheDocument();
-    expect(within(totals).getByText("1 500")).toBeInTheDocument(); // revenue 750 × 2
-    expect(within(totals).getByText("900")).toBeInTheDocument(); // transfer 450 × 2
+    expect(within(totals).getByText("1 500 сом")).toBeInTheDocument(); // revenue 750 × 2
+    expect(within(totals).getByText("900 сом")).toBeInTheDocument(); // transfer 450 × 2
   });
 
   it("opens the day's breakdown, free hours included", async () => {

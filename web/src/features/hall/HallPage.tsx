@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Sheet, SheetBody, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { api } from "@/lib/api";
 import { serverNow } from "@/lib/clock";
-import { capitalize, formatAmount, formatShortMinutes } from "@/lib/format";
+import { capitalize, formatShortMinutes, formatSom } from "@/lib/format";
 import { useMediaQuery } from "@/lib/useMediaQuery";
 import { useAuth } from "@/features/auth/useAuth";
 import { BarDialog } from "./BarDialog";
@@ -291,7 +291,7 @@ export function HallPage() {
                           )}
                         </span>
                         <span className="num">
-                          {formatAmount(t.charge_total)}
+                          {formatSom(t.charge_total)}
                           <span className="ml-1 font-sans text-[11px] text-fg-muted">сом</span>
                         </span>
                         <Button variant="outline" onClick={() => setDialog({ kind: "bar", sessionId: t.id })}>
@@ -299,7 +299,7 @@ export function HallPage() {
                         </Button>
                         {t.balance > 0 ? (
                           <Button onClick={() => setDialog({ kind: "pay", sessionId: t.id })}>
-                            Принять {formatAmount(t.balance)}
+                            Принять {formatSom(t.balance)}
                           </Button>
                         ) : (
                           <Button onClick={() => runSessionAction(() => stop(t.id))}>Завершить</Button>

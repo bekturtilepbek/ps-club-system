@@ -2,7 +2,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { api, FEED_LIMIT } from "@/lib/api";
 import { useSettledValue } from "@/lib/useSettledValue";
 import { formatClock } from "@/lib/bishkek";
-import { formatAmount } from "@/lib/format";
+import { formatSom } from "@/lib/format";
 import { describeFeedEvent } from "./feedModel";
 
 interface DayFeedProps {
@@ -46,7 +46,7 @@ export function DayFeed({ businessDayId, snapshotAt }: DayFeedProps) {
               <b className="font-medium text-fg">{line.who}</b> · {line.what}
             </span>
             <span className="num whitespace-nowrap">
-              {line.amount === null ? "" : formatAmount(line.amount)}
+              {line.amount === null ? "" : formatSom(line.amount)}
               {line.method && <span className="ml-1 font-sans text-[11px] text-fg-faint">{line.method}</span>}
             </span>
           </li>

@@ -5,7 +5,7 @@ import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogT
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api, type HallSnapshotResponse } from "@/lib/api";
-import { formatAmount, formatHoursMinutes, formatSignedSom, formatSom } from "@/lib/format";
+import { formatHoursMinutes, formatSignedSom, formatSom } from "@/lib/format";
 import { HALL_QUERY_KEY } from "./useHallSnapshot";
 
 interface ActiveEntry {
@@ -123,7 +123,7 @@ export function CloseBusinessDayDialog({
                     <span className="flex-1 text-fg-muted">
                       Выручка за день
                       <small className="block text-[11.5px] text-fg-faint">
-                        наличные {formatAmount(summary.cash_total)} + переводы {formatAmount(summary.transfer_total)}
+                        наличные {formatSom(summary.cash_total)} + переводы {formatSom(summary.transfer_total)}
                       </small>
                     </span>
                     <span data-testid="day-revenue" className="num text-xl font-bold">
@@ -134,7 +134,7 @@ export function CloseBusinessDayDialog({
                     <span className="flex-1 text-fg-muted">
                       Должно быть в кассе
                       <small className="block text-[11.5px] text-fg-faint">
-                        {formatAmount(summary.opening_cash)} на начало + {formatAmount(summary.cash_total)} за день
+                        {formatSom(summary.opening_cash)} на начало + {formatSom(summary.cash_total)} за день
                       </small>
                     </span>
                     <span data-testid="expected-cash" className="num text-xl font-bold">

@@ -57,9 +57,9 @@ export function RevenueChart({ points, group }: { points: RevenuePoint[]; group:
             {data.map((row) => (
               <tr key={row.key} className="border-t border-line">
                 <td className="py-1.5 pr-2">{row.label}</td>
-                <td className="num px-2 py-1.5 text-right">{formatAmount(row.cash)}</td>
-                <td className="num px-2 py-1.5 text-right">{formatAmount(row.transfer)}</td>
-                <td className="num py-1.5 pl-2 text-right font-semibold">{formatAmount(row.cash + row.transfer)}</td>
+                <td className="num px-2 py-1.5 text-right">{formatSom(row.cash)}</td>
+                <td className="num px-2 py-1.5 text-right">{formatSom(row.transfer)}</td>
+                <td className="num py-1.5 pl-2 text-right font-semibold">{formatSom(row.cash + row.transfer)}</td>
               </tr>
             ))}
           </tbody>

@@ -6,7 +6,7 @@ import { Sheet, SheetBody, SheetContent, SheetHeader, SheetTitle } from "@/compo
 import { StateChip } from "@/components/ui/state-chip";
 import { api, type BusinessDayHistoryItem } from "@/lib/api";
 import { formatClock, formatDayLabel } from "@/lib/bishkek";
-import { formatAmount, formatHoursClock, formatHoursMinutes, formatSignedSom, pluralRu } from "@/lib/format";
+import { formatHoursClock, formatHoursMinutes, formatSignedSom, formatSom, pluralRu } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const COLUMNS =
@@ -51,9 +51,9 @@ export function HistoryPage({ onBack }: { onBack: () => void }) {
             aria-label="Итого за период"
             className="mb-4 grid w-fit max-w-full grid-cols-2 rounded-xl border border-line bg-surface sm:flex"
           >
-            <Total label="Выручка за период" value={formatAmount(sum((d) => d.revenue_total))} big />
-            <Total label="Наличные" value={formatAmount(sum((d) => d.cash_total))} />
-            <Total label="Перевод" value={formatAmount(sum((d) => d.transfer_total))} />
+            <Total label="Выручка за период" value={formatSom(sum((d) => d.revenue_total))} big />
+            <Total label="Наличные" value={formatSom(sum((d) => d.cash_total))} />
+            <Total label="Перевод" value={formatSom(sum((d) => d.transfer_total))} />
             <Total
               label="Расхождения"
               value={withDiff.length === 0 ? "всё сошлось" : formatSignedSom(diffTotal).replace(" сом", "")}
@@ -97,9 +97,9 @@ export function HistoryPage({ onBack }: { onBack: () => void }) {
                       {formatClock(Date.parse(day.opened_at))} → {formatClock(Date.parse(day.closed_at!))}
                     </span>
                   </span>
-                  <Cell label="Выручка" value={formatAmount(day.revenue_total)} />
-                  <Cell label="Наличные" value={formatAmount(day.cash_total)} />
-                  <Cell label="Перевод" value={formatAmount(day.transfer_total)} />
+                  <Cell label="Выручка" value={formatSom(day.revenue_total)} />
+                  <Cell label="Наличные" value={formatSom(day.cash_total)} />
+                  <Cell label="Перевод" value={formatSom(day.transfer_total)} />
                   <Cell
                     label="Расхождение"
                     value={diff === 0 ? "сошлось" : formatSignedSom(diff).replace(" сом", "")}
@@ -107,7 +107,7 @@ export function HistoryPage({ onBack }: { onBack: () => void }) {
                   />
                   <Cell label="Сессии" value={String(day.sessions_count)} dim />
                   <Cell label="Игра, ч" value={formatHoursClock(day.minutes_total)} dim />
-                  <Cell label="Бар" value={formatAmount(day.bar_sales_total)} dim />
+                  <Cell label="Бар" value={formatSom(day.bar_sales_total)} dim />
                 </button>
               );
             })}
@@ -156,13 +156,13 @@ function DaySheet({ day, onClose }: { day: BusinessDayHistoryItem; onClose: () =
         </SheetHeader>
         <SheetBody>
           <Section title="Выручка">
-            <Row label="Всего за день" note="наличные + переводы, без остатка на начало" value={formatAmount(day.revenue_total)} />
+            <Row label="Всего за день" note="наличные + переводы, без остатка на начало" value={formatSom(day.revenue_total)} />
           </Section>
           <Section title="Наличные">
-            <Row label="На начало" value={formatAmount(day.opening_cash)} />
-            <Row label="Пришло за день" value={`+${formatAmount(day.cash_total)}`} />
-            <Row label="Должно было быть" value={formatAmount(day.expected_cash ?? 0)} />
-            <Row label="Насчитали" value={formatAmount(day.counted_cash ?? 0)} />
+            <Row label="На начало" value={formatSom(day.opening_cash)} />
+            <Row label="Пришло за день" value={`+${formatSom(day.cash_total)}`} />
+            <Row label="Должно было быть" value={formatSom(day.expected_cash ?? 0)} />
+            <Row label="Насчитали" value={formatSom(day.counted_cash ?? 0)} />
             <Row
               label="Расхождение"
               value={diff === 0 ? "сошлось" : formatSignedSom(diff)}
@@ -170,13 +170,13 @@ function DaySheet({ day, onClose }: { day: BusinessDayHistoryItem; onClose: () =
             />
           </Section>
           <Section title="Безнал · сверяется по банку">
-            <Row label="Перевод" value={formatAmount(day.transfer_total)} />
+            <Row label="Перевод" value={formatSom(day.transfer_total)} />
           </Section>
           <Section title="Зал">
             <Row label="Сессий" value={String(day.sessions_count)} />
             <Row label="Часы игры" value={formatHoursClock(day.minutes_total)} />
             <Row label="Бесплатно" note="друзья, компенсации — отдельно от выручки" value={formatHoursMinutes(day.free_minutes_total)} />
-            <Row label="Бар" value={formatAmount(day.bar_sales_total)} />
+            <Row label="Бар" value={formatSom(day.bar_sales_total)} />
           </Section>
         </SheetBody>
       </SheetContent>

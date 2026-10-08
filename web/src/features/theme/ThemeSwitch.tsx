@@ -29,7 +29,7 @@ export function ThemeSwitch() {
       <div
         role="group"
         aria-label="Режим темы"
-        className="absolute right-0 top-[calc(100%+8px)] z-30 grid w-[280px] gap-1 rounded-xl border border-hover-line bg-surface-2 p-1.5 shadow-[var(--shadow-lg)]"
+        className="absolute top-[calc(100%+8px)] z-30 grid gap-1 rounded-xl border border-hover-line bg-surface-2 p-1.5 shadow-[var(--shadow-lg)] max-sm:fixed max-sm:inset-x-4 max-sm:top-auto max-sm:mt-2 sm:right-0 sm:w-[280px]"
       >
         {OPTIONS.map((option) => (
           <button

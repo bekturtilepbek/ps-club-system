@@ -99,7 +99,7 @@ describe("SessionSheet", () => {
     const onStop = vi.fn();
     renderSheet({ onPay, onStop });
 
-    fireEvent.click(screen.getByRole("button", { name: "Принять 240" }));
+    fireEvent.click(screen.getByRole("button", { name: "Принять 240 сом" }));
     fireEvent.click(screen.getByRole("button", { name: "Завершить сессию" }));
     expect(onPay).toHaveBeenCalled();
     expect(onStop).toHaveBeenCalled();
@@ -108,7 +108,7 @@ describe("SessionSheet", () => {
   it("disables every action while a stop is in progress", () => {
     renderSheet({}, true);
 
-    for (const name of ["Принять 240", "Продлить", "Добавить из бара", "Завершить сессию"]) {
+    for (const name of ["Принять 240 сом", "Продлить", "Добавить из бара", "Завершить сессию"]) {
       expect(screen.getByRole("button", { name })).toBeDisabled();
     }
   });
